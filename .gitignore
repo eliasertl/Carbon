@@ -1,0 +1,25 @@
+# Build trees and install prefixes
+/Build/
+/build/
+/out/
+/Install/
+
+# Throwaway files: experiments, self-check screenshots, debug output
+/Scratch/
+
+# IDE and tooling
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+CMakeSettings.json
+CMakeUserPresets.json
+compile_commands.json
+.cache/
+.claude/
+
+# Logs and OS noise
+*.log
+.DS_Store
+Thumbs.db

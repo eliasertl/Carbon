@@ -1,0 +1,21 @@
+[submodule "ThirdParty/FreeType"]
+	path = ThirdParty/FreeType
+	url = https://github.com/freetype/freetype.git
+[submodule "ThirdParty/HarfBuzz"]
+	path = ThirdParty/HarfBuzz
+	url = https://github.com/harfbuzz/harfbuzz.git
+[submodule "ThirdParty/GoogleTest"]
+	path = ThirdParty/GoogleTest
+	url = https://github.com/google/googletest.git
+[submodule "ThirdParty/GLFW"]
+	path = ThirdParty/GLFW
+	url = https://github.com/glfw/glfw.git
+[submodule "ThirdParty/Stb"]
+	path = ThirdParty/Stb
+	url = https://github.com/nothings/stb.git
+[submodule "ThirdParty/PublicSans"]
+	path = ThirdParty/PublicSans
+	url = https://github.com/uswds/public-sans.git
+[submodule "ThirdParty/Phosphor"]
+	path = ThirdParty/Phosphor
+	url = https://github.com/phosphor-icons/web.git
