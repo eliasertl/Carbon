@@ -6,6 +6,7 @@ option(CARBON_BUILD_EXTENSIONS "Build the CarbonExtensions library" ON)
 option(CARBON_BUILD_EXAMPLES "Build the Carbon examples" ${PROJECT_IS_TOP_LEVEL})
 option(CARBON_BUILD_TESTS "Build the Carbon unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(CARBON_WARNINGS_AS_ERRORS "Treat warnings in Carbon targets as errors (used by CI)" OFF)
+option(CARBON_FORCE_ASSERTS "Keep CB_ASSERT checks active in optimized builds" OFF)
 
 add_subdirectory(ThirdParty)
 add_subdirectory(Framework)

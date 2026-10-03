@@ -1,9 +1,17 @@
 include(GoogleTest)
 
 add_executable(CarbonTests
+    src/Core/ContextTests.cpp
+    src/Core/IDTests.cpp
+    src/Core/MathTests.cpp
+    src/Core/UTF8Tests.cpp
     src/Core/VersionTests.cpp
+    src/Draw/DrawListTests.cpp
+    src/Input/InputTests.cpp
+    src/Support/ContextTest.h
 )
 
+target_include_directories(CarbonTests PRIVATE src)
 target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME})
 
 if(CARBON_BUILD_EXTENSIONS)
