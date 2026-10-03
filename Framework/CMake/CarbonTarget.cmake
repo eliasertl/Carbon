@@ -1,0 +1,17 @@
+# Applies Carbon's compile settings to one of Carbon's own targets (never to dependencies).
+function(carbon_configure_target TARGET)
+    target_compile_features(${TARGET} PUBLIC cxx_std_20)
+    set_target_properties(${TARGET} PROPERTIES CXX_EXTENSIONS OFF)
+
+    if(MSVC)
+        target_compile_options(${TARGET} PRIVATE /W4 /permissive- /utf-8 /Zc:preprocessor)
+        if(CARBON_WARNINGS_AS_ERRORS)
+            target_compile_options(${TARGET} PRIVATE /WX)
+        endif()
+    else()
+        target_compile_options(${TARGET} PRIVATE -Wall -Wextra -Wpedantic)
+        if(CARBON_WARNINGS_AS_ERRORS)
+            target_compile_options(${TARGET} PRIVATE -Werror)
+        endif()
+    endif()
+endfunction()
