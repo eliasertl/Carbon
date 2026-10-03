@@ -26,10 +26,10 @@ through WebGPU (Dawn) into a render pass owned by the host. It ships as two stat
 Framework/src/Carbon/
 ├── Carbon.h              umbrella header for applications
 ├── Extension.h           umbrella header for component authors (extension API)
-├── Core/                 Platform, Log, Assert, Math (Vec2, Rect, Color, EdgeInsets), ID, Context, StateStorage
-├── Input/                IO, Key, MouseButton, InputEvent, Cursor
-├── Draw/                 DrawList, DrawCommand, DrawVertex, DrawPrimitive, Squircle (CPU shape function)
-├── Text/                 UTF8, FontLibrary, Font, TextShaper, GlyphAtlas, TextLayout, Icons (generated)
+├── Core/                 Platform, Log, Assert, Math (Vec2, Rect, Color, EdgeInsets), ContentScale, UTF8, ID, Context
+├── Input/                IO, Input (queries), Key, MouseButton, InputEvent, Cursor
+├── Draw/                 DrawList, DrawTypes (vertex, primitive, command, draw data), Squircle (CPU shape function)
+├── Text/                 FontLibrary, Font, TextShaper, GlyphAtlas, TextLayout, Icons (generated)
 ├── Layout/               Stack, Spacer, Size, ScrollView, layout cursor
 ├── Animation/            Spring, Easing, AnimationSpec, Animator (per-ID state)
 ├── Style/                Theme, StyleColor, StyleVar, style stacks, TextStyle ramp
@@ -72,7 +72,7 @@ description.Callbacks.Log = [](Carbon::LogLevel level, std::string_view source, 
 description.Callbacks.GetClipboardText = /* std::string() */;
 description.Callbacks.SetClipboardText = /* void(std::string_view) */;
 description.Callbacks.SetCursor = /* void(Carbon::Cursor) */;
-Carbon::Context* context = Carbon::CreateContext(description);  // also makes it current
+Carbon::Context* context = Carbon::CreateContext(description);  // becomes current if none is
 Carbon::SetTheme(Carbon::Theme::Dark());
 
 // ---- Every frame ----
@@ -212,8 +212,11 @@ Render(pass)                 Renderer uploads atlas changes + vertex/index/primi
 ```
 
 - **Single current context** (`g_Context`), as in Dear ImGui. All free functions operate on it.
-- **Input queue.** `Add*Event` appends to a queue; `NewFrame` applies it. A press and release of the same button
-  arriving in one frame are spread over two frames so clicks are never lost at low frame rates.
+- **Input queue.** `Add*Event` appends to a queue; `NewFrame` applies it in order. An event that would hide an
+  earlier change stays queued for the next frame: a second change of the same button or key, a mouse move after a
+  button change (so presses keep their position), and editing keys versus typed characters (so `a`, Backspace,
+  `b` never collapses). Clicks and keystrokes are therefore never lost or reordered at low frame rates. Held keys
+  repeat on Carbon's clock (0.4 s delay, 50 ms interval); host-side repeat events are ignored.
 - **Hit-test stability.** Hover uses the current frame's rects but overlay occlusion uses the previous frame's
   overlay rects, so a widget under a popover never reacts on the frame the popover is submitted after it.
 - **No steady-state allocations.** Draw buffers, the event queue and per-frame scratch memory keep their capacity;
@@ -225,14 +228,22 @@ Render(pass)                 Renderer uploads atlas changes + vertex/index/primi
 
 ```cpp
 struct DrawVertex { Vec2 Position; Vec2 Local; Vec2 UV; uint32_t Color; uint32_t Primitive; };   // 32 bytes
-struct DrawPrimitive { Vec2 HalfSize; float Radius; float Smoothing; float StrokeWidth; float Softness; uint32_t Kind; uint32_t Pad; };
+struct DrawPrimitive { Vec2 HalfSize; float Radius; float Smoothing; float StrokeWidth; float Softness; DrawPrimitiveKind Kind; uint32_t Reserved; };
 struct DrawCommand { Rect ClipRect; TextureID Texture; uint32_t IndexOffset; uint32_t IndexCount; };
+struct DrawData { span Vertices; span Indices; span Primitives; span Commands; Vec2 DisplaySize; float ContentScale; };
+
+DrawList& GetDrawList();                 // the current frame's draw list
+const DrawData& GetDrawData();           // merged output, valid from EndFrame until the next NewFrame
 
 class DrawList
 {
 public:
+    void PushLayer(DrawLayer layer);     // Background, Content (default), Overlay, Tooltip
+    void PopLayer();
     void PushClipRect(const Rect& rect, bool intersectWithCurrent = true);
     void PopClipRect();
+    void PushOpacity(float opacity);     // multiplies the alpha of following shapes; nests
+    void PopOpacity();
 
     void AddRect(const Rect& rect, Color color);
     void AddSquircle(const Rect& rect, Color color, float radius, float smoothing = DefaultSmoothing);
@@ -240,21 +251,28 @@ public:
     void AddFocusRing(const Rect& rect, Color color, float radius, float width, float offset, float smoothing = DefaultSmoothing);
     void AddCircle(Vec2 center, float radius, Color color);
     void AddCircleStroke(Vec2 center, float radius, Color color, float width);
-    void AddLine(Vec2 from, Vec2 to, Color color, float width);
+    void AddLine(Vec2 from, Vec2 to, Color color, float width, bool roundCaps = true);
     void AddShadow(const Rect& rect, Color color, float radius, float blur, Vec2 offset);
-    void AddText(Vec2 position, std::string_view text, const TextSpec& spec, Color color);
     void AddImage(TextureID texture, const Rect& rect, const Rect& uv, Color tint, float radius = 0.0f);
+    void AddGlyph(const Rect& rect, const Rect& uv, Color color);    // used by the text layer (M2)
 };
 ```
 
-Every shape is one quad (4 vertices, 6 indices) slightly larger than the shape; `Local` carries the position
-relative to the shape centre and `Primitive` indexes a per-frame primitive array. The draw list is in points; clip
-rects are in points and converted to pixel scissor rects by the renderer. Consecutive primitives that share a clip
-rect and texture merge into one `DrawCommand`. Shapes and glyphs both bind the glyph atlas, so a typical frame is a
-handful of draw calls; only images break batches.
+Every shape is one quad (4 vertices, 6 indices) one pixel larger than the shape; `Local` carries the position
+relative to the shape centre and `Primitive` indexes a per-frame primitive array (runs of identical shapes share
+one entry, and all glyphs share one). Lines are rotated pills, circles are squircles without smoothing. The draw
+list is in points; clip rects are in points and converted to pixel scissor rects by the renderer. Shapes entirely
+outside the clip rect, fully transparent or empty are dropped. Vertex colors are straight-alpha sRGB; the shader
+premultiplies.
 
-The context owns one draw list per **layer** — `Background`, `Content`, `Overlay`, `Tooltip` — concatenated in
-that order at `EndFrame`. That is the whole overlay mechanism on the drawing side.
+Consecutive quads that share a clip rect and texture merge into one `DrawCommand`. Untextured shapes never
+sample, so they join whatever command is current; shapes and glyphs therefore share the atlas command and a
+typical frame is a handful of draw calls. Only images with different textures break batches.
+
+There is one draw list per context with four **layers** — `Background`, `Content`, `Overlay`, `Tooltip`.
+Vertices and primitives are shared; each layer has its own index list, command list and clip stack (so an overlay
+opened inside a clipped scroll view is not clipped by it). `EndFrame` concatenates the layers' indices back to
+front into `DrawData`. That is the whole overlay mechanism on the drawing side.
 
 ### Squircle shape function
 
@@ -480,9 +498,13 @@ walks through it.
 ## 13. Logging and asserts
 
 - `Callbacks.Log(LogLevel, source, message)`; with no callback, logs are dropped. Messages use `std::format`.
-- `CB_ASSERT(condition, "format", args...)` formats, logs at `LogLevel::Fatal`, calls the optional
-  `Callbacks.AssertFailed` hook (tests use it to observe asserts), then breaks into the debugger
-  (`__debugbreak` on MSVC, `__builtin_trap` on GCC/Clang). `CB_VERIFY` stays active in release builds.
+- `CB_VERIFY(condition, "format", args...)` is active in every build type and guards against API misuse
+  (unbalanced stacks, calls outside a frame). On failure it formats the message, logs at `LogLevel::Fatal` with
+  source `Assert` and calls `Callbacks.AssertFailed` if the host set it. With that hook set (tests do this),
+  execution continues and Carbon recovers; without it, debug builds break into the debugger (`__debugbreak` on
+  MSVC, `__builtin_trap` on GCC/Clang) and release builds continue after logging.
+- `CB_ASSERT` has the same form but checks internal invariants and compiles away outside debug builds unless
+  `CARBON_FORCE_ASSERTS` is on.
 
 ## 14. Build, packaging and repository
 
@@ -527,6 +549,11 @@ walks through it.
 | 8 | Shortcut modifier is Ctrl by default (configurable) | Targets are Windows and Linux |
 | 9 | Overlays use opaque surfaces, hairline border and an analytic shadow | Separation on pure black without translucency or blur |
 | 10 | Public/internal boundary enforced by an include check and by building extensions against the installed package | The source tree has a single include root |
+| 11 | One draw list with four layers (shared vertices, per-layer indices and clip stacks) instead of one list per layer | No vertex patching when merging; `PushLayer`/`PopLayer` replaces `GetDrawList(layer)` |
+| 12 | UTF-8 helpers live in `Core/`, not `Text/` | `Input` needs them and must not depend on `Text` |
+| 13 | Misuse checks use `CB_VERIFY` (always on) and recover; `CB_ASSERT` is debug-only | Unbalanced stacks must be reported in release builds too, and tests run in both |
+| 14 | `IO::AddMouseLeaveEvent` added | Hover must end when the pointer leaves the host's area |
+| 15 | `CreateContext` makes the new context current only if none is current | Matches Dear ImGui and avoids surprising multi-context hosts |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

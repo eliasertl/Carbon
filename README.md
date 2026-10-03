@@ -45,6 +45,7 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 
 - [Architecture](Docs/Architecture.md) — modules, frame lifecycle, draw list, layout, animation, styling
 - [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn
+- [Integration](Docs/Integration.md) — creating a context, forwarding input, the frame loop, DPI
 
 ## License
 
