@@ -5,9 +5,10 @@
 add_subdirectory(Common)
 add_subdirectory(MinimalIntegration)
 add_subdirectory(CustomComponent)
-# The Gallery shows the extension components too, so it needs CarbonExtensions.
+# The Gallery and CustomTitleBar use the extension components, so they need CarbonExtensions.
 if(CARBON_BUILD_EXTENSIONS)
     add_subdirectory(Gallery)
+    add_subdirectory(CustomTitleBar)
 else()
-    message(STATUS "Carbon: skipping the Gallery example because CARBON_BUILD_EXTENSIONS is OFF")
+    message(STATUS "Carbon: skipping the Gallery and CustomTitleBar examples because CARBON_BUILD_EXTENSIONS is OFF")
 endif()

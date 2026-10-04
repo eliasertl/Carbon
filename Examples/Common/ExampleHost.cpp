@@ -149,6 +149,7 @@ namespace Example
             glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
             // Let the window system scale the window with the monitor unless a scale was forced.
             glfwWindowHint(GLFW_SCALE_TO_MONITOR, arguments.Scale > 0.0f ? GLFW_FALSE : GLFW_TRUE);
+            glfwWindowHint(GLFW_DECORATED, arguments.IsFrameless ? GLFW_FALSE : GLFW_TRUE);
             const float windowScale = arguments.Scale > 0.0f ? arguments.Scale : 1.0f;
             m_Window = glfwCreateWindow(static_cast<int>(std::lround(static_cast<float>(width) * windowScale)),
                                         static_cast<int>(std::lround(static_cast<float>(height) * windowScale)), title,

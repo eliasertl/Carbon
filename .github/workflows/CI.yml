@@ -201,6 +201,7 @@ jobs:
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Menu.png --page menus --show menu --scale 2
           Build/Examples/MinimalIntegration/MinimalIntegration --screenshot Screenshots/MinimalIntegration.png
           Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
+          Build/Examples/CustomTitleBar/CustomTitleBar --screenshot Screenshots/CustomTitleBar.png
 
       - name: Upload screenshots
         if: always()

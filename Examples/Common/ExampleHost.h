@@ -20,6 +20,9 @@ namespace Example
         /// --size <width>x<height>: size in points; 0 uses the example's default. Handy for tall screenshots.
         int Width = 0;
         int Height = 0;
+        /// Set by the example, not on the command line: open the window without the system's frame and title bar,
+        /// because the example draws its own.
+        bool IsFrameless = false;
         /// --page <name>: the page an example with several pages starts on.
         std::string Page;
         /// --show <name>: something the example opens at startup, such as a menu or a sheet.

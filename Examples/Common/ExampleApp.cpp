@@ -6,8 +6,18 @@
 
 namespace Example
 {
-    App::App(int argc, char** argv, const char* title, int width, int height)
-        : m_Host(ParseArguments(argc, argv), title, width, height)
+    namespace
+    {
+        Arguments ParseArgumentsFor(int argc, char** argv, bool isFrameless)
+        {
+            Arguments arguments = ParseArguments(argc, argv);
+            arguments.IsFrameless = isFrameless;
+            return arguments;
+        }
+    } // namespace
+
+    App::App(int argc, char** argv, const char* title, int width, int height, bool isFrameless)
+        : m_Host(ParseArgumentsFor(argc, argv, isFrameless), title, width, height)
     {
         if (!m_Host.IsReady())
             return;

@@ -14,8 +14,9 @@ namespace Example
     class App
     {
     public:
-        /// `width` and `height` are the window's size in points.
-        App(int argc, char** argv, const char* title, int width, int height);
+        /// `width` and `height` are the window's size in points. A frameless window has no system title bar or
+        /// border; the example draws its own.
+        App(int argc, char** argv, const char* title, int width, int height, bool isFrameless = false);
         ~App();
 
         App(const App&) = delete;
