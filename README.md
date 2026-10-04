@@ -1,4 +1,7 @@
 # Carbon
+
+[![CI](https://github.com/eliasertl/Carbon/actions/workflows/CI.yml/badge.svg)](https://github.com/eliasertl/Carbon/actions/workflows/CI.yml)
+
 *“Persistence refines the miserable piece of carbon in you into the purest form of diamond.”* ― Tobi Delly
 
 Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux. It has
@@ -83,16 +86,19 @@ cd Carbon
 cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install>
 cmake --build Build
 ctest --test-dir Build
+Build/Examples/Gallery/Gallery
 ```
 
 With Visual Studio generators, add `--config Release` (or the configuration your Dawn install was built for) to
-the build command and `-C Release` to `ctest`. [Docs/Building.md](Docs/Building.md) explains how to install Dawn
-and documents every CMake option.
+the build command and `-C Release` to `ctest`; the Gallery is then at `Build/Examples/Gallery/Release/Gallery.exe`.
+[Docs/Building.md](Docs/Building.md) explains how to install Dawn, documents every CMake option and shows how to
+use Carbon from your own project, as a subdirectory or as an installed package (`find_package(Carbon)`).
 
 Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b`.
 
 ## Documentation
 
+- [Getting started](Docs/GettingStarted.md) — from a clone to your first interface
 - [Architecture](Docs/Architecture.md) — modules, frame lifecycle, draw list, layout, animation, styling
 - [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn
 - [Integration](Docs/Integration.md) — creating a context, forwarding input, the render pass, DPI, fonts
