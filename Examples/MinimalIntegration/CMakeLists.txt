@@ -1,0 +1,4 @@
+add_executable(MinimalIntegration Main.cpp)
+target_link_libraries(MinimalIntegration PRIVATE CarbonExampleCommon)
+carbon_configure_target(MinimalIntegration)
+carbon_copy_dawn_runtime(MinimalIntegration)
