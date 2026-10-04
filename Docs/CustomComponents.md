@@ -182,6 +182,8 @@ return changed;
 ```
 
 `SetLastItem` makes `Tooltip()`, `IsItemHovered()`, `GetItemRect()` and context menus work after your component.
+A component that takes text and reacts to Enter calls `SetItemSubmitted()` after it, so that `IsItemSubmitted()`
+works too; the [ComboBox](../Extensions/src/Carbon/Extensions/ComboBox.cpp) does.
 
 Check your arguments with `CB_VERIFY(condition, "message {}", value)`. It reports through the host's log and
 assert callbacks in every build type and lets the frame continue, so return early afterwards.

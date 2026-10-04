@@ -42,11 +42,16 @@ A popover, menu, alert or sheet takes the keyboard while it is open (see [Overla
 In menus the highlight is the keyboard focus: the up and down arrow keys move it, Enter and Space choose, the
 right and left arrow keys open and close submenus.
 
+A [menu bar](Components/MenuBar.md) opens its first menu with Alt (pressed and released on its own) or F10; then
+the left and right arrow keys move between its menus. [Notifications](Components/Notification.md) never take
+the keyboard.
+
 ## Groups that are one stop
 
 Some components are a single stop for Tab and use the arrow keys inside: a segmented control (left and right),
-a stepper (up and down), a sidebar, list or table (up, down, Home, End). Clicking one of them gives it focus,
-so the arrow keys continue from the click.
+a stepper (up and down), a sidebar, list or table (up, down, Home, End), an outline view (also left and right to
+collapse and expand). A column view has one stop per column; left and right move between them. Clicking one of
+them gives it focus, so the arrow keys continue from the click.
 
 ## The focus ring
 

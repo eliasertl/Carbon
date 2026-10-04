@@ -30,6 +30,11 @@ identifies the field and serves as its placeholder; put a `Text` next to the fie
 | `Disabled` | `bool` | `false` | |
 | `IsSecure` | `bool` | `false` | Shows bullets and keeps the text off the clipboard |
 | `MaxLength` | `size_t` | 0 | Longest text in characters; 0 is unlimited |
+| `TrailingInset` | `float` | 0 | Points kept free at the trailing edge for an accessory you draw there, such as the button of a [ComboBox](ComboBox.md) |
+| `VerticalArrowsMoveCaret` | `bool` | `true` | Up and down move the caret to the start and end. Turn it off when your component uses those keys. |
+
+When you replace the text of a field while it is being edited, call `ReloadTextField(label)` at the same ID
+scope: the caret then moves to the end of the new text and undo starts over.
 
 ## Mouse
 

@@ -45,6 +45,11 @@ These components are built only on Carbon's public extension API; see
 | [List](List.md) | A scrolling column of selectable rows |
 | [Table](Table.md) | Rows in columns with a header |
 | [Charts](Chart.md) | Line and bar charts |
+| [OutlineView](OutlineView.md) | Hierarchical rows with disclosure triangles, such as a file browser |
+| [ColumnView](ColumnView.md) | A hierarchy as columns, one per level |
+| [MenuBar](MenuBar.md) | The menus of a window, in a row at its top |
+| [ComboBox](ComboBox.md) | A text field with a list of choices |
+| [Notifications](Notification.md) | Banners that tell about something that happened |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 

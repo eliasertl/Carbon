@@ -51,9 +51,10 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 ```
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
-SegmentedControl, Chart, Popover, Menu, PopUpButton, PullDownButton, Stepper, ProgressIndicator, SearchField,
-List, Table, SplitView, Alert, Sheet, ColorWell) and `Internal/SelectionList`, the selection behaviour that
-Sidebar, List and Table share.
+SegmentedControl, Chart, Popover, Menu, MenuBar, PopUpButton, PullDownButton, ComboBox, Stepper,
+ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, SplitView, Alert, Sheet, ColorWell,
+Notification) and, in `Internal/`, what several of them share: `SelectionList` (Sidebar, List, Table,
+OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu, MenuBar).
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
@@ -665,6 +666,12 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 47 | Hover and pressed tints are composited over the fill (`Blend` is source-over), and every interactive control reacts to the pointer | Mixing only the color of the 16 % control fill was measurable but invisible. macOS itself gives few controls a hover state; Carbon's users are on Windows and Linux, where a control that does not react feels dead |
 | 48 | The selection highlight of Sidebar, List and Table survives one frame without a selected row | An application that selects in response to a click changes its selection mid-frame; when the new row precedes the old one, no row is selected in that frame, and the highlight would vanish and then jump |
 | 49 | Custom title bars are example code, not a component; Carbon gained only two diagonal resize cursors | The window side is OS integration and stays in the host. The user chose to keep the title bar in the example; the cursors are needed by any host that resizes from corners |
+| 50 | OutlineView items are always Begin/End pairs, with `IsExpanded` in the returned struct; leaves too | One shape for every item keeps recursive code simple, and each item can push its ID for its children, so labels need only be unique among siblings |
+| 51 | ColumnView leaves the path to the application; Carbon draws, scrolls and moves the focus | Immediate mode: the hierarchy and the selection are the application's data, as with List and Sidebar |
+| 52 | MenuBar is an in-window bar in Carbon's style; Alt or F10 open it, the arrows move along it | Carbon draws into the host's window and has no screen-wide menu bar to join. Alt and F10 are what Windows and Linux users expect |
+| 53 | ComboBox filters its list while typing, instead of completing inline | Inline completion needs the text field to select the completed part, which would add API for one component; a filtered list serves the same purpose and is common on the target platforms. TextField gained `TrailingInset`, `VerticalArrowsMoveCaret` and `ReloadTextField`, and the interaction API `SetItemSubmitted` |
+| 54 | Notifications are posted from anywhere and drawn by one `ShowNotifications` call per frame; their text is copied into fixed buffers | Posting must work from code that has no part in building the interface (a finished job). Fixed buffers keep the state trivially copyable and make showing them allocation-free |
+| 55 | Notifications draw in the top overlay sub-layer and take clicks there, but never the keyboard | They must stay visible over sheets and popovers, and must not interrupt typing |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
