@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <span>
+#include <string_view>
 #include <vector>
 
 #include "Carbon/Core/Color.h"
@@ -12,6 +13,8 @@
 
 namespace Carbon
 {
+    struct TextSpec;
+
     /// Collects the shapes of one frame as quads plus per-shape parameters. It is GPU-free: the renderer uploads
     /// its output, and tests inspect it directly. All coordinates are in points.
     ///
@@ -40,6 +43,9 @@ namespace Carbon
         void PopOpacity();
         float GetOpacity() const { return m_OpacityStack.back(); }
 
+        /// Pixels per point of the frame being drawn.
+        float GetContentScale() const { return m_ContentScale; }
+
         /// Filled rectangle with sharp corners.
         void AddRect(const Rect& rect, Color color);
         /// Filled rectangle with continuous-curvature corners. Smoothing 0 gives circular arcs.
@@ -63,7 +69,10 @@ namespace Carbon
         /// Texture drawn into `rect`, optionally with squircle corners. `uv` is the sampled region (0..1).
         void AddImage(TextureID texture, const Rect& rect, const Rect& uv = Rect(0.0f, 0.0f, 1.0f, 1.0f),
                       Color tint = Color::White(), float radius = 0.0f, float smoothing = DefaultCornerSmoothing);
-        /// One glyph from the glyph atlas. Used by the text layer; `uv` is the glyph's atlas region (0..1).
+        /// Text with its top-left corner at `position`. Lines are separated by '\n'. Glyphs are placed on whole
+        /// pixels, so text stays crisp at any content scale.
+        void AddText(Vec2 position, std::string_view text, const TextSpec& spec, Color color);
+        /// One glyph from the glyph atlas. Used by the text layer; `uv` is the glyph's atlas region in texels.
         void AddGlyph(const Rect& rect, const Rect& uv, Color color);
 
         std::span<const DrawVertex> GetVertices() const { return m_Vertices; }
