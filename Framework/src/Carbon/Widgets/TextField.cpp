@@ -97,10 +97,10 @@ namespace Carbon
         float textLeft = rect.X + HorizontalPadding;
         if (!options.Icon.empty())
             textLeft += iconSize + IconGap;
-        float textRight = rect.GetRight() - HorizontalPadding;
+        const float trailing = rect.GetRight() - std::max(options.TrailingInset, 0.0f);
+        float textRight = trailing - HorizontalPadding;
         const bool hasClearButton = options.ShowsClearButton && !text->empty() && !isDisabled;
-        const Rect clearRect(rect.GetRight() - HorizontalPadding - iconSize, centerY - iconSize * 0.5f, iconSize,
-                             iconSize);
+        const Rect clearRect(trailing - HorizontalPadding - iconSize, centerY - iconSize * 0.5f, iconSize, iconSize);
         if (hasClearButton)
             textRight = clearRect.X - IconGap;
         const float textWidth = std::max(textRight - textLeft, 1.0f);
@@ -156,6 +156,11 @@ namespace Carbon
         else if (!isFocused && edit.Owner == id)
         {
             edit.Owner = ID();
+        }
+        if (edit.Owner == id && edit.IsReloadPending)
+        {
+            editor.Reset(*text);
+            edit.IsReloadPending = false;
         }
 
         // What is on screen: the text itself, or one bullet per character.
@@ -217,9 +222,11 @@ namespace Carbon
                 editor.MoveLeft(*text, isShiftHeld, byWord);
             if (IsKeyPressed(Key::RightArrow))
                 editor.MoveRight(*text, isShiftHeld, byWord);
-            if (IsKeyPressed(Key::Home) || IsKeyPressed(Key::UpArrow))
+            const bool isUp = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::UpArrow);
+            const bool isDown = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::DownArrow);
+            if (IsKeyPressed(Key::Home) || isUp)
                 editor.MoveToStart(*text, isShiftHeld);
-            if (IsKeyPressed(Key::End) || IsKeyPressed(Key::DownArrow))
+            if (IsKeyPressed(Key::End) || isDown)
                 editor.MoveToEnd(*text, isShiftHeld);
             if (IsKeyPressed(Key::Backspace))
                 changed = editor.DeleteBackward(*text, byWord) || changed;
@@ -356,5 +363,12 @@ namespace Carbon
         SetLastItem(id, rect, interaction);
         interactionState.LastItem.Submitted = submitted;
         return changed;
+    }
+
+    void ReloadTextField(std::string_view label)
+    {
+        TextEditState& edit = Internal::GetContext().TextEdit;
+        if (edit.Owner == GetID(label))
+            edit.IsReloadPending = true;
     }
 } // namespace Carbon

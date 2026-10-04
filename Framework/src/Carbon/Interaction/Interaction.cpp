@@ -539,4 +539,9 @@ namespace Carbon
         item.Active = interaction.Pressed;
         item.Submitted = false;
     }
+
+    void SetItemSubmitted()
+    {
+        Internal::GetContext().Interaction.LastItem.Submitted = true;
+    }
 } // namespace Carbon

@@ -96,6 +96,8 @@ namespace Carbon::Internal
         float BlinkTime = 0.0f;
         /// The current mouse press started as a single click, so dragging extends the selection.
         bool IsDragSelecting = false;
+        /// The owner's text was replaced from outside: reset the editor on its next call. See ReloadTextField.
+        bool IsReloadPending = false;
         /// Scratch storage reused between frames.
         std::vector<float> CaretPositions;
         std::string SecureText;

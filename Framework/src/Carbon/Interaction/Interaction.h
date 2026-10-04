@@ -140,4 +140,7 @@ namespace Carbon
     /// Records `id` and `rect` as the item submitted last. Components call this once they know their rectangle
     /// so that Tooltip and the IsItem... queries work for them.
     void SetLastItem(ID id, const Rect& rect, const Interaction& interaction);
+    /// Marks the item submitted last as submitted, so that IsItemSubmitted() returns true for it. Components that
+    /// take text call it after SetLastItem on the frame Enter was pressed.
+    void SetItemSubmitted();
 } // namespace Carbon

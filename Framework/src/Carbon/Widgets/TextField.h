@@ -26,6 +26,12 @@ namespace Carbon
         bool IsSecure = false;
         /// Longest text the user can enter, in characters; 0 means unlimited.
         size_t MaxLength = 0;
+        /// Points kept free at the trailing edge, for an accessory the caller draws there (the button of a combo
+        /// box). Text and the clear button stay out of it.
+        float TrailingInset = 0.0f;
+        /// The up and down arrow keys move the caret to the start and end, as on macOS. Components that use those
+        /// keys themselves (a combo box choosing from its list) turn this off.
+        bool VerticalArrowsMoveCaret = true;
     };
 
     /// A single-line text field editing `text` (UTF-8). Returns true on frames the text changed.
@@ -37,4 +43,9 @@ namespace Carbon
     /// The label identifies the field and serves as its placeholder; put a Text next to the field for a
     /// visible title.
     bool TextField(std::string_view label, std::string* text, const TextFieldOptions& options = {});
+
+    /// Tells the text field `label` (at the current ID scope) that its text was replaced from outside while it is
+    /// being edited, for example by choosing an item of a combo box. On its next call the caret moves to the end
+    /// and the undo history starts over. Does nothing when the field is not being edited.
+    void ReloadTextField(std::string_view label);
 } // namespace Carbon
