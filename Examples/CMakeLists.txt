@@ -4,4 +4,9 @@
 #   --scale <factor>
 add_subdirectory(Common)
 add_subdirectory(MinimalIntegration)
-add_subdirectory(Gallery)
+# The Gallery shows the extension components too, so it needs CarbonExtensions.
+if(CARBON_BUILD_EXTENSIONS)
+    add_subdirectory(Gallery)
+else()
+    message(STATUS "Carbon: skipping the Gallery example because CARBON_BUILD_EXTENSIONS is OFF")
+endif()

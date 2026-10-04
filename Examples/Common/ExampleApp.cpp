@@ -53,6 +53,21 @@ namespace Example
             io.SetContentScale(m_Host.GetContentScale());
             io.SetDeltaTime(m_Host.GetDeltaTime());
 
+            // Screenshots can be taken with the pointer somewhere, or after a click: the input is scripted.
+            const Arguments& arguments = GetArguments();
+            if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f)
+            {
+                const int frame = m_Host.GetFrameIndex();
+                const Carbon::MouseButton button =
+                    arguments.ClickButton == 1 ? Carbon::MouseButton::Right : Carbon::MouseButton::Left;
+                if (frame == 4)
+                    io.AddMousePosEvent(arguments.PointerX, arguments.PointerY);
+                if (frame == 6 && arguments.ClickButton >= 0)
+                    io.AddMouseButtonEvent(button, true);
+                if (frame == 7 && arguments.ClickButton >= 0)
+                    io.AddMouseButtonEvent(button, false);
+            }
+
             Carbon::NewFrame();
             build();
             Carbon::EndFrame();

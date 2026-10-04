@@ -20,6 +20,16 @@ namespace Example
         /// --size <width>x<height>: size in points; 0 uses the example's default. Handy for tall screenshots.
         int Width = 0;
         int Height = 0;
+        /// --page <name>: the page an example with several pages starts on.
+        std::string Page;
+        /// --show <name>: something the example opens at startup, such as a menu or a sheet.
+        std::string Show;
+        /// --pointer <x>x<y>, --click <x>x<y>, --right-click <x>x<y>: in screenshot mode, puts the pointer at a
+        /// position in points and optionally clicks there, so that hover states and menus can be captured.
+        float PointerX = -1.0f;
+        float PointerY = -1.0f;
+        /// 0 for the left button, 1 for the right one, -1 for no click.
+        int ClickButton = -1;
     };
 
     /// Parses the options above. Unknown options are reported on stderr and ignored.
@@ -58,6 +68,8 @@ namespace Example
         float GetHeight() const { return static_cast<float>(m_PixelHeight) / m_ContentScale; }
         /// Seconds since the previous frame.
         float GetDeltaTime() const { return m_DeltaTime; }
+        /// Number of frames finished so far.
+        int GetFrameIndex() const { return m_FrameIndex; }
 
         /// Converts a GLFW cursor position (screen coordinates) to points.
         void CursorToPoints(double cursorX, double cursorY, float& x, float& y) const;

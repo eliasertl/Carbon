@@ -1,0 +1,106 @@
+#pragma once
+
+#include <string>
+
+#include <Carbon/Extensions/Extensions.h>
+
+namespace Gallery
+{
+    /// The pages of the gallery, in the order of the sidebar.
+    enum class Page
+    {
+        Typography,
+        Icons,
+        Buttons,
+        Toggles,
+        Sliders,
+        TextFields,
+        Images,
+        Layout,
+
+        Selection,
+        Menus,
+        Dialogs,
+        Progress,
+        Lists,
+        Navigation,
+        Charts,
+
+        Count
+    };
+
+    /// The state the interface edits. In an immediate-mode UI the application owns all of it.
+    struct GalleryState
+    {
+        Page CurrentPage = Page::Buttons;
+        /// From --show: something a page opens once, so that screenshots can capture menus and dialogs.
+        std::string Show;
+        bool IsDark = false;
+        bool ReduceMotion = false;
+
+        // Core pages.
+        bool WiFi = true;
+        bool Bluetooth = false;
+        bool AirplaneMode = false;
+        bool ShowHidden = false;
+        bool AutoSave = true;
+        bool SyncAll = false;
+        float Volume = 0.62f;
+        float Brightness = 0.8f;
+        float Steps = 4.0f;
+        std::string Name = "Ada Lovelace";
+        std::string Email;
+        std::string Password = "hunter2";
+        std::string Search;
+        int Clicks = 0;
+        wgpu::TextureView Artwork;
+
+        // Selection controls.
+        int ViewMode = 1;
+        int Justification = 0;
+        int SortOrder = 1;
+        int Quality = 2;
+        int Copies = 2;
+        double FontSize = 13.0;
+        Carbon::Color Tint = Carbon::Color::FromHex(0x34C759);
+        Carbon::Color Shadow = Carbon::Color::FromHex(0x5856D6, 0.6f);
+        std::string Query;
+        std::string LastAction = "None yet";
+
+        // Menus and popovers.
+        bool ShowRuler = true;
+        bool ShowGrid = false;
+        bool Notifications = true;
+        float PopoverVolume = 0.4f;
+
+        // Alerts and sheets.
+        std::string AlertAnswer = "None yet";
+        std::string ExportName = "Quarterly Report";
+        int ExportFormat = 0;
+        bool ExportTransparent = false;
+
+        // Progress.
+        float Progress = 0.45f;
+
+        // Lists and tables.
+        int SelectedFile = 2;
+        int SelectedTask = 1;
+        bool TaskDone[6] = {true, false, false, true, false, false};
+
+        // Tabs and split views.
+        int Tab = 0;
+        int Mailbox = 0;
+
+        // Charts.
+        bool ShowsPoints = false;
+    };
+
+    /// True once for the --show value `name`: the page then opens what it names.
+    inline bool TakeShow(GalleryState& state, std::string_view name)
+    {
+        if (state.Show != name)
+            return false;
+        state.Show.clear();
+        return true;
+    }
+} // namespace Gallery

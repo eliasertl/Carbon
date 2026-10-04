@@ -1,428 +1,210 @@
 // Carbon Gallery: every component, in both themes. This is Carbon's visual benchmark; it should look like a
-// macOS settings pane without the window chrome.
+// macOS app without the window chrome.
 //
-//   Gallery [--theme light|dark] [--scale <factor>] [--size <width>x<height>] [--screenshot <file.png>]
+//   Gallery [--theme light|dark] [--scale <factor>] [--size <width>x<height>] [--page <name>]
+//           [--screenshot <file.png>] [--show menu|popover|alert|sheet] [--pointer <x>x<y>] [--click <x>x<y>]
 
-#include <format>
-#include <string>
+#include <cstdio>
 #include <vector>
 
-#include <Carbon/Carbon.h>
-
 #include "ExampleApp.h"
+#include "Pages.h"
 
-namespace
+namespace Gallery
 {
     using namespace Carbon;
 
-    // The state the interface edits. In an immediate-mode UI the application owns all of it.
-    struct GalleryState
+    namespace
     {
-        bool IsDark = false;
-        bool ReduceMotion = false;
-
-        bool WiFi = true;
-        bool Bluetooth = false;
-        bool AirplaneMode = false;
-        bool ShowHidden = false;
-        bool AutoSave = true;
-        bool SyncAll = false;
-        float Volume = 0.62f;
-        float Brightness = 0.8f;
-        float Steps = 4.0f;
-        std::string Name = "Ada Lovelace";
-        std::string Email;
-        std::string Password = "hunter2";
-        std::string Search;
-        int Clicks = 0;
-        wgpu::TextureView Artwork;
-    };
-
-    // A small procedural texture, to show that Image displays the host's own texture views.
-    wgpu::TextureView CreateArtwork(const wgpu::Device& device)
-    {
-        const uint32_t size = 128;
-        std::vector<uint8_t> pixels(size * size * 4);
-        for (uint32_t y = 0; y < size; y++)
+        struct PageInfo
         {
-            for (uint32_t x = 0; x < size; x++)
+            Page Id;
+            const char* Title;
+            /// The name used by --page.
+            const char* Key;
+            const char* Icon;
+        };
+
+        const PageInfo Pages[] = {
+            {Page::Typography, "Typography", "typography", Icons::TextAa},
+            {Page::Icons, "Icons", "icons", Icons::Star},
+            {Page::Buttons, "Buttons", "buttons", Icons::CursorClick},
+            {Page::Toggles, "Toggles", "toggles", Icons::ToggleRight},
+            {Page::Sliders, "Sliders", "sliders", Icons::SlidersHorizontal},
+            {Page::TextFields, "Text Fields", "textfields", Icons::Textbox},
+            {Page::Images, "Images", "images", Icons::Image},
+            {Page::Layout, "Layout", "layout", Icons::Layout},
+            {Page::Selection, "Selection Controls", "selection", Icons::SquaresFour},
+            {Page::Menus, "Menus and Popovers", "menus", Icons::List},
+            {Page::Dialogs, "Alerts and Sheets", "dialogs", Icons::AppWindow},
+            {Page::Progress, "Progress", "progress", Icons::CircleNotch},
+            {Page::Lists, "Lists and Tables", "lists", Icons::Table},
+            {Page::Navigation, "Tabs and Split Views", "navigation", Icons::Columns},
+            {Page::Charts, "Charts", "charts", Icons::ChartBar},
+        };
+
+        // The first page of the components that live in CarbonExtensions.
+        constexpr Page FirstExtensionPage = Page::Selection;
+
+        const PageInfo& GetPageInfo(Page page)
+        {
+            return Pages[static_cast<size_t>(page)];
+        }
+
+        // A small procedural texture, to show that Image displays the host's own texture views.
+        wgpu::TextureView CreateArtwork(const wgpu::Device& device)
+        {
+            const uint32_t size = 128;
+            std::vector<uint8_t> pixels(size * size * 4);
+            for (uint32_t y = 0; y < size; y++)
             {
-                const float u = float(x) / float(size - 1);
-                const float v = float(y) / float(size - 1);
-                uint8_t* pixel = &pixels[(y * size + x) * 4];
-                pixel[0] = uint8_t(255.0f * (0.35f + 0.65f * u));
-                pixel[1] = uint8_t(255.0f * (0.25f + 0.45f * (1.0f - v)));
-                pixel[2] = uint8_t(255.0f * (0.55f + 0.45f * v));
-                pixel[3] = 255;
+                for (uint32_t x = 0; x < size; x++)
+                {
+                    const float u = float(x) / float(size - 1);
+                    const float v = float(y) / float(size - 1);
+                    uint8_t* pixel = &pixels[(y * size + x) * 4];
+                    pixel[0] = uint8_t(255.0f * (0.35f + 0.65f * u));
+                    pixel[1] = uint8_t(255.0f * (0.25f + 0.45f * (1.0f - v)));
+                    pixel[2] = uint8_t(255.0f * (0.55f + 0.45f * v));
+                    pixel[3] = 255;
+                }
+            }
+
+            wgpu::TextureDescriptor descriptor;
+            descriptor.size = {size, size, 1};
+            descriptor.format = wgpu::TextureFormat::RGBA8Unorm;
+            descriptor.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
+            const wgpu::Texture texture = device.CreateTexture(&descriptor);
+            wgpu::TexelCopyTextureInfo destination;
+            destination.texture = texture;
+            wgpu::TexelCopyBufferLayout layout;
+            layout.bytesPerRow = size * 4;
+            layout.rowsPerImage = size;
+            const wgpu::Extent3D extent = {size, size, 1};
+            device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &layout, &extent);
+            return texture.CreateView();
+        }
+
+        void BuildPage(GalleryState& state)
+        {
+            switch (state.CurrentPage)
+            {
+                case Page::Typography:
+                    TypographyPage();
+                    break;
+                case Page::Icons:
+                    IconsPage();
+                    break;
+                case Page::Buttons:
+                    ButtonsPage(state);
+                    break;
+                case Page::Toggles:
+                    TogglesPage(state);
+                    break;
+                case Page::Sliders:
+                    SlidersPage(state);
+                    break;
+                case Page::TextFields:
+                    TextFieldsPage(state);
+                    break;
+                case Page::Images:
+                    ImagesPage(state);
+                    break;
+                case Page::Layout:
+                    LayoutPage();
+                    break;
+                case Page::Selection:
+                    SelectionPage(state);
+                    break;
+                case Page::Menus:
+                    MenusPage(state);
+                    break;
+                case Page::Dialogs:
+                    DialogsPage(state);
+                    break;
+                case Page::Progress:
+                    ProgressPage(state);
+                    break;
+                case Page::Lists:
+                    ListsPage(state);
+                    break;
+                case Page::Navigation:
+                    NavigationPage(state);
+                    break;
+                case Page::Charts:
+                    ChartsPage(state);
+                    break;
+                case Page::Count:
+                    break;
             }
         }
 
-        wgpu::TextureDescriptor descriptor;
-        descriptor.size = {size, size, 1};
-        descriptor.format = wgpu::TextureFormat::RGBA8Unorm;
-        descriptor.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-        const wgpu::Texture texture = device.CreateTexture(&descriptor);
-        wgpu::TexelCopyTextureInfo destination;
-        destination.texture = texture;
-        wgpu::TexelCopyBufferLayout layout;
-        layout.bytesPerRow = size * 4;
-        layout.rowsPerImage = size;
-        const wgpu::Extent3D extent = {size, size, 1};
-        device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &layout, &extent);
-        return texture.CreateView();
-    }
-
-    // ---- Building blocks of the page ----------------------------------------------------------------------------
-
-    constexpr float LabelColumn = 150.0f;
-
-    // A titled group: a headline above a rounded box, like a section of System Settings.
-    void BeginSection(std::string_view title, std::string_view description = {})
-    {
-        BeginVStack({.Spacing = 6.0f, .Width = Size::Fill()});
-        Text(title, {.Style = TextStyle::Headline});
-        if (!description.empty())
-            Text(description,
-                 {.Style = TextStyle::Subheadline, .Secondary = true, .Width = Size::Fill(), .Wraps = true});
-        Spacer({.Length = 2.0f});
-        BeginVStack({.Spacing = 12.0f,
-                     .Padding = 16.0f,
-                     .Width = Size::Fill(),
-                     .Background = GetStyleColor(StyleColor::SecondaryBackground)});
-    }
-
-    void EndSection()
-    {
-        EndVStack();
-        EndVStack();
-    }
-
-    // One row of a section: a secondary label in a fixed column, then the content.
-    void BeginRow(std::string_view label)
-    {
-        BeginHStack({.Spacing = 12.0f, .Width = Size::Fill()});
-        Text(label, {.Secondary = true, .Width = LabelColumn});
-    }
-
-    void EndRow()
-    {
-        EndHStack();
-    }
-
-    // ---- Sections -----------------------------------------------------------------------------------------------
-
-    void TypographySection()
-    {
-        BeginSection("Typography",
-                     "The macOS type ramp, set in Public Sans. Sizes and line heights follow the "
-                     "Human Interface Guidelines.");
-        struct Entry
+        void BuildGallery(GalleryState& state)
         {
-            TextStyle Style;
-            const char* Name;
-        };
-        static const Entry Entries[] = {
-            {TextStyle::LargeTitle, "Large Title"}, {TextStyle::Title1, "Title 1"},
-            {TextStyle::Title2, "Title 2"},         {TextStyle::Title3, "Title 3"},
-            {TextStyle::Headline, "Headline"},      {TextStyle::Body, "Body"},
-            {TextStyle::Callout, "Callout"},        {TextStyle::Subheadline, "Subheadline"},
-            {TextStyle::Footnote, "Footnote"},      {TextStyle::Caption1, "Caption 1"},
-            {TextStyle::Caption2, "Caption 2"},
-        };
-        for (const Entry& entry : Entries)
-        {
-            const TextSpec spec = GetTextSpec(entry.Style);
-            PushID(entry.Name);
-            BeginHStack({.Spacing = 12.0f, .Alignment = VerticalAlignment::Center, .Width = Size::Fill()});
-            Text(std::format("{} / {}", spec.Size, spec.LineHeight),
-                 {.Style = TextStyle::Caption1, .Secondary = true, .Width = LabelColumn});
-            Text(entry.Name, {.Style = entry.Style});
+            // The whole display: the sidebar, and next to it a header above the scrolling page.
+            BeginHStack(
+                {.Spacing = 0.0f, .Alignment = VerticalAlignment::Top, .Width = Size::Fill(), .Height = Size::Fill()});
+
+            BeginSidebar("pages", {.Width = 210.0f});
+            SidebarHeader("Carbon");
+            for (const PageInfo& page : Pages)
+            {
+                if (page.Id == FirstExtensionPage)
+                    SidebarHeader("Extensions");
+                if (SidebarItem(page.Title, page.Id == state.CurrentPage, {.Icon = page.Icon}))
+                    state.CurrentPage = page.Id;
+            }
+            EndSidebar();
+
+            BeginVStack({.Spacing = 0.0f, .Width = Size::Fill(), .Height = Size::Fill()});
+            const PageInfo& page = GetPageInfo(state.CurrentPage);
+
+            BeginHStack({.Spacing = 16.0f, .Padding = EdgeInsets(24.0f, 14.0f), .Width = Size::Fill()});
+            Text(page.Title, {.Style = TextStyle::Title2, .Emphasized = true});
             Spacer();
-            Text(entry.Name, {.Style = entry.Style, .Emphasized = true});
+            if (Toggle("Reduce Motion", &state.ReduceMotion, {.ControlSize = ControlSize::Small}))
+                SetReduceMotion(state.ReduceMotion);
+            if (Toggle("Dark", &state.IsDark, {.ControlSize = ControlSize::Small}))
+                SetTheme(state.IsDark ? Theme::Dark() : Theme::Light());
             EndHStack();
-            PopID();
-        }
-        EndSection();
-    }
+            Separator();
 
-    void IconsSection()
-    {
-        BeginSection("Icons",
-                     "1530 Phosphor icons in three weights. They are text: they sit inside labels, follow "
-                     "the text color and scale with the content.");
-        static const char* const Samples[] = {Icons::House,   Icons::Gear,     Icons::MagnifyingGlass, Icons::Bell,
-                                              Icons::Heart,   Icons::Star,     Icons::Folder,          Icons::Trash,
-                                              Icons::Lock,    Icons::Cloud,    Icons::WifiHigh,        Icons::Palette,
-                                              Icons::Command, Icons::Lightning};
-        struct Row
-        {
-            const char* Name;
-            IconVariant Variant;
-        };
-        static const Row Rows[] = {
-            {"Regular", IconVariant::Regular}, {"Bold", IconVariant::Bold}, {"Fill", IconVariant::Fill}};
-        for (const Row& row : Rows)
-        {
-            PushID(row.Name);
-            BeginRow(row.Name);
-            for (const char* icon : Samples)
-            {
-                IconOptions options;
-                options.Size = 20.0f;
-                options.Variant = row.Variant;
-                if (row.Variant == IconVariant::Fill)
-                    options.Color = GetStyleColor(StyleColor::Accent);
-                Icon(icon, options);
-            }
-            EndRow();
-            PopID();
-        }
-        BeginRow("In text");
-        Text(std::string(Icons::Folder) + "  Documents      " + Icons::CloudArrowDown + "  12 items downloading");
-        EndRow();
-        EndSection();
-    }
+            // Every page has its own scroll view, so each one remembers how far it was scrolled.
+            BeginScrollView(page.Key, {.Spacing = 24.0f, .Padding = 24.0f});
+            BuildPage(state);
+            EndScrollView();
 
-    void ButtonsSection(GalleryState& state)
-    {
-        BeginSection("Buttons",
-                     "Use a prominent button for the most likely action of a view, and no more than one or "
-                     "two of them.");
-        BeginRow("Roles");
-        if (Button("Default"))
-            state.Clicks++;
-        Tooltip("A standard bordered button");
-        if (Button("Prominent", {.Role = ButtonRole::Prominent}))
-            state.Clicks++;
-        Tooltip("The most likely action");
-        if (Button("Plain", {.Role = ButtonRole::Plain}))
-            state.Clicks++;
-        Tooltip("No background until hovered");
-        if (Button("Delete", {.Role = ButtonRole::Destructive}))
-            state.Clicks++;
-        Tooltip("Destroys data");
-        Spacer();
-        Text(std::format("{} clicks", state.Clicks), {.Secondary = true});
-        EndRow();
-
-        BeginRow("Sizes");
-        Button("Small", {.ControlSize = ControlSize::Small});
-        Button("Regular");
-        Button("Large", {.ControlSize = ControlSize::Large});
-        Button("Large##prominent", {.Role = ButtonRole::Prominent, .ControlSize = ControlSize::Large});
-        EndRow();
-
-        BeginRow("With icons");
-        Button("Add", {.Icon = Icons::Plus});
-        Button("Share", {.Role = ButtonRole::Prominent, .Icon = Icons::Export});
-        Button("##more", {.Icon = Icons::DotsThree});
-        Tooltip("More actions");
-        Button("##trash", {.Role = ButtonRole::Destructive, .Icon = Icons::Trash});
-        Tooltip("Move to trash");
-        EndRow();
-
-        BeginRow("Disabled");
-        Button("Default##disabled", {.Disabled = true});
-        Button("Prominent##disabled", {.Role = ButtonRole::Prominent, .Disabled = true});
-        Button("Plain##disabled", {.Role = ButtonRole::Plain, .Disabled = true});
-        EndRow();
-
-        BeginRow("Custom");
-        Button("Tinted", {.Role = ButtonRole::Prominent, .Tint = GetStyleColor(StyleColor::Green)});
-        Button("Pill",
-               {.Role = ButtonRole::Prominent, .CornerRadius = 12.0f, .Tint = GetStyleColor(StyleColor::Indigo)});
-        Button("Square corners", {.CornerRadius = 2.0f});
-        Button("Fills the row", {.Width = Size::Fill()});
-        EndRow();
-        EndSection();
-    }
-
-    void TogglesSection(GalleryState& state)
-    {
-        BeginSection("Toggles",
-                     "Switches for settings that deserve visual weight, checkboxes for lists and "
-                     "hierarchies. The whole row is clickable.");
-        Toggle("Wi-Fi", &state.WiFi, {.Width = Size::Fill()});
-        Separator();
-        Toggle("Bluetooth", &state.Bluetooth, {.Width = Size::Fill()});
-        Separator();
-        Toggle("Airplane Mode", &state.AirplaneMode, {.Width = Size::Fill(), .Disabled = true});
-        Separator();
-
-        BeginRow("Sizes");
-        Toggle("##small", &state.WiFi, {.ControlSize = ControlSize::Small});
-        Toggle("##regular", &state.WiFi);
-        Toggle("##large", &state.WiFi, {.ControlSize = ControlSize::Large});
-        Toggle("##tinted", &state.WiFi, {.Tint = GetStyleColor(StyleColor::Green)});
-        EndRow();
-
-        BeginRow("Checkboxes");
-        BeginVStack({.Spacing = 8.0f});
-        // A parent checkbox shows a dash while its children differ.
-        const bool isMixed = state.AutoSave != state.ShowHidden;
-        bool all = state.AutoSave && state.ShowHidden;
-        if (Toggle("Select all", &all, {.Kind = ToggleKind::Checkbox, .IsMixed = isMixed}))
-        {
-            state.AutoSave = all;
-            state.ShowHidden = all;
-        }
-        BeginVStack({.Spacing = 8.0f, .Padding = EdgeInsets(20.0f, 0.0f, 0.0f, 0.0f)});
-        Toggle("Save automatically", &state.AutoSave, {.Kind = ToggleKind::Checkbox});
-        Toggle("Show hidden files", &state.ShowHidden, {.Kind = ToggleKind::Checkbox});
-        Toggle("Sync all devices", &state.SyncAll, {.Kind = ToggleKind::Checkbox, .Disabled = true});
-        EndVStack();
-        EndVStack();
-        EndRow();
-        EndSection();
-    }
-
-    void SlidersSection(GalleryState& state)
-    {
-        BeginSection("Sliders", "Drag the knob, click the track, or use the arrow keys.");
-        BeginRow("Volume");
-        Icon(Icons::SpeakerLow, {.Color = GetStyleColor(StyleColor::SecondaryLabel)});
-        Slider("Volume", &state.Volume, 0.0f, 1.0f, {.Width = Size::Fill()});
-        Icon(Icons::SpeakerHigh, {.Color = GetStyleColor(StyleColor::SecondaryLabel)});
-        Text(std::format("{:3.0f} %", state.Volume * 100.0f),
-             {.Secondary = true, .Width = 44.0f, .Alignment = TextAlignment::Trailing});
-        EndRow();
-
-        BeginRow("Steps");
-        Slider("Steps", &state.Steps, 0.0f, 10.0f, {.Step = 1.0f, .ShowsTicks = true, .Width = 220.0f});
-        Text(std::format("{:.0f}", state.Steps), {.Secondary = true});
-        EndRow();
-
-        BeginRow("Sizes");
-        Slider("Small", &state.Brightness, 0.0f, 1.0f, {.ControlSize = ControlSize::Small, .Width = 120.0f});
-        Slider("Regular", &state.Brightness, 0.0f, 1.0f, {.Width = 120.0f});
-        Slider("Large", &state.Brightness, 0.0f, 1.0f, {.ControlSize = ControlSize::Large, .Width = 120.0f});
-        EndRow();
-
-        BeginRow("Disabled");
-        Slider("Disabled", &state.Brightness, 0.0f, 1.0f, {.Width = 220.0f, .Disabled = true});
-        EndRow();
-        EndSection();
-    }
-
-    void TextFieldsSection(GalleryState& state)
-    {
-        BeginSection("Text fields",
-                     "Caret, selection, clipboard and undo. Double-click selects a word, triple-click "
-                     "everything; Tab selects the whole field.");
-        BeginRow("Name");
-        TextField("Name", &state.Name, {.Width = 240.0f});
-        EndRow();
-
-        BeginRow("Email");
-        TextField("Email", &state.Email, {.Placeholder = "name@example.com", .Width = 240.0f});
-        EndRow();
-
-        BeginRow("Password");
-        TextField("Password", &state.Password, {.Width = 240.0f, .IsSecure = true});
-        EndRow();
-
-        BeginRow("Search");
-        TextField("Search", &state.Search,
-                  {.Icon = Icons::MagnifyingGlass, .ShowsClearButton = true, .Width = Size::Fill()});
-        EndRow();
-
-        BeginRow("Disabled");
-        TextField("Disabled", &state.Name, {.Width = 240.0f, .Disabled = true});
-        EndRow();
-        EndSection();
-    }
-
-    void ImageSection(GalleryState& state)
-    {
-        BeginSection("Images and separators",
-                     "Image shows any texture view of the host, optionally with squircle "
-                     "corners. Separators adapt to the direction of their stack.");
-        BeginHStack({.Spacing = 16.0f, .Alignment = VerticalAlignment::Center});
-        Image(state.Artwork, Vec2(72.0f, 72.0f));
-        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f});
-        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 36.0f});
-        Separator();
-        Image(state.Artwork, Vec2(128.0f, 72.0f), {.CornerRadius = 10.0f, .UV = Rect(0.0f, 0.25f, 1.0f, 0.5f)});
-        Separator();
-        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f, .Tint = GetStyleColor(StyleColor::Accent)});
-        EndHStack();
-        EndSection();
-    }
-
-    void LayoutSection()
-    {
-        BeginSection("Layout", "Stacks, spacers and fill sizes. No positions are computed by hand.");
-        const Color box = GetStyleColor(StyleColor::ControlFill);
-        const auto chip = [&](std::string_view label, Size width = Size::Fit())
-        {
-            BeginHStack({.Padding = EdgeInsets(10.0f, 5.0f),
-                         .Justify = Alignment::Center,
-                         .Width = width,
-                         .Background = box,
-                         .CornerRadius = 6.0f});
-            Text(label, {.Style = TextStyle::Subheadline});
+            EndVStack();
             EndHStack();
-        };
-
-        BeginRow("Spacer");
-        chip("Leading");
-        Spacer();
-        chip("Trailing");
-        EndRow();
-
-        BeginRow("Fill 1 : 2 : 1");
-        chip("1", Size::Fill(1.0f));
-        chip("2", Size::Fill(2.0f));
-        chip("1", Size::Fill(1.0f));
-        EndRow();
-
-        BeginRow("Centered");
-        BeginHStack({.Justify = Alignment::Center, .Width = Size::Fill()});
-        chip("Centered in the remaining width");
-        EndHStack();
-        EndRow();
-        EndSection();
-    }
-
-    void BuildGallery(GalleryState& state)
-    {
-        // The whole display: a header that stays in place, and the scrolling page below it.
-        BeginVStack({.Spacing = 0.0f, .Width = Size::Fill(), .Height = Size::Fill()});
-
-        BeginHStack({.Spacing = 16.0f, .Padding = EdgeInsets(24.0f, 14.0f), .Width = Size::Fill()});
-        Text("Carbon", {.Style = TextStyle::Title2, .Emphasized = true});
-        Text("Gallery", {.Style = TextStyle::Title2, .Secondary = true});
-        Spacer();
-        if (Toggle("Reduce Motion", &state.ReduceMotion, {.ControlSize = ControlSize::Small}))
-            SetReduceMotion(state.ReduceMotion);
-        if (Toggle("Dark", &state.IsDark, {.ControlSize = ControlSize::Small}))
-            SetTheme(state.IsDark ? Theme::Dark() : Theme::Light());
-        EndHStack();
-        Separator();
-
-        BeginScrollView("page", {.Spacing = 24.0f, .Padding = 24.0f});
-        TypographySection();
-        IconsSection();
-        ButtonsSection(state);
-        TogglesSection(state);
-        SlidersSection(state);
-        TextFieldsSection(state);
-        ImageSection(state);
-        LayoutSection();
-        EndScrollView();
-
-        EndVStack();
-    }
-} // namespace
+        }
+    } // namespace
+} // namespace Gallery
 
 int main(int argc, char** argv)
 {
-    Example::App app(argc, argv, "Carbon Gallery", 880, 720);
+    Example::App app(argc, argv, "Carbon Gallery", 1040, 740);
     if (!app.IsReady())
         return 1;
 
-    GalleryState state;
+    Gallery::GalleryState state;
     state.IsDark = app.GetArguments().IsDark;
-    state.Artwork = CreateArtwork(app.GetHost().GetDevice());
-    return app.Run([&state] { BuildGallery(state); });
+    state.Show = app.GetArguments().Show;
+    state.Artwork = Gallery::CreateArtwork(app.GetHost().GetDevice());
+
+    const std::string& requested = app.GetArguments().Page;
+    if (!requested.empty())
+    {
+        bool found = false;
+        for (const Gallery::PageInfo& page : Gallery::Pages)
+        {
+            if (requested == page.Key)
+            {
+                state.CurrentPage = page.Id;
+                found = true;
+            }
+        }
+        if (!found)
+            std::fprintf(stderr, "Unknown page '%s'\n", requested.c_str());
+    }
+    return app.Run([&state] { Gallery::BuildGallery(state); });
 }

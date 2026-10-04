@@ -23,7 +23,7 @@ namespace Example
     namespace
     {
         // Screenshot mode renders a few frames first so that animations and first-frame layout have settled.
-        constexpr int ScreenshotWarmupFrames = 8;
+        constexpr int ScreenshotWarmupFrames = 16;
         constexpr float ScreenshotDeltaTime = 0.25f;
 
         void PrintString(const char* prefix, wgpu::StringView message)
@@ -76,12 +76,36 @@ namespace Example
                     arguments.Height = 0;
                 }
             }
+            else if (option == "--page" && hasValue)
+            {
+                arguments.Page = argv[++i];
+            }
+            else if (option == "--show" && hasValue)
+            {
+                arguments.Show = argv[++i];
+            }
+            else if ((option == "--pointer" || option == "--click" || option == "--right-click") && hasValue)
+            {
+                arguments.ClickButton = option == "--click" ? 0 : (option == "--right-click" ? 1 : -1);
+                const std::string position = argv[++i];
+                const size_t separator = position.find('x');
+                if (separator != std::string::npos)
+                {
+                    arguments.PointerX = static_cast<float>(std::atof(position.substr(0, separator).c_str()));
+                    arguments.PointerY = static_cast<float>(std::atof(position.substr(separator + 1).c_str()));
+                }
+                else
+                {
+                    std::fprintf(stderr, "Invalid position '%s'; expected <x>x<y>\n", argv[i]);
+                }
+            }
             else
             {
                 std::fprintf(stderr, "Unknown option '%s'\n", argv[i]);
                 std::fprintf(stderr,
                              "Options: --screenshot <file.png>  --theme light|dark  --scale <factor>  "
-                             "--size <width>x<height>\n");
+                             "--size <width>x<height>  --page <name>  --show <name>  --pointer <x>x<y>  "
+                             "--click <x>x<y>  --right-click <x>x<y>\n");
             }
         }
         return arguments;
