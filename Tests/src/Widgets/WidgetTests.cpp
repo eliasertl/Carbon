@@ -85,7 +85,9 @@ namespace Carbon
         for (const DrawVertex& vertex : GetDrawData().Vertices)
         {
             if (vertex.Position.Y >= wrapped.Y - 1.0f)
+            {
                 EXPECT_LE(vertex.Position.X, 151.5f);
+            }
         }
     }
 
@@ -224,7 +226,8 @@ namespace Carbon
         }
         // The plain button has no background at rest, so it contributes no squircle.
         ASSERT_EQ(fills.size(), 4u);
-        EXPECT_EQ(fills[0], GetStyleColor(StyleColor::ControlFill));
+        // The control fill is translucent; compare as drawn, at 8 bits per channel.
+        EXPECT_EQ(fills[0].ToRGBA8(), GetStyleColor(StyleColor::ControlFill).ToRGBA8());
         EXPECT_EQ(labels[0], GetStyleColor(StyleColor::Label));
         EXPECT_EQ(fills[1], GetStyleColor(StyleColor::Accent));
         EXPECT_EQ(labels[1], GetStyleColor(StyleColor::OnAccent));
@@ -270,7 +273,10 @@ namespace Carbon
             rect = GetItemRect();
         };
         Settle(build);
-        EXPECT_NEAR(GetQuadColor(0).A, GetStyleVar(StyleVar::DisabledOpacity), 0.01f);
+        // Fill and label are both dimmed; the label was opaque, so its alpha is the disabled opacity.
+        EXPECT_NEAR(GetQuadColor(1).A, GetStyleVar(StyleVar::DisabledOpacity), 0.01f);
+        EXPECT_NEAR(GetQuadColor(0).A,
+                    GetStyleColor(StyleColor::ControlFill).A * GetStyleVar(StyleVar::DisabledOpacity), 0.01f);
         Click(rect.GetCenter(), build);
         EXPECT_EQ(clicks, 0);
         // It is not a Tab stop either.

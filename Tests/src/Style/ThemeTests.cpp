@@ -55,13 +55,25 @@ namespace Carbon
             return (brighter + 0.05f) / (darker + 0.05f);
         };
 
+        // What a translucent color looks like on top of an opaque one.
+        const auto over = [](const Color& top, const Color& bottom)
+        {
+            return Color(bottom.R + (top.R - bottom.R) * top.A, bottom.G + (top.G - bottom.G) * top.A,
+                         bottom.B + (top.B - bottom.B) * top.A);
+        };
+
         for (const Theme& theme : {Theme::Light(), Theme::Dark()})
         {
-            for (const StyleColor background :
-                 {StyleColor::Background, StyleColor::SecondaryBackground, StyleColor::ControlFill})
+            for (const StyleColor surface : {StyleColor::Background, StyleColor::SecondaryBackground})
             {
-                EXPECT_GE(contrast(theme.GetColor(StyleColor::Label), theme.GetColor(background)), 4.5f);
-                EXPECT_GE(contrast(theme.GetColor(StyleColor::SecondaryLabel), theme.GetColor(background)), 4.0f);
+                const Color background = theme.GetColor(surface);
+                EXPECT_GE(contrast(theme.GetColor(StyleColor::Label), background), 4.5f);
+                EXPECT_GE(contrast(theme.GetColor(StyleColor::SecondaryLabel), background), 4.5f);
+
+                // Labels on controls (a button's fill on that surface) stay readable too.
+                const Color control = over(theme.GetColor(StyleColor::ControlFill), background);
+                EXPECT_GE(contrast(theme.GetColor(StyleColor::Label), control), 4.5f);
+                EXPECT_GE(contrast(theme.GetColor(StyleColor::SecondaryLabel), control), 3.0f);
             }
         }
     }

@@ -58,7 +58,9 @@ namespace Carbon
         theme.SetColor(StyleColor::Separator, Color::FromHex(0xDCDCE0));
 
         theme.SetColor(StyleColor::ControlBackground, Color::FromHex(0xFFFFFF));
-        theme.SetColor(StyleColor::ControlFill, Color::FromHex(0xE9E9EB));
+        // Like Apple's system fills, a translucent gray: it reads as a control on white and on grouped
+        // backgrounds alike.
+        theme.SetColor(StyleColor::ControlFill, Color::FromHex(0x787880, 0.16f));
         theme.SetColor(StyleColor::ControlBorder, Color::FromHex(0xD1D1D6));
         theme.SetColor(StyleColor::Knob, Color::FromHex(0xFFFFFF));
 
@@ -109,7 +111,7 @@ namespace Carbon
         theme.SetColor(StyleColor::Separator, Color::FromHex(0x38383A));
 
         theme.SetColor(StyleColor::ControlBackground, Color::FromHex(0x1C1C1E));
-        theme.SetColor(StyleColor::ControlFill, Color::FromHex(0x2C2C2E));
+        theme.SetColor(StyleColor::ControlFill, Color::FromHex(0x787880, 0.32f));
         theme.SetColor(StyleColor::ControlBorder, Color::FromHex(0x48484A));
         theme.SetColor(StyleColor::Knob, Color::FromHex(0xFFFFFF));
 

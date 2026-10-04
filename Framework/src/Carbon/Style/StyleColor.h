@@ -28,7 +28,8 @@ namespace Carbon
 
         /// The inside of editable controls such as text fields.
         ControlBackground,
-        /// The fill of buttons, slider tracks and switches that are off.
+        /// The fill of buttons, slider tracks and switches that are off. A translucent gray, so it adapts to the
+        /// surface it sits on.
         ControlFill,
         /// The outline of bordered controls.
         ControlBorder,
