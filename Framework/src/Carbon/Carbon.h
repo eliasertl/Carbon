@@ -1,6 +1,6 @@
 #pragma once
 
-/// Umbrella header for applications that use Carbon.
+/// Umbrella header for applications that use Carbon. Component authors can include Carbon/Extension.h instead.
 
 #include "Carbon/Animation/Animation.h"
 #include "Carbon/Animation/Easing.h"
@@ -37,6 +37,7 @@
 #include "Carbon/Layout/ScrollView.h"
 #include "Carbon/Layout/Size.h"
 #include "Carbon/Layout/Stack.h"
+#include "Carbon/Overlay/Overlay.h"
 #include "Carbon/Renderer/Render.h"
 #include "Carbon/Style/Style.h"
 #include "Carbon/Style/StyleColor.h"
@@ -47,6 +48,7 @@
 #include "Carbon/Text/TextSpec.h"
 #include "Carbon/Text/TextStyle.h"
 #include "Carbon/Widgets/Button.h"
+#include "Carbon/Widgets/ControlFeedback.h"
 #include "Carbon/Widgets/ControlSize.h"
 #include "Carbon/Widgets/Image.h"
 #include "Carbon/Widgets/Separator.h"

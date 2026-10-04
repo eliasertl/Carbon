@@ -15,6 +15,7 @@ add_executable(CarbonTests
     src/Interaction/InteractionTests.cpp
     src/Layout/LayoutTests.cpp
     src/Layout/ScrollViewTests.cpp
+    src/Overlay/OverlayTests.cpp
     src/Renderer/RendererTests.cpp
     src/Style/StyleTests.cpp
     src/Style/ThemeTests.cpp

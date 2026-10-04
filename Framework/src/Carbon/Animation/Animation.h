@@ -117,4 +117,7 @@ namespace Carbon
     /// True when something was still moving in the last finished frame (an animation, a theme transition or
     /// layout that has not settled). Hosts that render on demand keep rendering frames while this is true.
     bool IsAnimating();
+    /// Asks for another frame even though no Animate call is in motion: IsAnimating() will return true after
+    /// this frame. Components that animate from the clock (a spinner) or wait for time to pass call it.
+    void RequestAnimationFrame();
 } // namespace Carbon

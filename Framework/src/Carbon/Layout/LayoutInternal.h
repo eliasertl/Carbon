@@ -39,7 +39,8 @@ namespace Carbon::Internal
         Root,
         VStack,
         HStack,
-        ScrollView
+        ScrollView,
+        Overlay
     };
 
     /// Parameters shared by every kind of container.
@@ -59,6 +60,9 @@ namespace Carbon::Internal
         /// The content may be larger than the container along the axis and is shifted by this offset.
         bool IsScrolling = false;
         Vec2 ScrollOffset;
+        /// The container is placed at FloatingOrigin instead of in its parent's flow, and takes no space there.
+        bool IsFloating = false;
+        Vec2 FloatingOrigin;
     };
 
     /// A container that is open during the frame.
@@ -100,6 +104,7 @@ namespace Carbon::Internal
         bool IsFlexible = false;
         float ParentFlexWeight = 0.0f;
         bool FillsParentCross = false;
+        bool IsFloating = false;
 
         DeferredShape Background;
         float BackgroundRadius = 0.0f;

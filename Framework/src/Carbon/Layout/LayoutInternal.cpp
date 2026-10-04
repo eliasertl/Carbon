@@ -10,6 +10,7 @@
 #include "Carbon/Core/State.h"
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Layout/Stack.h"
+#include "Carbon/Overlay/OverlayInternal.h"
 
 namespace Carbon::Internal
 {
@@ -191,6 +192,8 @@ namespace Carbon::Internal
             }
             if (layout.Frames.back().HasOpacity)
                 context.Draw.PopOpacity();
+            if (layout.Frames.back().Kind == ContainerKind::Overlay)
+                AbandonOverlay(context);
             layout.Frames.pop_back();
         }
         layout.ScrollFrames.clear();
@@ -227,14 +230,39 @@ namespace Carbon::Internal
 
         const LayoutFrame& parent = layout.Frames.back();
         const Vec2 padding(description.Padding.GetHorizontal(), description.Padding.GetVertical());
-        const ItemFlow flow = ResolveItem(parent, description.Width, description.Height, record->ContentSize + padding);
+        ItemFlow flow;
+        if (description.IsFloating)
+        {
+            // Outside of any flow there is nothing to share: Fill takes the whole display.
+            const Vec2 fit = record->ContentSize + padding;
+            const auto resolve = [](Size size, float fitLength, float fillLength)
+            {
+                switch (size.Mode)
+                {
+                    case SizeMode::Fixed:
+                        return std::max(size.Value, 0.0f);
+                    case SizeMode::Fill:
+                        return fillLength;
+                    default:
+                        return fitLength;
+                }
+            };
+            flow.Size = Vec2(resolve(description.Width, fit.X, context.DisplaySize.X),
+                             resolve(description.Height, fit.Y, context.DisplaySize.Y));
+        }
+        else
+        {
+            flow = ResolveItem(parent, description.Width, description.Height, record->ContentSize + padding);
+        }
 
         LayoutFrame frame;
         frame.Kind = description.Kind;
         frame.Axis = description.Axis;
         frame.Id = id;
         frame.Record = record;
-        frame.Origin = PlaceItem(context, parent, flow.Size);
+        frame.Origin = description.IsFloating ? context.Scale.Snap(description.FloatingOrigin)
+                                              : PlaceItem(context, parent, flow.Size);
+        frame.IsFloating = description.IsFloating;
         frame.ResolvedSize = flow.Size;
         frame.FitsWidth = description.Width.Mode == SizeMode::Fit;
         frame.FitsHeight = description.Height.Mode == SizeMode::Fit;
@@ -249,8 +277,10 @@ namespace Carbon::Internal
         // A container seen for the first time lays out with empty measurements, so it is hidden for that frame
         // and fades in afterwards. Nested new containers fade together with the outermost one.
         record->AppearTime = created ? 0.0f : std::min(record->AppearTime + context.DeltaTime, AppearFadeDuration);
-        frame.IsAppearing = parent.IsAppearing;
-        if (!parent.IsAppearing && record->AppearTime < AppearFadeDuration)
+        // A floating container has left its parent's opacity behind, so it always fades in on its own.
+        const bool isParentAppearing = parent.IsAppearing && !description.IsFloating;
+        frame.IsAppearing = isParentAppearing;
+        if (!isParentAppearing && record->AppearTime < AppearFadeDuration)
         {
             const float opacity = created ? 0.0f : Ease(Easing::EaseOut, record->AppearTime / AppearFadeDuration);
             context.Draw.PushOpacity(opacity);
@@ -295,6 +325,9 @@ namespace Carbon::Internal
         }
         if (frame.HasOpacity)
             context.Draw.PopOpacity();
+
+        if (frame.IsFloating)
+            return rect;
 
         ItemFlow flow;
         flow.Size = size;

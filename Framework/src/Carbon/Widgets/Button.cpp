@@ -7,7 +7,7 @@
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Style/Style.h"
-#include "Carbon/Widgets/WidgetInternal.h"
+#include "Carbon/Widgets/ControlFeedback.h"
 
 namespace Carbon
 {
@@ -36,8 +36,7 @@ namespace Carbon
         ButtonBehaviorOptions behavior;
         behavior.IsDefault = options.IsDefault;
         const Interaction interaction = ButtonBehavior(id, rect, behavior);
-        const Internal::ControlFeedback feedback =
-            Internal::AnimateFeedback(id, interaction.Hovered, interaction.Pressed);
+        const ControlFeedback feedback = AnimateFeedback(id, interaction.Hovered, interaction.Pressed);
 
         const Color labelColor = context.Style.GetColor(StyleColor::Label);
         const Color accent = Resolve(options.Tint, StyleColor::Accent);
@@ -46,7 +45,7 @@ namespace Carbon
         switch (options.Role)
         {
             case ButtonRole::Default:
-                fill = Internal::ApplyFeedback(context.Style.GetColor(StyleColor::ControlFill), labelColor, feedback);
+                fill = ApplyFeedback(context.Style.GetColor(StyleColor::ControlFill), labelColor, feedback);
                 text = labelColor;
                 break;
             case ButtonRole::Prominent:
@@ -57,7 +56,7 @@ namespace Carbon
                 break;
             case ButtonRole::Plain:
                 // Invisible at rest; the standard control fill appears with hover and press.
-                fill = Internal::ApplyFeedback(context.Style.GetColor(StyleColor::ControlFill), labelColor, feedback)
+                fill = ApplyFeedback(context.Style.GetColor(StyleColor::ControlFill), labelColor, feedback)
                            .WithOpacity(std::max(feedback.Hover, feedback.Press));
                 text = accent;
                 break;
@@ -65,7 +64,7 @@ namespace Carbon
             {
                 const Color destructive = context.Style.GetColor(StyleColor::Destructive);
                 const Color base = Blend(context.Style.GetColor(StyleColor::ControlFill), destructive, 0.12f);
-                fill = Internal::ApplyFeedback(base, destructive, feedback);
+                fill = ApplyFeedback(base, destructive, feedback);
                 text = destructive;
                 break;
             }
@@ -74,8 +73,7 @@ namespace Carbon
         const float radius = options.CornerRadius.value_or(metrics.CornerRadius);
         const float smoothing = Resolve(options.CornerSmoothing, StyleVar::CornerSmoothing);
         context.Draw.AddSquircle(rect, fill, radius, smoothing);
-        Internal::DrawLabel(context.Draw, rect, rect.GetCenter().X - contentSize.X * 0.5f, context.ScratchText, spec,
-                            text);
+        DrawLabel(context.Draw, rect, rect.GetCenter().X - contentSize.X * 0.5f, context.ScratchText, spec, text);
         DrawFocusRing(id, rect, radius);
 
         PopDisabled();

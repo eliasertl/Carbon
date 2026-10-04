@@ -1,12 +1,14 @@
 #include "Carbon/Interaction/Interaction.h"
 
 #include <algorithm>
+#include <cstdint>
 
 #include "Carbon/Animation/Animation.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/State.h"
 #include "Carbon/Interaction/InteractionInternal.h"
+#include "Carbon/Overlay/OverlayInternal.h"
 
 namespace Carbon
 {
@@ -37,6 +39,42 @@ namespace Carbon
             state.FocusedID = id;
             state.IsFocusVisible = showRing;
             state.FocusSetFrame = context.FrameCount;
+        }
+
+        // Moves focus to the next or previous of last frame's focusable items that belong to the overlay holding
+        // the keyboard (or to no overlay, when none does).
+        void MoveFocus(Context& context, bool isBackward)
+        {
+            InteractionState& state = context.Interaction;
+            const ID scope = Internal::GetActiveFocusScope(context);
+            size_t count = 0;
+            size_t current = SIZE_MAX;
+            for (const InteractionState::FocusEntry& entry : state.PreviousFocusOrder)
+            {
+                if (entry.Scope != scope)
+                    continue;
+                if (entry.Id == state.FocusedID)
+                    current = count;
+                count++;
+            }
+            if (count == 0)
+                return;
+
+            size_t target = isBackward ? count - 1 : 0;
+            if (current != SIZE_MAX)
+                target = isBackward ? (current + count - 1) % count : (current + 1) % count;
+            for (const InteractionState::FocusEntry& entry : state.PreviousFocusOrder)
+            {
+                if (entry.Scope != scope)
+                    continue;
+                if (target == 0)
+                {
+                    GiveFocus(context, entry.Id, true);
+                    state.DidFocusMove = true;
+                    return;
+                }
+                target--;
+            }
         }
 
         // Fires like a held key while the mouse holds a repeating button: after a delay, then at a steady rate.
@@ -99,23 +137,16 @@ namespace Carbon
                 }
             }
 
-            // Tab and Shift+Tab move focus through last frame's focusable items, wrapping around.
+            // Tab and Shift+Tab move focus through last frame's focusable items, wrapping around. FocusNext and
+            // FocusPrevious request the same step from code.
             const KeyModifiers blocking = KeyModifiers::Ctrl | KeyModifiers::Alt | KeyModifiers::Super;
             const bool hasBlockingModifier = (input.Modifiers & blocking) != KeyModifiers::None;
-            if (IsKeyPressedOrRepeated(input, Key::Tab) && !hasBlockingModifier && !state.PreviousFocusOrder.empty())
-            {
-                const std::vector<ID>& order = state.PreviousFocusOrder;
-                const bool isBackward = HasModifiers(input.Modifiers, KeyModifiers::Shift);
-                const auto current = std::find(order.begin(), order.end(), state.FocusedID);
-                size_t next = isBackward ? order.size() - 1 : 0;
-                if (current != order.end())
-                {
-                    const size_t index = static_cast<size_t>(current - order.begin());
-                    next = isBackward ? (index + order.size() - 1) % order.size() : (index + 1) % order.size();
-                }
-                GiveFocus(context, order[next], true);
-                state.DidFocusMove = true;
-            }
+            int step = state.PendingFocusMove;
+            state.PendingFocusMove = 0;
+            if (IsKeyPressedOrRepeated(input, Key::Tab) && !hasBlockingModifier)
+                step = HasModifiers(input.Modifiers, KeyModifiers::Shift) ? -1 : 1;
+            if (step != 0)
+                MoveFocus(context, step < 0);
         }
 
         void EndInteraction(Context& context)
@@ -145,8 +176,9 @@ namespace Carbon
             // frame to show up.
             if (state.FocusedID.IsValid() && !state.IsFocusedAlive)
             {
-                const bool isRegistered = std::find(state.FocusOrder.begin(), state.FocusOrder.end(),
-                                                    state.FocusedID) != state.FocusOrder.end();
+                const bool isRegistered = std::any_of(state.FocusOrder.begin(), state.FocusOrder.end(),
+                                                      [&state](const InteractionState::FocusEntry& entry)
+                                                      { return entry.Id == state.FocusedID; });
                 const bool isRecent = context.FrameCount <= state.FocusSetFrame + 1;
                 if (!isRegistered && !isRecent)
                     state.FocusedID = ID();
@@ -177,7 +209,7 @@ namespace Carbon
 
             // Claim the pointer for the next frame. Later items are drawn on top and win, except against an
             // item on a higher layer.
-            const uint8_t layer = static_cast<uint8_t>(context.Draw.GetLayer());
+            const uint32_t layer = context.Draw.GetLayerOrder();
             if (!state.HoverCandidate.IsValid() || layer >= state.HoverCandidateLayer)
             {
                 state.HoverCandidate = id;
@@ -257,7 +289,8 @@ namespace Carbon
                 result.Pressed = true;
         }
 
-        if (options.IsDefault)
+        // A default button under an overlay that holds the keyboard does not get Enter.
+        if (options.IsDefault && Internal::IsInActiveFocusScope(context))
         {
             state.DefaultButton = id;
             if (state.PendingDefaultActivation == id)
@@ -335,7 +368,7 @@ namespace Carbon
         const Context& context = Internal::GetFrameContext();
         const InputState& input = context.Input;
         return input.HasMousePos && rect.Contains(input.MousePos) &&
-               context.Draw.GetClipRect().Contains(input.MousePos);
+               context.Draw.GetClipRect().Contains(input.MousePos) && !Internal::IsPointerBlockedByOverlay(context);
     }
 
     void RegisterFocusable(ID id, const Rect& rect)
@@ -344,7 +377,7 @@ namespace Carbon
         InteractionState& state = context.Interaction;
         if (state.DisabledDepth > 0)
             return;
-        state.FocusOrder.push_back(id);
+        state.FocusOrder.push_back({id, Internal::GetCurrentFocusScope(context)});
         if (state.FocusedID == id)
         {
             state.IsFocusedAlive = true;
@@ -372,6 +405,16 @@ namespace Carbon
     void ClearFocus()
     {
         Internal::GetContext().Interaction.FocusedID = ID();
+    }
+
+    void FocusNext()
+    {
+        Internal::GetContext().Interaction.PendingFocusMove = 1;
+    }
+
+    void FocusPrevious()
+    {
+        Internal::GetContext().Interaction.PendingFocusMove = -1;
     }
 
     ID GetFocusedID()

@@ -11,7 +11,7 @@
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Style/Style.h"
-#include "Carbon/Widgets/WidgetInternal.h"
+#include "Carbon/Widgets/ControlFeedback.h"
 
 namespace Carbon
 {

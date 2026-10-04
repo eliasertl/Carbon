@@ -12,6 +12,7 @@ set(CARBON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/Generated")
 # CarbonExtensions and by custom components.
 set(CARBON_PUBLIC_HEADERS
     src/Carbon/Carbon.h
+    src/Carbon/Extension.h
     src/Carbon/Animation/Animation.h
     src/Carbon/Animation/Easing.h
     src/Carbon/Animation/Spring.h
@@ -47,6 +48,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Layout/ScrollView.h
     src/Carbon/Layout/Size.h
     src/Carbon/Layout/Stack.h
+    src/Carbon/Overlay/Overlay.h
     src/Carbon/Renderer/Render.h
     src/Carbon/Style/Style.h
     src/Carbon/Style/StyleColor.h
@@ -56,6 +58,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Text/TextSpec.h
     src/Carbon/Text/TextStyle.h
     src/Carbon/Widgets/Button.h
+    src/Carbon/Widgets/ControlFeedback.h
     src/Carbon/Widgets/ControlSize.h
     src/Carbon/Widgets/Image.h
     src/Carbon/Widgets/Separator.h
@@ -78,13 +81,13 @@ set(CARBON_INTERNAL_HEADERS
     src/Carbon/Input/InputStateInternal.h
     src/Carbon/Interaction/InteractionInternal.h
     src/Carbon/Layout/LayoutInternal.h
+    src/Carbon/Overlay/OverlayInternal.h
     src/Carbon/Renderer/RendererInternal.h
     src/Carbon/Style/StyleInternal.h
     src/Carbon/Text/Internal/FontFace.h
     src/Carbon/Text/Internal/GlyphAtlas.h
     src/Carbon/Text/Internal/TextSystem.h
     src/Carbon/Widgets/Internal/TextEditor.h
-    src/Carbon/Widgets/WidgetInternal.h
 )
 
 set(CARBON_SOURCES
@@ -108,6 +111,7 @@ set(CARBON_SOURCES
     src/Carbon/Layout/LayoutInternal.cpp
     src/Carbon/Layout/ScrollView.cpp
     src/Carbon/Layout/Stack.cpp
+    src/Carbon/Overlay/Overlay.cpp
     src/Carbon/Renderer/RendererInternal.cpp
     src/Carbon/Style/Style.cpp
     src/Carbon/Style/Theme.cpp
@@ -117,6 +121,7 @@ set(CARBON_SOURCES
     src/Carbon/Text/Internal/TextSystem.cpp
     src/Carbon/Text/TextSpec.cpp
     src/Carbon/Widgets/Button.cpp
+    src/Carbon/Widgets/ControlFeedback.cpp
     src/Carbon/Widgets/ControlSize.cpp
     src/Carbon/Widgets/Image.cpp
     src/Carbon/Widgets/Internal/TextEditor.cpp

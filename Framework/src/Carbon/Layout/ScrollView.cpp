@@ -9,6 +9,7 @@
 #include "Carbon/Input/Input.h"
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/LayoutInternal.h"
+#include "Carbon/Overlay/OverlayInternal.h"
 
 namespace Carbon
 {
@@ -70,7 +71,8 @@ namespace Carbon
         // Keyboard: Page Up and Page Down scroll the view under the pointer (or the outermost view when the
         // pointer is elsewhere), unless a text field is being edited. Home and End do the same when no control
         // has focus that might want those keys.
-        if (context.Layout.KeyboardScrollView == scrollID && !context.TextEdit.Owner.IsValid())
+        if (context.Layout.KeyboardScrollView == scrollID && !context.TextEdit.Owner.IsValid() &&
+            Internal::IsInActiveFocusScope(context))
         {
             float& offset = isVertical ? state.Offset.Y : state.Offset.X;
             const float before = offset;
@@ -116,9 +118,10 @@ namespace Carbon
 
         const Rect viewport(frame.Origin, frame.ResolvedSize);
         context.Draw.PushClipRect(viewport);
-        if (context.Input.HasMousePos && context.Draw.GetClipRect().Contains(context.Input.MousePos))
+        // A scroll view covered by an overlay gets neither the wheel nor the page keys.
+        if (IsRectHovered(viewport))
             context.Layout.HoveredScrollViewCandidate = scrollID;
-        if (!context.Layout.FirstScrollViewCandidate.IsValid())
+        if (!context.Layout.FirstScrollViewCandidate.IsValid() && Internal::IsInActiveFocusScope(context))
             context.Layout.FirstScrollViewCandidate = scrollID;
 
         Internal::ScrollFrame scrollFrame;

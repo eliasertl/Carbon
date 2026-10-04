@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "Carbon/Core/ContentScale.h"
+#include "Carbon/Core/Vec2.h"
 #include "Carbon/Draw/DrawTypes.h"
 
 namespace Carbon
@@ -31,4 +33,10 @@ namespace Carbon
     uint64_t GetFrameCount();
     /// Seconds accumulated from the delta times of all frames.
     double GetTime();
+    /// Seconds the current frame advances time by, as set on the IO object.
+    float GetDeltaTime();
+    /// Size of the area Carbon draws into, in points.
+    Vec2 GetDisplaySize();
+    /// Pixels per point of the current frame. Use its Snap functions to put edges on whole pixels.
+    ContentScale GetContentScale();
 } // namespace Carbon

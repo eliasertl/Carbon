@@ -11,7 +11,7 @@
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Style/Style.h"
 #include "Carbon/Text/Icons.h"
-#include "Carbon/Widgets/WidgetInternal.h"
+#include "Carbon/Widgets/ControlFeedback.h"
 
 namespace Carbon
 {
@@ -298,15 +298,15 @@ namespace Carbon
         {
             TextSpec iconSpec = spec;
             iconSpec.MaxWidth = 0.0f;
-            Internal::DrawLabel(drawList, rect, rect.X + HorizontalPadding, options.Icon, iconSpec,
-                                context.Style.GetColor(StyleColor::SecondaryLabel));
+            DrawLabel(drawList, rect, rect.X + HorizontalPadding, options.Icon, iconSpec,
+                      context.Style.GetColor(StyleColor::SecondaryLabel));
         }
         if (hasClearButton)
         {
             TextSpec iconSpec = spec;
             iconSpec.Icons = IconVariant::Fill;
-            Internal::DrawLabel(drawList, rect, clearRect.X, Icons::XCircle, iconSpec,
-                                context.Style.GetColor(StyleColor::TertiaryLabel));
+            DrawLabel(drawList, rect, clearRect.X, Icons::XCircle, iconSpec,
+                      context.Style.GetColor(StyleColor::TertiaryLabel));
         }
 
         const float scrollX = isFocused ? edit.ScrollX : 0.0f;
@@ -328,12 +328,12 @@ namespace Carbon
             TextSpec placeholderSpec = spec;
             placeholderSpec.MaxWidth = textWidth;
             placeholderSpec.Wraps = false;
-            Internal::DrawLabel(drawList, rect, textLeft, placeholder, placeholderSpec,
-                                context.Style.GetColor(StyleColor::TertiaryLabel));
+            DrawLabel(drawList, rect, textLeft, placeholder, placeholderSpec,
+                      context.Style.GetColor(StyleColor::TertiaryLabel));
         }
         else
         {
-            Internal::DrawLabel(drawList, rect, textX, display, spec, context.Style.GetColor(StyleColor::Label));
+            DrawLabel(drawList, rect, textX, display, spec, context.Style.GetColor(StyleColor::Label));
         }
         if (isFocused && !editor.HasSelection() && std::fmod(edit.BlinkTime, BlinkPeriod) < BlinkPeriod * 0.5f)
         {

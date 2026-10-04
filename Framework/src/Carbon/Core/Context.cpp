@@ -103,6 +103,7 @@ namespace Carbon
         context.IDStack.resize(1);
         context.Draw.Reset(Rect(Vec2(), context.DisplaySize), context.Scale.Factor);
         Internal::BeginLayout(context);
+        Internal::BeginOverlays(context);
         Internal::BeginInteraction(context);
         context.IsInFrame = true;
     }
@@ -116,6 +117,7 @@ namespace Carbon
 
         Internal::EndInteraction(context);
         Internal::EndLayout(context);
+        Internal::EndOverlays(context);
 
         CB_VERIFY(context.IDStack.size() == 1, "Unbalanced ID stack: {} PushID call(s) without PopID",
                   context.IDStack.size() - 1);
@@ -148,5 +150,20 @@ namespace Carbon
     double GetTime()
     {
         return Internal::GetContext().Time;
+    }
+
+    float GetDeltaTime()
+    {
+        return Internal::GetContext().DeltaTime;
+    }
+
+    Vec2 GetDisplaySize()
+    {
+        return Internal::GetContext().DisplaySize;
+    }
+
+    ContentScale GetContentScale()
+    {
+        return Internal::GetContext().Scale;
     }
 } // namespace Carbon

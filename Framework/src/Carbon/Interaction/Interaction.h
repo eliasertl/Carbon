@@ -95,6 +95,10 @@ namespace Carbon
     void SetFocus(ID id, bool showRing = false);
     /// Removes keyboard focus from whatever has it.
     void ClearFocus();
+    /// Moves focus one item forward or backward at the start of the next frame, exactly like Tab and Shift+Tab.
+    /// Menus and lists use it for the arrow keys.
+    void FocusNext();
+    void FocusPrevious();
     /// The item with keyboard focus; invalid when nothing has it.
     ID GetFocusedID();
 

@@ -201,4 +201,9 @@ namespace Carbon
     {
         return Internal::GetContext().WasAnimatingLastFrame;
     }
+
+    void RequestAnimationFrame()
+    {
+        Internal::GetContext().IsAnimatingThisFrame = true;
+    }
 } // namespace Carbon

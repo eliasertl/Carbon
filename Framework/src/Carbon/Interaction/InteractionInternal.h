@@ -28,7 +28,7 @@ namespace Carbon::Internal
         /// The item claiming the pointer during the current frame; becomes HoveredID at the end of it. A later
         /// claim replaces an earlier one unless the earlier one is on a higher layer.
         ID HoverCandidate;
-        uint8_t HoverCandidateLayer = 0;
+        uint32_t HoverCandidateLayer = 0;
 
         /// The item holding the pointer between press and release.
         ID ActiveID;
@@ -47,9 +47,18 @@ namespace Carbon::Internal
         /// The item whose focus ring is showing or fading out.
         ID FocusRingID;
 
+        /// A focusable item and the overlay it belongs to. While an overlay holds the keyboard, Tab moves only
+        /// through the items of that overlay.
+        struct FocusEntry
+        {
+            ID Id;
+            ID Scope;
+        };
         /// Focusable items in submission order: this frame's (being built) and last frame's (used for Tab).
-        std::vector<ID> FocusOrder;
-        std::vector<ID> PreviousFocusOrder;
+        std::vector<FocusEntry> FocusOrder;
+        std::vector<FocusEntry> PreviousFocusOrder;
+        /// A step requested with FocusNext or FocusPrevious, carried out at the start of the next frame.
+        int PendingFocusMove = 0;
 
         /// The default button seen this frame, and the one to activate because Enter was pressed last frame
         /// without any focused control using it.

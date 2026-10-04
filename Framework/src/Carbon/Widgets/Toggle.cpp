@@ -8,7 +8,7 @@
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Style/Style.h"
-#include "Carbon/Widgets/WidgetInternal.h"
+#include "Carbon/Widgets/ControlFeedback.h"
 
 namespace Carbon
 {
@@ -110,7 +110,7 @@ namespace Carbon
             context.Draw.AddCircle(knob.GetCenter(), knobSize * 0.5f, context.Style.GetColor(StyleColor::Knob));
 
             if (!title.empty())
-                Internal::DrawLabel(context.Draw, rect, rect.X, title, spec, labelColor);
+                DrawLabel(context.Draw, rect, rect.X, title, spec, labelColor);
             DrawFocusRing(id, track, track.Height * 0.5f);
         }
         else
@@ -141,7 +141,7 @@ namespace Carbon
             }
 
             if (!title.empty())
-                Internal::DrawLabel(context.Draw, rect, box.GetRight() + CheckboxGap, title, spec, labelColor);
+                DrawLabel(context.Draw, rect, box.GetRight() + CheckboxGap, title, spec, labelColor);
             DrawFocusRing(id, box, radius);
         }
 
