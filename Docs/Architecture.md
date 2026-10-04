@@ -469,7 +469,14 @@ struct Theme
   `IsDefault` button of the active scope. Arrow keys act inside controls (slider, segmented control, lists,
   menus). Escape dismisses the topmost overlay.
 - **Focus scopes.** Overlays open a focus scope; modal scopes (alert, sheet) trap Tab and restore the previous
-  focus when they close.
+  focus when they close. *(Milestone 5.)*
+- **Hit testing.** Each item under the pointer *claims* it during the frame; the last claim wins, except that a
+  claim from a higher draw layer is never replaced by a lower one. The winner is the hovered item of the next
+  frame. While an item holds the pointer (between press and release) nothing else is hovered.
+- **Tab** is resolved at the start of a frame against the previous frame's list of focusable items, and the
+  newly focused item asks its enclosing scroll views to reveal it.
+- **Disabled** is a scope (`PushDisabled`) that components also open for their own `Disabled` option. It dims
+  drawing through the draw list's opacity stack and removes the items from hit testing and Tab order.
 
 ## 11. Overlays
 
@@ -595,6 +602,13 @@ walks through it.
 | 22 | A theme switch interpolates colors and metrics but switches the type ramp at once | Interpolating sizes and weights would rasterize every glyph at every intermediate value |
 | 23 | Colors animate premultiplied and always count as a change of appearance | Fades to and from transparent keep their hue; reduce motion keeps them as cross-fades |
 | 24 | `IsAnimating()` also covers unsettled layout and fading containers | One call tells an on-demand host whether another frame is needed |
+| 25 | An item is hovered only if it was the topmost claimant of the pointer in the previous frame | Later (or higher-layer) items win, so a button on a clickable row, or a popover over content, takes the pointer without any "allow overlap" flags |
+| 26 | A mouse press that arrives in the same frame as a move is applied one frame later | Decision 25 needs the pointer to be in place for a frame before a press can be attributed |
+| 27 | `ControlFill` is a translucent gray | Controls must read as controls on white and on grouped backgrounds; this is how Apple's system fills work. Materials stay opaque. |
+| 28 | `Slider` and `TextField` do not draw their label; `Toggle` and `Button` do | A slider or field usually sits in a row with its own title; the label is the ID, and the field's placeholder |
+| 29 | Text fields report Enter through `IsItemSubmitted()` | The return value stays "the text changed", consistent with every other value widget |
+| 30 | The default button reacts to Enter one frame later | Whether a focused control uses Enter is only known once the whole frame has been submitted |
+| 31 | Word wrap, truncation and alignment are part of `TextSpec` | `MeasureText` and `AddText` keep one signature; the shaping cache is unaffected |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

@@ -5,7 +5,7 @@ advances along the stack's axis, so there is no `SameLine()` and no manual posit
 
 ```cpp
 Carbon::BeginVStack({ .Spacing = 12.0f, .Padding = 20.0f });
-    Carbon::Text("Settings", { .Style = Carbon::TextStyle::LargeTitle });   // widgets arrive in milestone 4
+    Carbon::Text("Settings", { .Style = Carbon::TextStyle::LargeTitle });
     Carbon::Toggle("Dark Mode", &darkMode);
     Carbon::BeginHStack({ .Spacing = 8.0f, .Width = Carbon::Size::Fill() });
         Carbon::Spacer();

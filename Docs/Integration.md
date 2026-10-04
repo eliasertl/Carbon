@@ -7,8 +7,8 @@ driving frames and handling DPI.
 [Examples/MinimalIntegration](../Examples/MinimalIntegration/Main.cpp) is the complete, runnable version of this
 guide.
 
-> Carbon is under construction. Widgets and layout arrive with later milestones; until then the interface is
-> drawn through the draw list, and the `Wants…` flags stay false.
+For what goes between `NewFrame` and `EndFrame`, see [Layout](Layout.md) and the
+[component pages](Components/README.md).
 
 ## Creating a context
 

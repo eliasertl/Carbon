@@ -1,7 +1,31 @@
 # Styling
 
-> This guide grows with the framework. Themes, typography, icons and corner shapes exist today; the style stack
-> and per-call options arrive with milestone 4.
+Carbon's look is controlled in three layers. From strongest to weakest:
+
+1. **Per-call options** — a field of a component's options struct:
+   `Button("Delete", { .Role = ButtonRole::Destructive, .CornerRadius = 12.0f })`.
+2. **The style stack** — `PushStyleColor` / `PushStyleVar`, in effect until the matching pop.
+3. **The theme** — set once with `SetTheme`.
+
+An option given in the call always wins; a pushed value wins over the theme.
+
+## The style stack
+
+```cpp
+Carbon::PushStyleColor(Carbon::StyleColor::Accent, Carbon::Color::FromHex(0xAF52DE));
+Carbon::PushStyleVar(Carbon::StyleVar::CornerRadius, 10.0f);
+    Carbon::Button("Purple", { .Role = Carbon::ButtonRole::Prominent });   // purple, radius 10
+    Carbon::Button("Square", { .CornerRadius = 2.0f });                    // radius 2: the call wins
+Carbon::PopStyleVar();
+Carbon::PopStyleColor();
+```
+
+Pushes nest, and `PopStyleColor(count)` / `PopStyleVar(count)` undo several at once. Everything between push and
+pop is affected, including stacks (their default spacing is `StyleVar::Spacing`) and components from
+extensions. A push without its pop is reported at the end of the frame and does not leak into the next one.
+
+Component authors read values with `GetStyleColor` and `GetStyleVar`, and combine them with a per-call option
+through `Resolve(option, fallback)`, which implements the precedence above.
 
 ## Themes
 
@@ -15,12 +39,14 @@ A `Theme` is the complete look of the interface: semantic colors, metrics and th
 | `SecondaryLabel` | `#6E6E73` | `#98989F` |
 | `TertiaryLabel` (placeholders, disabled) | `#AEAEB2` | `#636366` |
 | `Separator` | `#DCDCE0` | `#38383A` |
-| `ControlFill` (buttons, tracks) | `#E9E9EB` | `#2C2C2E` |
+| `ControlFill` (buttons, tracks) | `#787880` at 16 % | `#787880` at 32 % |
 | `Accent` (system blue) | `#007AFF` | `#0A84FF` |
 | `Destructive` (system red) | `#FF3B30` | `#FF453A` |
 
-Surfaces are opaque: there is no translucency or blur. Primary and secondary text meet the HIG's 4.5 : 1 contrast
-minimum on the background colors. `StyleColor` also contains the control, selection, overlay and focus-ring
+Surfaces are opaque: there are no translucent materials and no blur. A few colors carry alpha so that they adapt
+to the surface under them, as Apple's system fills do: the control fill, the focus ring, overlay borders,
+shadows and scroll indicators. Primary and secondary text meet the HIG's 4.5 : 1 contrast minimum on the
+background colors. `StyleColor` also contains the control, selection, overlay and focus-ring
 roles and the system palette (`Red` … `Gray`) for charts and status colors; see `Carbon/Style/StyleColor.h`.
 
 ``cpp

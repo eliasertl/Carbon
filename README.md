@@ -8,12 +8,7 @@ pass that your application owns; it never creates windows, devices or OS hooks.
 
 | Light | Dark |
 | --- | --- |
-| ![The MinimalIntegration example in the light appearance](Docs/Images/MinimalIntegration-Light.png) | ![The MinimalIntegration example in the dark appearance](Docs/Images/MinimalIntegration-Dark.png) |
-
-> **Status: early development.** Rendering, text, icons, layout, animation and themes work today (the
-> screenshots above are the `MinimalIntegration` example). The component library is being implemented
-> milestone by milestone; see the roadmap in [Docs/Architecture.md](Docs/Architecture.md#15-milestones). In the
-> snippet below the stacks are real; the widgets show the API they will have.
+| ![The Gallery example in the light appearance](Docs/Images/Gallery-Light.png) | ![The Gallery example in the dark appearance](Docs/Images/Gallery-Dark.png) |
 
 ```cpp
 Carbon::NewFrame();
@@ -21,27 +16,52 @@ Carbon::NewFrame();
 Carbon::BeginVStack({ .Spacing = 12.0f, .Padding = 20.0f });
     Carbon::Text("Settings", { .Style = Carbon::TextStyle::LargeTitle });
     Carbon::Toggle("Dark Mode", &darkMode);
-    if (Carbon::Button("Save", { .Role = Carbon::ButtonRole::Prominent }))
-        Save();
+    Carbon::BeginHStack({ .Spacing = 8.0f, .Width = Carbon::Size::Fill() });
+        Carbon::Spacer();
+        if (Carbon::Button("Cancel"))
+            Close();
+        if (Carbon::Button("Save", { .Role = Carbon::ButtonRole::Prominent }))
+            Save();
+    Carbon::EndHStack();
 Carbon::EndVStack();
 
 Carbon::EndFrame();
 Carbon::Render(pass); // your wgpu::RenderPassEncoder
 ```
 
+![The MinimalIntegration example: Carbon's controls next to a triangle drawn by the host](Docs/Images/MinimalIntegration-Light.png)
+
+> **Status: in development.** The core library is usable: rendering, text, layout, animation, themes and the
+> core components below. The extension components (sidebar, menus, tables, charts, …) are next; see the roadmap
+> in [Docs/Architecture.md](Docs/Architecture.md#15-milestones).
+
 ## What works today
 
-- Squircle shapes with continuous-curvature corners, evaluated analytically in the fragment shader: crisp and
-  antialiased at any scale.
-- Text shaped with HarfBuzz and rasterized with FreeType at the display's content scale, with the embedded
-  Public Sans variable font and the macOS type ramp.
-- 1530 embedded Phosphor icons in three weights, usable inside any text.
-- Stacks, spacers, fit/fixed/fill sizes and scroll views with overlay indicators.
-- Interruptible, frame-rate-independent springs, timing curves, reduce motion and animated theme switches.
-- Light and dark themes with Apple-like semantic colors; the dark theme is pure black.
-- A GPU-free draw list with clipping, layers and batching, and a Dawn renderer that draws into the host's pass.
-- Input forwarding with an event queue that never loses fast clicks or keystrokes.
-- One static library with no asset files to ship.
+- **Components**: Text, Icon, Button, Toggle (switch and checkbox), Slider, TextField, Image, Separator,
+  Tooltip, stacks, Spacer and ScrollView, each with hover, pressed, focused and disabled states that animate.
+- **Squircles**: every rounded shape has continuous-curvature corners, evaluated analytically in the fragment
+  shader, so it is crisp and antialiased at any scale.
+- **Text**: shaped with HarfBuzz and rasterized with FreeType at the display's content scale, with the embedded
+  Public Sans variable font, the macOS type ramp, wrapping and truncation.
+- **Icons**: 1530 embedded Phosphor icons in three weights, usable inside any text.
+- **Layout**: stacks, spacers, fit/fixed/fill sizes and scroll views with overlay indicators.
+- **Motion**: interruptible, frame-rate-independent springs, timing curves, reduce motion and animated theme
+  switches.
+- **Styling**: light and dark themes with Apple-like semantic colors (the dark theme is pure black), a style
+  stack, and per-call options.
+- **Keyboard**: Tab navigation, Space/Enter activation, arrow keys inside controls, and an animated focus ring.
+- **Integration**: a GPU-free draw list and a Dawn renderer that draws into the host's pass; an input queue
+  that never loses fast clicks or keystrokes; one static library with no asset files to ship.
+
+## Examples
+
+| Example | Shows |
+| --- | --- |
+| [`MinimalIntegration`](Examples/MinimalIntegration/Main.cpp) | The host side, step by step: context, input forwarding, the frame loop, drawing your own content in the same pass |
+| [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, with a reduce-motion switch |
+
+Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
+`--screenshot <file.png>`.
 
 ## Building
 
@@ -68,7 +88,9 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Integration](Docs/Integration.md) — creating a context, forwarding input, the render pass, DPI, fonts
 - [Layout](Docs/Layout.md) — stacks, sizes, spacers, scroll views
 - [Animation](Docs/Animation.md) — springs, timing curves, reduce motion, theme switches
-- [Styling](Docs/Styling.md) — themes, typography, icons, corner shapes
+- [Styling](Docs/Styling.md) — the three styling layers, themes, typography, icons, corner shapes
+- [Keyboard navigation](Docs/KeyboardNavigation.md) — keys, focus order, the focus ring
+- [Components](Docs/Components/README.md) — one page per component
 
 ## License
 
