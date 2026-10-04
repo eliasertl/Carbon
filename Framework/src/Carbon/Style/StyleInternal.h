@@ -1,10 +1,17 @@
 #pragma once
 
+#include <array>
+#include <cstddef>
+#include <vector>
+
 #include "Carbon/Style/Theme.h"
 
 namespace Carbon::Internal
 {
-    /// The styling state of one context: the theme and its running transition.
+    /// The styling state of one context: the theme, its running transition, and the style stack.
+    ///
+    /// Lookups read the working values: a copy of the current theme's colors and metrics, taken at the start of
+    /// the frame, that PushStyleColor and PushStyleVar overwrite and the matching pops restore.
     struct StyleState
     {
         /// Elapsed value that marks "no transition running".
@@ -16,9 +23,37 @@ namespace Carbon::Internal
         /// Advances a running transition. Returns true while it is still running.
         bool Advance(float deltaTime, bool reduceMotion);
 
+        /// Resets the working values to the current theme and empties the style stack.
+        void ResetWorkingValues();
+
+        Color GetColor(StyleColor color) const { return Colors[static_cast<size_t>(color)]; }
+        float GetVar(StyleVar var) const { return Vars[static_cast<size_t>(var)]; }
+
+        void PushColor(StyleColor color, Color value);
+        /// Returns false when the stack holds fewer than `count` entries; pops what is there.
+        bool PopColors(int count);
+        void PushVar(StyleVar var, float value);
+        bool PopVars(int count);
+
         Theme Current = Theme::Light();
         Theme Source = Theme::Light();
         Theme Target = Theme::Light();
         float Elapsed = FinishedElapsed;
+
+        std::array<Color, static_cast<size_t>(StyleColor::Count)> Colors = Current.Colors;
+        std::array<float, static_cast<size_t>(StyleVar::Count)> Vars = Current.Vars;
+
+        struct ColorEntry
+        {
+            StyleColor Index;
+            Color Previous;
+        };
+        struct VarEntry
+        {
+            StyleVar Index;
+            float Previous;
+        };
+        std::vector<ColorEntry> ColorStack;
+        std::vector<VarEntry> VarStack;
     };
 } // namespace Carbon::Internal
