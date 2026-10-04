@@ -10,10 +10,10 @@ pass that your application owns; it never creates windows, devices or OS hooks.
 | --- | --- |
 | ![The MinimalIntegration example in the light appearance](Docs/Images/MinimalIntegration-Light.png) | ![The MinimalIntegration example in the dark appearance](Docs/Images/MinimalIntegration-Dark.png) |
 
-> **Status: early development.** Rendering, text, icons and the draw list work today (the screenshots above are
-> the `MinimalIntegration` example). Layout, animation, themes and the component library are being implemented
-> milestone by milestone; see the roadmap in [Docs/Architecture.md](Docs/Architecture.md#15-milestones). The
-> snippet below shows the API the widgets will have.
+> **Status: early development.** Rendering, text, icons, layout, animation and themes work today (the
+> screenshots above are the `MinimalIntegration` example). The component library is being implemented
+> milestone by milestone; see the roadmap in [Docs/Architecture.md](Docs/Architecture.md#15-milestones). In the
+> snippet below the stacks are real; the widgets show the API they will have.
 
 ```cpp
 Carbon::NewFrame();
@@ -36,6 +36,9 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 - Text shaped with HarfBuzz and rasterized with FreeType at the display's content scale, with the embedded
   Public Sans variable font and the macOS type ramp.
 - 1530 embedded Phosphor icons in three weights, usable inside any text.
+- Stacks, spacers, fit/fixed/fill sizes and scroll views with overlay indicators.
+- Interruptible, frame-rate-independent springs, timing curves, reduce motion and animated theme switches.
+- Light and dark themes with Apple-like semantic colors; the dark theme is pure black.
 - A GPU-free draw list with clipping, layers and batching, and a Dawn renderer that draws into the host's pass.
 - Input forwarding with an event queue that never loses fast clicks or keystrokes.
 - One static library with no asset files to ship.
@@ -63,7 +66,9 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Architecture](Docs/Architecture.md) — modules, frame lifecycle, draw list, layout, animation, styling
 - [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn
 - [Integration](Docs/Integration.md) — creating a context, forwarding input, the render pass, DPI, fonts
-- [Styling](Docs/Styling.md) — typography, icons, corner shapes
+- [Layout](Docs/Layout.md) — stacks, sizes, spacers, scroll views
+- [Animation](Docs/Animation.md) — springs, timing curves, reduce motion, theme switches
+- [Styling](Docs/Styling.md) — themes, typography, icons, corner shapes
 
 ## License
 

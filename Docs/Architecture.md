@@ -26,7 +26,8 @@ through WebGPU (Dawn) into a render pass owned by the host. It ships as two stat
 Framework/src/Carbon/
 ├── Carbon.h              umbrella header for applications
 ├── Extension.h           umbrella header for component authors (extension API)
-├── Core/                 Platform, Log, Assert, Math (Vec2, Rect, Color, EdgeInsets), ContentScale, UTF8, ID, Context
+├── Core/                 Platform, Log, Assert, Math (Vec2, Rect, Color, EdgeInsets), ContentScale, UTF8, Hash, ID,
+│                         State (per-ID storage), Context
 ├── Input/                IO, Input (queries), Key, MouseButton, InputEvent, Cursor
 ├── Draw/                 DrawList, DrawTypes (vertex, primitive, command, draw data), Squircle (CPU shape function)
 ├── Text/                 FontLibrary, Font, TextShaper, GlyphAtlas, TextLayout, Icons (generated)
@@ -371,12 +372,25 @@ Layout is single-pass with one frame of latency for anything that needs a size i
 - **First-frame settle.** A container not seen on the previous frame lays out with stale (zero) measurements, so
   it is drawn fully transparent that frame and fades in over ~120 ms from the next one. `IsAnimating()` reports
   true while any container is unsettled, so event-driven hosts render the follow-up frame.
-- **Stack identity.** Stacks take their ID from their call order inside the parent (or `options.ID` when given).
-  They do **not** push onto the ID stack, so adding or removing a stack never changes widget IDs and widget
-  state (focus, animation) survives layout refactors. *Decision.*
-- **ScrollView** is a container with a clip rect and a persisted, spring-animated scroll offset. Overlay scroll
-  thumbs (squircle pills) fade in while scrolling or hovering the track and fade out after ~1 s. It takes an
-  explicit ID and pushes it on the ID stack.
+- **Stack identity.** A stack is identified by its call site (`std::source_location`), the enclosing container
+  and the ID stack, or by `options.ID` when given. Call sites are stable when sibling stacks appear and
+  disappear, which call order is not. Several stacks begun from one call site in the same frame (a loop) are
+  told apart by their order. Stacks do **not** push onto the ID stack, so adding or removing a stack never
+  changes widget IDs and widget state (focus, animation) survives layout refactors. *Decision.*
+- **Backgrounds.** A stack's background must be drawn before its content but its size is known only after. The
+  draw list reserves the quad at `Begin` (`AddDeferredSquircle`) and patches it at `End`, so the background
+  has this frame's size with no lag.
+- **Pixel snapping.** Item origins are snapped to whole pixels at the current content scale.
+- **Fill.** A `Fill` item's share is purely proportional to its weight (its minimum is zero), so
+  `Fill(1)` / `Fill(2)` panes are exactly 1 : 2 whatever they contain. `Fill` items do not count towards the
+  measured content of a fitting axis, which keeps a full-width separator from inflating its stack.
+- **ScrollView** is a container with a clip rect and a persisted, spring-animated scroll offset. The wheel goes
+  to the innermost scroll view under the pointer, determined during the previous frame. The overlay indicator
+  (a pill) appears while scrolling and when the view first appears, and fades out after about a second. It
+  takes an explicit ID and pushes it on the ID stack.
+- **Per-ID state** lives in `Core/State.h`: `GetState<T>(id, lifetime)` returns a zero-initialized, trivially
+  copyable block. `Transient` state is dropped when a frame passes without it being requested (animations,
+  measurements); `Persistent` state lives as long as the context (scroll offsets).
 
 ## 8. Animation model
 
@@ -559,7 +573,7 @@ walks through it.
 | --- | --- | --- |
 | 1 | Per-call structs are `<Widget>Options` | `TextStyle` is the type-ramp enum in the brief's own example |
 | 2 | Squircle = superellipse corner patch, apex-matched to the circular arc | Analytic in the fragment shader, exact circle at smoothing 0, zero curvature at the joins |
-| 3 | Stacks are identified by call order and do not push IDs | Widget state must survive layout changes |
+| 3 | Stacks are identified by their call site and do not push IDs | Widget state must survive layout changes; call order would make a stack "new" whenever a sibling before it appears |
 | 4 | `ContextDescription` carries `DepthStencilFormat` and `SampleCount` | The pipeline must match the host's pass |
 | 5 | Draw list stores an opaque `TextureID`; `wgpu::` types appear only in `ContextDescription`, `Render` and the `Image` overload | Keeps everything above `Renderer/` GPU-free |
 | 6 | Gamma-space blending on `Unorm` targets, linearized on `UnormSrgb` | Matches the look of macOS UI on the common surface formats |
@@ -577,6 +591,10 @@ walks through it.
 | 18 | Every field of an option struct has a default member initializer | GCC `-Wextra` warns about omitted fields in designated initializers otherwise |
 | 19 | Examples and tests copy `d3dcompiler_47.dll` next to their executables on Windows | Dawn only looks there unless built with `DAWN_FORCE_SYSTEM_COMPONENT_LOAD` |
 | 20 | `MinimalIntegration` draws through the draw list until widgets exist | M2 has no layout or widgets yet; the example is rewritten with them in M4 |
+| 21 | The type ramp and the font are part of `Theme` | Hosts customize typography the same way as colors; `GetTextSpec` reads the current theme |
+| 22 | A theme switch interpolates colors and metrics but switches the type ramp at once | Interpolating sizes and weights would rasterize every glyph at every intermediate value |
+| 23 | Colors animate premultiplied and always count as a change of appearance | Fades to and from transparent keep their hue; reduce motion keeps them as cross-fades |
+| 24 | `IsAnimating()` also covers unsettled layout and fading containers | One call tells an on-demand host whether another frame is needed |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

@@ -1,7 +1,61 @@
 # Styling
 
-> This guide grows with the framework. Typography, icons and corner shapes exist today; themes, the style stack
+> This guide grows with the framework. Themes, typography, icons and corner shapes exist today; the style stack
 > and per-call options arrive with milestone 4.
+
+## Themes
+
+A `Theme` is the complete look of the interface: semantic colors, metrics and the type ramp. Carbon ships two.
+
+| | `Theme::Light()` | `Theme::Dark()` |
+| --- | --- | --- |
+| `Background` | `#FFFFFF` | `#000000` (pure black, for OLED) |
+| `SecondaryBackground` (grouped boxes, sidebars) | `#F2F2F7` | `#1C1C1E` |
+| `Label` | `#000000` | `#FFFFFF` |
+| `SecondaryLabel` | `#6E6E73` | `#98989F` |
+| `TertiaryLabel` (placeholders, disabled) | `#AEAEB2` | `#636366` |
+| `Separator` | `#DCDCE0` | `#38383A` |
+| `ControlFill` (buttons, tracks) | `#E9E9EB` | `#2C2C2E` |
+| `Accent` (system blue) | `#007AFF` | `#0A84FF` |
+| `Destructive` (system red) | `#FF3B30` | `#FF453A` |
+
+Surfaces are opaque: there is no translucency or blur. Primary and secondary text meet the HIG's 4.5 : 1 contrast
+minimum on the background colors. `StyleColor` also contains the control, selection, overlay and focus-ring
+roles and the system palette (`Red` … `Gray`) for charts and status colors; see `Carbon/Style/StyleColor.h`.
+
+``cpp
+Carbon::SetTheme(Carbon::Theme::Dark());             // the host chooses; Carbon cannot detect the OS setting
+
+Carbon::Theme theme = Carbon::Theme::Dark();          // customize: start from a built-in theme
+theme.SetColor(Carbon::StyleColor::Accent, Carbon::Color::FromHex(0xFF9F0A));
+theme.SetVar(Carbon::StyleVar::CornerRadius, 8.0f);
+Carbon::SetTheme(theme);
+``
+
+Switching themes is animated: every color and metric glides to its new value (see
+[Animation](Animation.md#theme-switches)). Components read the current values each frame:
+
+``cpp
+Carbon::Color label = Carbon::GetStyleColor(Carbon::StyleColor::Label);
+float radius = Carbon::GetStyleVar(Carbon::StyleVar::CornerRadius);
+``
+
+### Metrics
+
+| `StyleVar` | Default | Meaning |
+| --- | --- | --- |
+| `CornerRadius` | 6 | Controls: buttons, fields, selection highlights |
+| `CornerSmoothing` | 0.6 | Smoothing of every rounded shape |
+| `GroupCornerRadius` | 10 | Grouped boxes and cards |
+| `OverlayCornerRadius` | 10 | Menus, popovers, alerts, sheets |
+| `Spacing` | 8 | Default distance between the items of a stack |
+| `ControlHeight` | 24 | Height of regular-size controls |
+| `ControlPadding` | 10 | Horizontal padding inside buttons and fields |
+| `BorderWidth` | 1 | Control outlines and separators |
+| `FocusRingWidth` / `FocusRingOffset` | 3 / 1 | The keyboard focus ring |
+| `DisabledOpacity` | 0.4 | Opacity of disabled content |
+| `HoverAmount` / `PressedAmount` | 0.05 / 0.12 | How far a control's fill shifts towards the label color |
+| `ScrollIndicatorWidth` | 7 | Overlay scroll indicators |
 
 ## Typography
 
@@ -12,7 +66,8 @@ Carbon's default typeface is [Public Sans](https://public-sans.digital.gov), emb
 
 `Carbon::TextStyle` is the macOS type ramp from the
 [HIG Typography page](https://developer.apple.com/design/human-interface-guidelines/typography). Sizes and line
-heights are in points.
+heights are in points. The ramp is part of the theme: `Theme::SetTextStyle` changes a style and `Theme::Font`
+replaces the typeface.
 
 | Style | Size / line height | Weight | Emphasized weight |
 | --- | --- | --- | --- |

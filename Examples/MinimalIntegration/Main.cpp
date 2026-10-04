@@ -23,27 +23,18 @@ namespace
     using Carbon::Rect;
     using Carbon::Vec2;
 
-    // Until Carbon's themes arrive (milestone 4), the example brings its own colors.
+    // The colors come from Carbon's current theme. During an animated theme switch they are the blend of the
+    // old and the new theme, so everything drawn with them glides along.
     struct Palette
     {
-        Color Background;
-        Color Label;
-        Color SecondaryLabel;
-        Color Control;
-        Color Separator;
-        Color Accent;
+        Color Background = Carbon::GetStyleColor(Carbon::StyleColor::Background);
+        Color Label = Carbon::GetStyleColor(Carbon::StyleColor::Label);
+        Color SecondaryLabel = Carbon::GetStyleColor(Carbon::StyleColor::SecondaryLabel);
+        Color Control = Carbon::GetStyleColor(Carbon::StyleColor::ControlFill);
+        Color Separator = Carbon::GetStyleColor(Carbon::StyleColor::ControlBorder);
+        Color Accent = Carbon::GetStyleColor(Carbon::StyleColor::Accent);
+        Color FocusRing = Carbon::GetStyleColor(Carbon::StyleColor::FocusRing);
     };
-
-    Palette GetPalette(bool isDark)
-    {
-        if (isDark)
-        {
-            return Palette{Color::FromHex(0x000000), Color::FromHex(0xFFFFFF), Color::FromHex(0x98989F),
-                           Color::FromHex(0x2C2C2E), Color::FromHex(0x38383A), Color::FromHex(0x0A84FF)};
-        }
-        return Palette{Color::FromHex(0xFFFFFF), Color::FromHex(0x000000), Color::FromHex(0x6E6E73),
-                       Color::FromHex(0xE9E9EB), Color::FromHex(0xD1D1D6), Color::FromHex(0x007AFF)};
-    }
 
     // Where the host draws its own content, in points. Carbon frames it and labels it.
     constexpr Rect HostContentRect(448.0f, 124.0f, 280.0f, 232.0f);
@@ -133,7 +124,8 @@ namespace
 
         drawList.AddText(Vec2(left, 28.0f), "Carbon", Carbon::GetTextSpec(Carbon::TextStyle::LargeTitle, true),
                          palette.Label);
-        drawList.AddText(Vec2(left, 64.0f), "Immediate-mode UI, rendered into the host's own render pass.", body,
+        drawList.AddText(Vec2(left, 64.0f),
+                         "Immediate-mode UI, rendered into the host's own render pass. Press T to switch theme.", body,
                          palette.SecondaryLabel);
 
         // Corner smoothing: the same rectangle with circular, default and maximum smoothing.
@@ -162,7 +154,7 @@ namespace
 
         const Rect focused(left + 160.0f, controlTop, 84.0f, 24.0f);
         drawList.AddSquircle(focused, palette.Control, 6.0f);
-        drawList.AddFocusRing(focused, palette.Accent.WithAlpha(0.5f), 6.0f, 3.0f, 0.0f);
+        drawList.AddFocusRing(focused, palette.FocusRing, 6.0f, 3.0f, 1.0f);
         DrawCenteredLabel(drawList, focused, "Focused", body, palette.Label);
 
         const Rect field(left + 260.0f, controlTop, 110.0f, 24.0f);
@@ -285,7 +277,9 @@ int main(int argc, char** argv)
             window, [](GLFWwindow*, int focused) { Carbon::GetIO().AddFocusEvent(focused == GLFW_TRUE); });
     }
 
-    const Palette palette = GetPalette(arguments.IsDark);
+    // The host chooses the appearance; Carbon cannot detect the OS setting.
+    bool isDark = arguments.IsDark;
+    Carbon::SetTheme(isDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
     const HostTriangle triangle(host.GetDevice(), host.GetColorFormat());
 
     // ---- 3. The frame loop ----------------------------------------------------------------------------------
@@ -298,6 +292,13 @@ int main(int argc, char** argv)
         io.SetDeltaTime(host.GetDeltaTime());
 
         Carbon::NewFrame();
+        // Press T to switch between the light and the dark theme; the switch is animated.
+        if (Carbon::IsKeyPressed(Carbon::Key::T, false))
+        {
+            isDark = !isDark;
+            Carbon::SetTheme(isDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
+        }
+        const Palette palette;
         BuildInterface(palette);
         Carbon::EndFrame();
 
