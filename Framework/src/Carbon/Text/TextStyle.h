@@ -24,7 +24,7 @@ namespace Carbon
         Count
     };
 
-    /// Returns size, line height and weight of a text style. `emphasized` selects the HIG's emphasized weight
-    /// (for example bold for titles and semibold for body text).
+    /// Returns font, size, line height and weight of a text style in the current theme. `emphasized` selects the
+    /// HIG's emphasized weight (for example bold for titles and semibold for body text).
     TextSpec GetTextSpec(TextStyle style, bool emphasized = false);
 } // namespace Carbon
