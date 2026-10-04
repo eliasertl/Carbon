@@ -35,6 +35,8 @@ namespace Carbon::Internal
             bool HasHoveredRow;
             bool IsFocused;
             bool IsEmphasized;
+            /// A pick requested through RequestSelectionListPick during this frame, or -1.
+            int RequestedOrdinal;
             bool AnimatesHighlight;
             bool HasBorder;
             bool IsOpen;
@@ -79,6 +81,7 @@ namespace Carbon::Internal
         build.AnimatesHighlight = description.AnimatesHighlight;
         build.HasBorder = description.HasBorder;
         build.SelectedOrdinal = -1;
+        build.RequestedOrdinal = -1;
         build.IsOpen = true;
 
         BeginScrollView(id, description.Scroll);
@@ -151,6 +154,7 @@ namespace Carbon::Internal
         if (!isDisabled && !IsDisabled())
         {
             const int ordinal = build.Count++;
+            row.Ordinal = ordinal;
             if (state.PendingOrdinal == ordinal + 1)
             {
                 row.Clicked = true;
@@ -176,6 +180,24 @@ namespace Carbon::Internal
     Rect GetSelectionListContentRect()
     {
         return GetBuild().Content;
+    }
+
+    ID GetSelectionListID()
+    {
+        return GetBuild().Id;
+    }
+
+    bool IsSelectionListFocused()
+    {
+        return GetBuild().IsFocused;
+    }
+
+    void RequestSelectionListPick(int ordinal)
+    {
+        SelectionListBuild& build = GetBuild();
+        if (!build.IsOpen || ordinal < 0)
+            return;
+        build.RequestedOrdinal = ordinal;
     }
 
     void EndSelectionList()
@@ -240,6 +262,12 @@ namespace Carbon::Internal
                 state.RevealFrame = GetFrameCount() + 2;
                 RequestAnimationFrame();
             }
+        }
+        if (build.RequestedOrdinal >= 0 && build.RequestedOrdinal < build.Count)
+        {
+            state.PendingOrdinal = build.RequestedOrdinal + 1;
+            state.RevealFrame = GetFrameCount() + 2;
+            RequestAnimationFrame();
         }
 
         EndScrollView();

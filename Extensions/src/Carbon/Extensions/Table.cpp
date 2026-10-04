@@ -2,28 +2,20 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/ColumnLayout.h"
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
 namespace Carbon
 {
     namespace
     {
-        constexpr int MaxColumns = 16;
-        constexpr float HeaderHeight = 24.0f;
         // Space around the rows, so that the selection highlight is inset from the table's edge.
         constexpr float RowInset = 5.0f;
-        constexpr float CellPadding = 8.0f;
-        constexpr float IconSize = 15.0f;
-        constexpr float IconGap = 6.0f;
         constexpr float TableCornerRadius = 7.0f;
 
-        struct ColumnLayout
-        {
-            /// Relative to the leading edge of the rows.
-            float X;
-            float Width;
-            TextAlignment Alignment;
-        };
+        using Internal::CellPadding;
+        using Internal::ColumnLayout;
+        using Internal::MaxColumns;
 
         // The table whose rows are being added.
         struct TableBuild
@@ -43,38 +35,6 @@ namespace Carbon
         TableBuild& GetBuild()
         {
             return *GetState<TableBuild>(HashID("Carbon.Table.Build"), StateLifetime::Persistent);
-        }
-
-        // Fixed columns get their width; the others share the rest by weight.
-        void LayoutColumns(TableBuild& build, std::span<const TableColumn> columns, float width)
-        {
-            build.ColumnCount = std::min(static_cast<int>(columns.size()), MaxColumns);
-            float fixed = 0.0f;
-            float weight = 0.0f;
-            for (int i = 0; i < build.ColumnCount; i++)
-            {
-                const Size size = columns[static_cast<size_t>(i)].Width;
-                if (size.Mode == SizeMode::Fixed)
-                    fixed += std::max(size.Value, 0.0f);
-                else
-                    weight += size.Mode == SizeMode::Fill ? std::max(size.Value, 0.0f) : 1.0f;
-            }
-            const float unit = weight > 0.0f ? std::max(width - fixed, 0.0f) / weight : 0.0f;
-
-            float x = 0.0f;
-            for (int i = 0; i < build.ColumnCount; i++)
-            {
-                const TableColumn& column = columns[static_cast<size_t>(i)];
-                ColumnLayout& layout = build.Columns[i];
-                layout.X = x;
-                if (column.Width.Mode == SizeMode::Fixed)
-                    layout.Width = std::max(column.Width.Value, 0.0f);
-                else
-                    layout.Width =
-                        unit * (column.Width.Mode == SizeMode::Fill ? std::max(column.Width.Value, 0.0f) : 1.0f);
-                layout.Alignment = column.Alignment;
-                x += layout.Width;
-            }
         }
 
         // The rectangle of the next cell of the current row, without its padding. Empty when the row is full.
@@ -98,9 +58,6 @@ namespace Carbon
         build.RowHeight = options.RowHeight;
         build.ShowsAlternatingRows = options.ShowsAlternatingRows;
 
-        DrawList& drawList = GetDrawList();
-        const float pixel = GetContentScale().GetPixelSize();
-
         // The frame around header and rows is drawn first and sized when the table ends.
         BeginVStack({.Spacing = 0.0f,
                      .Width = options.Width,
@@ -114,24 +71,9 @@ namespace Carbon
         {
             ItemOptions item;
             item.Width = Size::Fill();
-            const Rect header = AllocateItem(Vec2(0.0f, HeaderHeight), item);
-            LayoutColumns(build, columns, header.Width - RowInset * 2.0f);
-
-            TextSpec spec = GetTextSpec(TextStyle::Subheadline, true);
-            spec.Wraps = false;
-            const Color titleColor = GetStyleColor(StyleColor::SecondaryLabel);
-            const Color separator = GetStyleColor(StyleColor::Separator);
-            for (int i = 0; i < build.ColumnCount; i++)
-            {
-                const ColumnLayout& column = build.Columns[i];
-                const float x = header.X + RowInset + column.X;
-                spec.MaxWidth = std::max(column.Width - CellPadding * 2.0f, 1.0f);
-                spec.Alignment = column.Alignment;
-                DrawLabel(drawList, header, x + CellPadding, columns[static_cast<size_t>(i)].Title, spec, titleColor);
-                if (i > 0)
-                    drawList.AddRect(Rect(x, header.Y + 5.0f, pixel, header.Height - 10.0f), separator);
-            }
-            drawList.AddRect(Rect(header.X, header.GetBottom() - pixel, header.Width, pixel), separator);
+            const Rect header = AllocateItem(Vec2(0.0f, Internal::ColumnHeaderHeight), item);
+            build.ColumnCount = Internal::LayoutColumns(columns, header.Width - RowInset * 2.0f, build.Columns);
+            Internal::DrawColumnHeader(header, RowInset, columns, build.Columns, build.ColumnCount);
         }
 
         Internal::SelectionListDescription description;
@@ -139,7 +81,10 @@ namespace Carbon
         description.Scroll.Padding = EdgeInsets(RowInset, 3.0f);
         Internal::BeginSelectionList("##rows", description);
         if (!options.ShowsHeader)
-            LayoutColumns(build, columns, Internal::GetSelectionListContentRect().Width);
+        {
+            build.ColumnCount =
+                Internal::LayoutColumns(columns, Internal::GetSelectionListContentRect().Width, build.Columns);
+        }
     }
 
     void EndTable()
@@ -187,30 +132,12 @@ namespace Carbon
     void TableCell(std::string_view text, const TableCellOptions& options)
     {
         TableBuild& build = GetBuild();
-        Rect cell = TakeCell(build);
+        const Rect cell = TakeCell(build);
         if (build.NextColumn >= build.ColumnCount)
             return;
         const TextAlignment alignment = build.Columns[build.NextColumn].Alignment;
         build.NextColumn++;
-        if (cell.Width <= 0.0f)
-            return;
-
-        DrawList& drawList = GetDrawList();
-        const Color onAccent = GetStyleColor(StyleColor::OnAccent);
-        if (!options.Icon.empty())
-        {
-            DrawIcon(drawList, Vec2(cell.X + IconSize * 0.5f, cell.GetCenter().Y), options.Icon, IconSize,
-                     build.IsRowEmphasized ? onAccent : GetStyleColor(StyleColor::Accent));
-            cell.X += IconSize + IconGap;
-            cell.Width = std::max(cell.Width - IconSize - IconGap, 1.0f);
-        }
-
-        TextSpec spec = GetTextSpec(TextStyle::Body);
-        spec.MaxWidth = cell.Width;
-        spec.Wraps = false;
-        spec.Alignment = alignment;
-        const StyleColor role = options.Secondary ? StyleColor::SecondaryLabel : StyleColor::Label;
-        DrawLabel(drawList, cell, cell.X, text, spec, build.IsRowEmphasized ? onAccent : GetStyleColor(role));
+        Internal::DrawCellText(cell, text, options, alignment, build.IsRowEmphasized);
     }
 
     void BeginTableCell()

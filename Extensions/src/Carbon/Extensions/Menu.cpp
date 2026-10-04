@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/MenuInternal.h"
+
 namespace Carbon
 {
     namespace
@@ -41,6 +43,9 @@ namespace Carbon
         {
             uint64_t Frame;
             int Depth;
+            /// A submenu was built during this frame, or the arrow keys opened or closed one: the left and right
+            /// arrow keys belong to the menus, not to a menu bar.
+            bool UsedHorizontalArrows;
             MenuLevel Levels[MaxMenuDepth];
         };
 
@@ -81,6 +86,7 @@ namespace Carbon
             {
                 stack.Frame = GetFrameCount();
                 stack.Depth = 0;
+                stack.UsedHorizontalArrows = false;
             }
             return stack;
         }
@@ -352,6 +358,7 @@ namespace Carbon
         {
             OpenOverlay(submenu);
             state.FocusFirst = byKeyboard;
+            stack.UsedHorizontalArrows = stack.UsedHorizontalArrows || byKeyboard;
             state.HoverTime = 0.0f;
             state.LingerTime = 0.0f;
         }
@@ -368,6 +375,7 @@ namespace Carbon
             return false;
 
         stack.Levels[stack.Depth - 2].BuiltSubmenu = true;
+        stack.UsedHorizontalArrows = true;
         if (state.FocusFirst)
         {
             FocusNext();
@@ -383,7 +391,10 @@ namespace Carbon
         {
             UpdateMenuChain(stack);
             if (IsKeyPressed(Key::LeftArrow, false))
+            {
                 CloseOverlay(stack.Levels[stack.Depth - 1].Id);
+                stack.UsedHorizontalArrows = true;
+            }
         }
         EndMenuLevel();
     }
@@ -407,5 +418,10 @@ namespace Carbon
     void EndContextMenu()
     {
         EndMenuLevel();
+    }
+
+    bool Internal::DidMenusUseHorizontalArrows()
+    {
+        return GetStack().UsedHorizontalArrows;
     }
 } // namespace Carbon

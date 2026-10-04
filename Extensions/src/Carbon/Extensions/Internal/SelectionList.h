@@ -36,6 +36,8 @@ namespace Carbon::Internal
         bool Clicked = false;
         /// The row is selected and the list has focus: its content is drawn in the on-accent color.
         bool IsEmphasized = false;
+        /// Position among the rows that can be picked (enabled rows), or -1 for a disabled row.
+        int Ordinal = -1;
         Carbon::Interaction Interaction;
     };
 
@@ -46,4 +48,11 @@ namespace Carbon::Internal
     SelectionRow SelectionListRow(ID id, float height, bool isSelected, bool isDisabled);
     /// The area of the list being built, without its padding.
     Rect GetSelectionListContentRect();
+    /// The ID of the list being built: the one that takes focus.
+    ID GetSelectionListID();
+    /// True while the list being built has keyboard focus.
+    bool IsSelectionListFocused();
+    /// Makes the row at `ordinal` report being picked during the next frame and scrolls it into view, as if the
+    /// arrow keys had moved there. Outline views use it to move to a parent row.
+    void RequestSelectionListPick(int ordinal);
 } // namespace Carbon::Internal
