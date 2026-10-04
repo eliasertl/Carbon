@@ -105,6 +105,29 @@ cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install> \
   -DCARBON_DEPS_HARFBUZZ_BUILD=OFF -DCARBON_DEPS_HARFBUZZ_NAME=harfbuzz::harfbuzz
 ```
 
+## What the build generates
+
+Fonts, the shader and the icon constants are generated at build time into `<build>/Framework/Generated` by the
+CMake scripts in `Framework/CMake/` (no Python or other tools needed). Nothing generated is committed, and the
+`Carbon` library needs no asset files at run time.
+
+## Examples and tests
+
+Every example accepts `--screenshot <file.png>` (render one settled frame offscreen, save it and exit),
+`--theme light|dark` and `--scale <factor>`:
+
+```sh
+Build/Examples/MinimalIntegration/MinimalIntegration --theme dark
+Build/Examples/MinimalIntegration/MinimalIntegration --screenshot shot.png --scale 2
+```
+
+`ctest` runs headless. Most tests need no GPU at all. The renderer tests create a real device and compare
+rendered pixels; on a machine without a WebGPU adapter they report as skipped.
+
+On Windows, Dawn needs `d3dcompiler_47.dll` next to the executable (see
+[Integration](Integration.md#windows-d3dcompiler_47dll)). The examples and tests copy it from the Windows SDK;
+set `CARBON_D3DCOMPILER_DLL` to its path if CMake cannot find it.
+
 ## Using Carbon from a parent project
 
 ```cmake

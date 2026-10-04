@@ -14,7 +14,9 @@ contract is [Docs/Architecture.md](Docs/Architecture.md); read it before changin
   - Locals and parameters: `camelCase`.
   - Constants (`constexpr`, `const` at namespace or class scope): `PascalCase` (`DefaultSmoothing`).
   - Template parameters: `T` or `PascalCase`.
-  - Per-call option structs are named `<Widget>Options`.
+  - Per-call option structs are named `<Widget>Options`. Every field of a struct that is meant for designated
+    initializers has a default member initializer (`= {}` if nothing else): GCC's `-Wextra` otherwise warns about
+    each omitted field in the caller's code.
 - Class layout: methods and members sit in separate sections with repeated access specifiers. Public methods come
   first, then private methods, then private members.
 - Avoid `auto`. Use it only when the type is long and obvious from the same line (iterators, lambdas).

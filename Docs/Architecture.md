@@ -294,7 +294,9 @@ float SquircleDistance(Vec2 point, Vec2 halfSize, float radius, float smoothing)
   `n ≈ 4.4`. For `n > 2` curvature is zero where the patch meets the straight edge, which is the "continuous
   curvature" property.
 - Distance is the implicit value divided by its gradient length (first-order exact near the edge), which is what
-  antialiasing, strokes and focus rings need.
+  antialiasing, strokes and focus rings need. The gradient's length depends on direction and is undefined at the
+  patch's inner corner, so the correction fades out with distance from the outline; the function is continuous
+  everywhere, which soft shadows rely on.
 
 Strokes are the difference of two squircles (outer shape minus the inset shape with `radius - width`), and focus
 rings are a stroke on the outset shape, so ring corners stay concentric with the control.
@@ -311,7 +313,13 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
 - Vertex, index and primitive buffers are written with `queue.WriteBuffer`, grow geometrically and are reused.
 - Colors are authored in sRGB. For `…Unorm` targets Carbon writes them as-is (gamma-space blending, which is what
   macOS UI looks like); for `…UnormSrgb` targets the shader linearizes.
-- WGSL lives in `Renderer/Shaders/*.wgsl` and is embedded at build time.
+- WGSL lives in `Renderer/Shaders/Carbon.wgsl` and is embedded at build time.
+- Host textures: `GetTextureID(view)` registers a `wgpu::TextureView` and returns an opaque `TextureID`. The
+  renderer keeps the view and its bind group while the texture is registered or drawn, and releases them once a
+  whole frame passes without either.
+- The renderer exists even without a device (headless context); it then only keeps the texture registry.
+- GPU tests render offscreen and compare every pixel of a squircle with the CPU shape function, so the shader
+  cannot drift from `Squircle.cpp` unnoticed. They skip on machines without an adapter.
 - `Render(pass)` sets its own viewport, scissor, pipeline and bind groups and does not restore the host's state;
   this is documented in `Docs/Integration.md`.
 
@@ -321,11 +329,20 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
   font → Public Sans → Phosphor (icons live in the Private Use Area) → fonts added by the host, in order.
 - **Variable weight.** One FreeType face per font file; a weight instance (`wght` axis) per used weight, each with
   its own HarfBuzz font. `FontWeight` is a numeric 100–900 enum.
-- **Glyph atlas.** A single-channel atlas with skyline packing, rasterized at `size × contentScale` pixels. Glyph
-  key: font, weight, glyph index, pixel size, horizontal sub-pixel bin (4 bins). Text origins snap to whole pixels
-  vertically. The atlas grows by doubling (to a 4096² cap); when the content scale changes or the cap is hit it is
-  cleared and refilled lazily. Only dirty regions are uploaded.
-- **Shaped-run cache.** Keyed by hash of (text, font, weight, size); LRU, so steady-state frames do no shaping.
+- **Glyph atlas.** A single-channel atlas with skyline packing, rasterized without hinting at
+  `size × contentScale` pixels. Glyph key: face, weight, glyph index, pixel size, horizontal sub-pixel bin
+  (4 bins). Baselines snap to whole pixels. The atlas starts at 512² and grows by doubling (to a 4096² cap);
+  existing glyphs keep their texel coordinates, and glyph quads carry texel UVs that the shader normalizes, so
+  quads emitted before a mid-frame growth stay valid. When the content scale changes or the cap is hit, the atlas
+  is cleared at the start of the next frame and refilled lazily. Only dirty rows are uploaded.
+- **Shaped-line cache.** Shaping happens in font units, so a shaped line is independent of size and content
+  scale. Lines are cached by a hash of (text, font, weight, italic, icon variant) and evicted after about ten
+  seconds without use, so steady-state frames do no shaping and no allocation.
+- **Fallback.** Each character uses the requested face if it has the glyph, then the icon font for Private Use
+  Area code points, then the other registered fonts in order. A line is split into runs per face and each run is
+  shaped separately.
+- **Text drawing** is `DrawList::AddText`. It is declared on the draw list for convenience but implemented in
+  `Text/`, because text sits above the draw list in the layering.
 - **Type ramp** (`TextStyle`), from the HIG macOS table: Large Title 26/32, Title 1 22/26, Title 2 17/22,
   Title 3 15/20, Headline 13/16 bold, Body 13/16, Callout 12/15, Subheadline 11/14, Footnote 10/13,
   Caption 1 10/13, Caption 2 10/13 medium. `TextOptions::Emphasized` selects the HIG's emphasized weight.
@@ -333,8 +350,9 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
   recorded in `Docs/Styling.md`.
 - **Icons.** Phosphor regular, bold and fill fonts are embedded. `Carbon::Icons::House` etc. are
   `inline constexpr const char*` UTF-8 strings generated at build time from Phosphor's `selection.json` into the
-  build tree, so icons can be drawn with `Icon()` or embedded in any label. Icon weight follows text weight
-  (semibold and above use the bold font); `IconOptions::Variant = Fill` selects the filled set.
+  build tree, so icons can be drawn with `Icon()` or embedded in any label. The three fonts share their code
+  points. Icon weight follows text weight (semibold and above use the bold font); `TextSpec::Icons` selects a
+  variant explicitly. Icons are drawn at 1.2 × the text size and centered on the capitals of the primary font.
 
 ## 7. Layout algorithm
 
@@ -554,6 +572,11 @@ walks through it.
 | 13 | Misuse checks use `CB_VERIFY` (always on) and recover; `CB_ASSERT` is debug-only | Unbalanced stacks must be reported in release builds too, and tests run in both |
 | 14 | `IO::AddMouseLeaveEvent` added | Hover must end when the pointer leaves the host's area |
 | 15 | `CreateContext` makes the new context current only if none is current | Matches Dear ImGui and avoids surprising multi-context hosts |
+| 16 | Glyphs are rasterized without hinting | Faithful shapes and spacing at every size, as on macOS; sub-pixel positioning keeps small text even |
+| 17 | Glyph quads carry texel UVs | The atlas can grow mid-frame without invalidating quads already emitted |
+| 18 | Every field of an option struct has a default member initializer | GCC `-Wextra` warns about omitted fields in designated initializers otherwise |
+| 19 | Examples and tests copy `d3dcompiler_47.dll` next to their executables on Windows | Dawn only looks there unless built with `DAWN_FORCE_SYSTEM_COMPONENT_LOAD` |
+| 20 | `MinimalIntegration` draws through the draw list until widgets exist | M2 has no layout or widgets yet; the example is rewritten with them in M4 |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

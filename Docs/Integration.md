@@ -4,9 +4,11 @@ Carbon never creates windows, devices or OS hooks. Your application (the *host*)
 to Carbon and gives it a place to draw. This guide covers the host's side: creating a context, forwarding input,
 driving frames and handling DPI.
 
-> Carbon is under construction. Rendering through Dawn (`Carbon::Render`) arrives with milestone 2 and will be
-> documented here; until then a context builds draw data that you can inspect with `Carbon::GetDrawData()`. The
-> `Wants…` flags stay false until the widgets of milestone 4 exist.
+[Examples/MinimalIntegration](../Examples/MinimalIntegration/Main.cpp) is the complete, runnable version of this
+guide.
+
+> Carbon is under construction. Widgets and layout arrive with later milestones; until then the interface is
+> drawn through the draw list, and the `Wants…` flags stay false.
 
 ## Creating a context
 
@@ -52,6 +54,73 @@ Carbon::EndFrame();
 Set the display size, content scale and delta time **before** `NewFrame`, every frame. `NewFrame` applies the
 queued input; `EndFrame` produces the frame's draw data. Calling them out of order, or leaving a `PushID`,
 `PushClipRect` or similar unbalanced, is reported through the log and the assert callback.
+
+## Rendering into your render pass
+
+After `EndFrame`, Carbon records the frame into a render pass that you begin and end:
+
+```cpp
+wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);   // your pass
+DrawScene(pass);                                                           // your own content, if any
+Carbon::Render(pass);                                                      // Carbon's interface on top
+pass.End();
+```
+
+What Carbon expects from the pass:
+
+- **Format.** The color attachment has the `ColorFormat` given at context creation. If the pass has a
+  depth-stencil attachment or is multisampled, `DepthStencilFormat` and `SampleCount` must say so. Carbon neither
+  tests nor writes depth.
+- **Size.** The attachment is `display size × content scale` pixels. Carbon sets the viewport to that size.
+- **State.** `Render` sets its own pipeline, bind groups, vertex and index buffers, viewport and scissor rectangle
+  and does not restore the previous ones. Draw your content before `Render`, or set your state again afterwards.
+- **Color.** Carbon's colors are sRGB. On `…Unorm` formats they are written as they are, so blending happens in
+  gamma space, which is what macOS interfaces look like. On `…UnormSrgb` formats Carbon converts to linear values
+  and the GPU blends in linear space; translucent edges then look slightly lighter. Prefer a `…Unorm` surface
+  format for an interface.
+- **Blending.** Carbon draws with premultiplied alpha on top of whatever the pass already contains.
+
+`Render` does nothing (and logs an error once) on a context that was created without a device. A context without
+a device is still useful: it builds the same draw data, which `Carbon::GetDrawData()` returns, for tests or a
+custom renderer.
+
+### Windows: d3dcompiler_47.dll
+
+Dawn's Direct3D backends compile shaders with `d3dcompiler_47.dll` and, unless Dawn was built with
+`DAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON`, only look for it next to the executable. Ship the DLL from the Windows SDK
+(`Redist/D3D/x64`) with your application. Carbon's examples and tests copy it automatically; without it, device
+creation fails with `DynamicLib.Open: d3dcompiler_47.dll`.
+
+### Drawing your own textures
+
+A texture view of yours — a rendered scene, a thumbnail — can be drawn inside the interface:
+
+```cpp
+Carbon::TextureID id = Carbon::GetTextureID(sceneView);   // wgpu::TextureView
+Carbon::GetDrawList().AddImage(id, Carbon::Rect(20, 20, 320, 180), Carbon::Rect(0, 0, 1, 1),
+                               Carbon::Color::White(), 10.0f);   // tint and corner radius are optional
+```
+
+Carbon holds a reference to the view while it is in use and releases it once a whole frame passes without the
+texture being drawn. Call `GetTextureID` every frame, or keep drawing the ID you got. Textures are sampled with
+linear filtering and treated as straight (non-premultiplied) alpha.
+
+## Fonts
+
+Public Sans (variable weight, upright and italic) and the Phosphor icon fonts are compiled into the library, so
+text works without any files. To add your own fonts:
+
+```cpp
+Carbon::Font* mono = Carbon::AddFontFromFile("Fonts/JetBrainsMono.ttf");
+Carbon::Font* brand = Carbon::AddFontFromMemory(bytes, { .Name = "Brand", .ItalicData = italicBytes });
+
+Carbon::TextSpec spec = Carbon::GetTextSpec(Carbon::TextStyle::Body);
+spec.Font = mono;
+```
+
+Fonts you add are also used as fallbacks, in the order they were added, for characters the requested font lacks.
+The embedded fonts cover Latin text; add a font for other scripts. See [Styling](Styling.md) for the type ramp
+and icons.
 
 ## Forwarding input
 
