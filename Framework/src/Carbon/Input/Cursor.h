@@ -12,6 +12,9 @@ namespace Carbon
         PointingHand,
         ResizeHorizontal,
         ResizeVertical,
-        NotAllowed
+        NotAllowed,
+        /// Diagonal resizing, as at a window's corners: top-left to bottom-right, and top-right to bottom-left.
+        ResizeTopLeftBottomRight,
+        ResizeTopRightBottomLeft
     };
 } // namespace Carbon

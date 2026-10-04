@@ -183,11 +183,13 @@ namespace Example
         callbacks.SetCursor = [window](Carbon::Cursor cursor)
         {
             // The standard cursors are created once and live until glfwTerminate.
-            static GLFWcursor* cursors[6] = {};
-            static const int Shapes[6] = {GLFW_ARROW_CURSOR,     GLFW_IBEAM_CURSOR,     GLFW_POINTING_HAND_CURSOR,
-                                          GLFW_RESIZE_EW_CURSOR, GLFW_RESIZE_NS_CURSOR, GLFW_NOT_ALLOWED_CURSOR};
+            static constexpr int Count = 8;
+            static GLFWcursor* cursors[Count] = {};
+            static const int Shapes[Count] = {
+                GLFW_ARROW_CURSOR,     GLFW_IBEAM_CURSOR,       GLFW_POINTING_HAND_CURSOR, GLFW_RESIZE_EW_CURSOR,
+                GLFW_RESIZE_NS_CURSOR, GLFW_NOT_ALLOWED_CURSOR, GLFW_RESIZE_NWSE_CURSOR,   GLFW_RESIZE_NESW_CURSOR};
             const int index = static_cast<int>(cursor);
-            if (index < 0 || index >= 6)
+            if (index < 0 || index >= Count)
                 return;
             if (cursors[index] == nullptr)
                 cursors[index] = glfwCreateStandardCursor(Shapes[index]);
