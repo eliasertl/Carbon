@@ -1,12 +1,18 @@
 include(CMake/CarbonTarget.cmake)
+include(CMake/CarbonAssets.cmake)
+include(CMake/CarbonDawnRuntime.cmake)
 
 add_library(Carbon STATIC)
 add_library(Carbon::Carbon ALIAS Carbon)
+
+# Files generated at build time (embedded assets, icon constants) live here, never in the source tree.
+set(CARBON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/Generated")
 
 # Public headers: the supported API surface. Only these are installed, and only these may be included by
 # CarbonExtensions and by custom components.
 set(CARBON_PUBLIC_HEADERS
     src/Carbon/Carbon.h
+    src/Carbon/Assets/EmbeddedAssets.h
     src/Carbon/Core/Assert.h
     src/Carbon/Core/Callbacks.h
     src/Carbon/Core/Color.h
@@ -14,6 +20,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Core/Context.h
     src/Carbon/Core/ContextDescription.h
     src/Carbon/Core/EdgeInsets.h
+    src/Carbon/Core/Hash.h
     src/Carbon/Core/ID.h
     src/Carbon/Core/Log.h
     src/Carbon/Core/Math.h
@@ -24,21 +31,36 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Core/Version.h
     src/Carbon/Draw/DrawList.h
     src/Carbon/Draw/DrawTypes.h
+    src/Carbon/Draw/Squircle.h
     src/Carbon/Input/Cursor.h
     src/Carbon/Input/IO.h
     src/Carbon/Input/Input.h
     src/Carbon/Input/InputEvent.h
     src/Carbon/Input/Key.h
     src/Carbon/Input/MouseButton.h
+    src/Carbon/Renderer/Render.h
+    src/Carbon/Text/Font.h
+    src/Carbon/Text/TextSpec.h
+    src/Carbon/Text/TextStyle.h
+)
+
+# Public headers generated at build time.
+set(CARBON_GENERATED_PUBLIC_HEADERS
+    "${CARBON_GENERATED_DIR}/Carbon/Text/Icons.h"
 )
 
 # Internal headers: implementation details, never installed.
 set(CARBON_INTERNAL_HEADERS
     src/Carbon/Core/ContextInternal.h
     src/Carbon/Input/InputStateInternal.h
+    src/Carbon/Renderer/RendererInternal.h
+    src/Carbon/Text/Internal/FontFace.h
+    src/Carbon/Text/Internal/GlyphAtlas.h
+    src/Carbon/Text/Internal/TextSystem.h
 )
 
 set(CARBON_SOURCES
+    src/Carbon/Assets/EmbeddedAssets.cpp
     src/Carbon/Core/Assert.cpp
     src/Carbon/Core/Context.cpp
     src/Carbon/Core/ID.cpp
@@ -46,15 +68,35 @@ set(CARBON_SOURCES
     src/Carbon/Core/UTF8.cpp
     src/Carbon/Core/Version.cpp
     src/Carbon/Draw/DrawList.cpp
+    src/Carbon/Draw/Squircle.cpp
     src/Carbon/Input/IO.cpp
     src/Carbon/Input/Input.cpp
     src/Carbon/Input/InputStateInternal.cpp
+    src/Carbon/Renderer/RendererInternal.cpp
+    src/Carbon/Text/Font.cpp
+    src/Carbon/Text/Internal/FontFace.cpp
+    src/Carbon/Text/Internal/GlyphAtlas.cpp
+    src/Carbon/Text/Internal/TextSystem.cpp
+    src/Carbon/Text/TextSpec.cpp
+    src/Carbon/Text/TextStyle.cpp
 )
+
+carbon_generate_icons("${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/style.css")
 
 target_sources(Carbon
     PRIVATE ${CARBON_SOURCES} ${CARBON_INTERNAL_HEADERS}
-    PUBLIC FILE_SET HEADERS BASE_DIRS src FILES ${CARBON_PUBLIC_HEADERS}
+    PUBLIC FILE_SET HEADERS
+        BASE_DIRS src "${CARBON_GENERATED_DIR}"
+        FILES ${CARBON_PUBLIC_HEADERS} ${CARBON_GENERATED_PUBLIC_HEADERS}
 )
+
+# Embedded assets: fonts and the shader become byte arrays in generated .cpp files.
+carbon_embed_asset(Carbon PublicSansRoman "${PROJECT_SOURCE_DIR}/ThirdParty/PublicSans/fonts/variable/PublicSans[wght].ttf")
+carbon_embed_asset(Carbon PublicSansItalic "${PROJECT_SOURCE_DIR}/ThirdParty/PublicSans/fonts/variable/PublicSans-Italic[wght].ttf")
+carbon_embed_asset(Carbon PhosphorRegular "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/Phosphor.ttf")
+carbon_embed_asset(Carbon PhosphorBold "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/bold/Phosphor-Bold.ttf")
+carbon_embed_asset(Carbon PhosphorFill "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/fill/Phosphor-Fill.ttf")
+carbon_embed_asset(Carbon CarbonShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Renderer/Shaders/Carbon.wgsl")
 
 target_compile_definitions(Carbon PRIVATE
     CARBON_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}

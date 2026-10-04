@@ -7,6 +7,8 @@
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Log.h"
 #include "Carbon/Core/Version.h"
+#include "Carbon/Renderer/RendererInternal.h"
+#include "Carbon/Text/Internal/TextSystem.h"
 
 namespace Carbon
 {
@@ -33,11 +35,17 @@ namespace Carbon
         }
     } // namespace Internal
 
+    Context::Context() = default;
+    Context::~Context() = default;
+
     Context* CreateContext(const ContextDescription& description)
     {
         Context* context = new Context();
         context->HostCallbacks = description.Callbacks;
         context->IDStack.push_back(HashID("Carbon"));
+        context->Text = std::make_unique<Internal::TextSystem>();
+        context->Renderer = std::make_unique<Internal::Renderer>(
+            description.Device, description.ColorFormat, description.DepthStencilFormat, description.SampleCount);
 
         Context* previous = Internal::g_CurrentContext;
         if (previous == nullptr)
@@ -86,6 +94,8 @@ namespace Carbon
         context.FrameCount++;
 
         context.Input.Update(io, context.Time);
+        context.Text->BeginFrame(context.FrameCount, context.Scale.Factor);
+        context.Renderer->BeginFrame(context.FrameCount);
 
         context.IDStack.resize(1);
         context.Draw.Reset(Rect(Vec2(), context.DisplaySize), context.Scale.Factor);

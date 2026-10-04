@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <memory>
 #include <vector>
 
 #include "Carbon/Core/Callbacks.h"
@@ -12,9 +13,18 @@
 
 namespace Carbon
 {
+    namespace Internal
+    {
+        class Renderer;
+        class TextSystem;
+    } // namespace Internal
+
     /// All state of one Carbon instance. Internal: modules reach it through Internal::GetContext().
     struct Context
     {
+        Context();
+        ~Context();
+
         Callbacks HostCallbacks;
         IO HostIO;
         Internal::InputState Input;
@@ -22,6 +32,8 @@ namespace Carbon
         /// The ID scopes; the first entry is the root scope and is never popped.
         std::vector<ID> IDStack;
         DrawList Draw;
+        std::unique_ptr<Internal::TextSystem> Text;
+        std::unique_ptr<Internal::Renderer> Renderer;
 
         ContentScale Scale;
         Vec2 DisplaySize;
