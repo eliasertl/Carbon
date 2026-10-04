@@ -27,6 +27,7 @@ Build/Examples/Gallery/Gallery                 # every component; try the Dark a
 Build/Examples/Gallery/Gallery --theme dark --page charts
 Build/Examples/MinimalIntegration/MinimalIntegration
 Build/Examples/CustomComponent/CustomComponent
+Build/Examples/CustomTitleBar/CustomTitleBar      # a window whose title bar is drawn by Carbon
 ```
 
 (With a Visual Studio generator the executables are in a configuration subfolder, for example

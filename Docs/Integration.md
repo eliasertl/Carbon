@@ -177,6 +177,33 @@ io.SetDisplaySize(float(framebufferWidth) / xScale, float(framebufferHeight) / x
 `Carbon::ContentScale` offers the conversions (`ToPixels`, `ToPoints`) and `Snap`, which moves a coordinate to
 the nearest pixel boundary so edges stay crisp.
 
+## Drawing your own title bar
+
+An application can open its window without the system's title bar and let Carbon draw the header instead, with
+its toolbar in it. [Examples/CustomTitleBar](../Examples/CustomTitleBar) shows how; the split of the work is the
+same as everywhere else:
+
+![A window whose title bar is drawn by Carbon, with the pointer on the close button](Images/CustomTitleBar-Dark.png)
+
+- **Carbon draws and reports.** The title bar is ordinary Carbon content at the top of the window: an invisible
+  button over the whole bar, submitted first so that the toolbar's controls win the pointer over it; caption
+  buttons at the trailing edge; and invisible resize handles along the window's edges, submitted last so that
+  they win there. Each frame it reports what the user did: start a move, double-click, minimize, maximize,
+  close, start a resize at some edges. The handles ask for the matching cursor through `SetCursor`, including
+  the diagonal `Cursor::ResizeTopLeftBottomRight` and `Cursor::ResizeTopRightBottomLeft`.
+- **The host acts.** It opens the window without decoration (`GLFW_DECORATED` off with GLFW), and moves,
+  resizes, minimizes, maximizes and closes it in response. The example follows the pointer itself while the
+  button is held, which works the same on Windows and X11.
+
+Things to know:
+
+- **Wayland** does not let applications position their windows, so moving by dragging the bar does not work
+  there; resizing, maximizing and the buttons do. A Wayland host would ask the compositor to start an
+  interactive move (`xdg_toplevel.move`), which GLFW does not expose.
+- **Windows** gives frameless windows no shadow and no snap layouts on the maximize button. Windows 11 rounds
+  their corners when asked (`DWMWA_WINDOW_CORNER_PREFERENCE`), which the example does.
+- The window manager's keyboard commands still work: Alt+F4 closes, Alt+Space opens the window menu.
+
 ## Logging and asserts
 
 - `Callbacks.Log` receives every message with a level (`Trace` … `Fatal`) and a source such as `"Core"` or

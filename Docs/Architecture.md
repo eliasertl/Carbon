@@ -664,6 +664,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 46 | CI builds Dawn once per platform and caches the install by commit; the Linux jobs share one Dawn built with Clang | Dawn dominates CI time, and at the pinned commit it does not compile with GCC 13. GCC and Clang both use libstdc++, so one static library serves both |
 | 47 | Hover and pressed tints are composited over the fill (`Blend` is source-over), and every interactive control reacts to the pointer | Mixing only the color of the 16 % control fill was measurable but invisible. macOS itself gives few controls a hover state; Carbon's users are on Windows and Linux, where a control that does not react feels dead |
 | 48 | The selection highlight of Sidebar, List and Table survives one frame without a selected row | An application that selects in response to a click changes its selection mid-frame; when the new row precedes the old one, no row is selected in that frame, and the highlight would vanish and then jump |
+| 49 | Custom title bars are example code, not a component; Carbon gained only two diagonal resize cursors | The window side is OS integration and stays in the host. The user chose to keep the title bar in the example; the cursors are needed by any host that resizes from corners |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

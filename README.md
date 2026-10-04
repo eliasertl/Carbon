@@ -75,6 +75,7 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 | [`MinimalIntegration`](Examples/MinimalIntegration/Main.cpp) | The host side, step by step: context, input forwarding, the frame loop, drawing your own content in the same pass |
 | [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
 | [`CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
+| [`CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |
 
 Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
 `--screenshot <file.png>`.
