@@ -75,6 +75,14 @@ namespace Carbon
         /// One glyph from the glyph atlas. Used by the text layer; `uv` is the glyph's atlas region in texels.
         void AddGlyph(const Rect& rect, const Rect& uv, Color color);
 
+        /// Adds a filled squircle whose rectangle is not known yet, at this point of the drawing order. A container
+        /// uses it for its background: the shape must be drawn before the content, but its size is only known
+        /// after. Call ResolveDeferredSquircle later in the same frame; an unresolved shape draws nothing.
+        DeferredShape AddDeferredSquircle(Color color);
+        /// Gives a deferred squircle its rectangle and corner shape.
+        void ResolveDeferredSquircle(const DeferredShape& shape, const Rect& rect, float radius,
+                                     float smoothing = DefaultCornerSmoothing);
+
         std::span<const DrawVertex> GetVertices() const { return m_Vertices; }
         std::span<const DrawPrimitive> GetPrimitives() const { return m_Primitives; }
         std::span<const DrawIndex> GetIndices(DrawLayer layer) const;

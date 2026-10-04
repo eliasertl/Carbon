@@ -97,8 +97,11 @@ namespace Carbon
         context.Text->BeginFrame(context.FrameCount, context.Scale.Factor);
         context.Renderer->BeginFrame(context.FrameCount);
 
+        context.IsAnimatingThisFrame = context.Style.Advance(context.DeltaTime, context.ReduceMotion);
+
         context.IDStack.resize(1);
         context.Draw.Reset(Rect(Vec2(), context.DisplaySize), context.Scale.Factor);
+        Internal::BeginLayout(context);
         context.IsInFrame = true;
     }
 
@@ -109,6 +112,8 @@ namespace Carbon
         if (!context.IsInFrame)
             return;
 
+        Internal::EndLayout(context);
+
         CB_VERIFY(context.IDStack.size() == 1, "Unbalanced ID stack: {} PushID call(s) without PopID",
                   context.IDStack.size() - 1);
         context.IDStack.resize(1);
@@ -117,6 +122,8 @@ namespace Carbon
                   "Unbalanced draw list: a PushLayer, PushClipRect or PushOpacity was not popped");
 
         context.Draw.Finalize();
+        context.States.EndFrame(context.FrameCount);
+        context.WasAnimatingLastFrame = context.IsAnimatingThisFrame;
         context.IsInFrame = false;
     }
 

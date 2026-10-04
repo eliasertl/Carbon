@@ -230,6 +230,50 @@ namespace Carbon
         AddQuad(positions, locals, uvs, color, m_GlyphPrimitive, TextureID(), true);
     }
 
+    DeferredShape DrawList::AddDeferredSquircle(Color color)
+    {
+        DeferredShape shape;
+        if (color.A * m_OpacityStack.back() <= 0.0f)
+            return shape;
+
+        // The primitive is marked as reserved so that no other shape shares it while its values are pending.
+        DrawPrimitive primitive;
+        primitive.Kind = DrawPrimitiveKind::Squircle;
+        primitive.Reserved = 1;
+        shape.Primitive = static_cast<uint32_t>(m_Primitives.size());
+        m_Primitives.push_back(primitive);
+
+        // A degenerate quad for now; clipping is left to the scissor rectangle of the command.
+        shape.FirstVertex = static_cast<uint32_t>(m_Vertices.size());
+        const Vec2 zero[4] = {};
+        AddQuad(zero, zero, zero, color, shape.Primitive, TextureID(), false);
+        shape.IsValid = true;
+        return shape;
+    }
+
+    void DrawList::ResolveDeferredSquircle(const DeferredShape& shape, const Rect& rect, float radius, float smoothing)
+    {
+        if (!shape.IsValid || rect.IsEmpty() || static_cast<size_t>(shape.FirstVertex) + 4 > m_Vertices.size())
+            return;
+
+        DrawPrimitive& primitive = m_Primitives[shape.Primitive];
+        primitive.HalfSize = rect.GetSize() * 0.5f;
+        primitive.Radius = std::clamp(radius, 0.0f, std::min(primitive.HalfSize.X, primitive.HalfSize.Y));
+        primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
+        primitive.Reserved = 0;
+
+        const Rect bounds = rect.Expand(m_Padding);
+        const Vec2 center = rect.GetCenter();
+        const Vec2 positions[4] = {bounds.GetMin(), Vec2(bounds.GetRight(), bounds.Y), bounds.GetMax(),
+                                   Vec2(bounds.X, bounds.GetBottom())};
+        for (uint32_t i = 0; i < 4; i++)
+        {
+            DrawVertex& vertex = m_Vertices[shape.FirstVertex + i];
+            vertex.Position = positions[i];
+            vertex.Local = positions[i] - center;
+        }
+    }
+
     std::span<const DrawIndex> DrawList::GetIndices(DrawLayer layer) const
     {
         return m_Layers[static_cast<size_t>(layer)].Indices;

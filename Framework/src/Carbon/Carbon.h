@@ -2,6 +2,9 @@
 
 /// Umbrella header for applications that use Carbon.
 
+#include "Carbon/Animation/Animation.h"
+#include "Carbon/Animation/Easing.h"
+#include "Carbon/Animation/Spring.h"
 #include "Carbon/Assets/EmbeddedAssets.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/Callbacks.h"
@@ -16,6 +19,7 @@
 #include "Carbon/Core/Math.h"
 #include "Carbon/Core/Platform.h"
 #include "Carbon/Core/Rect.h"
+#include "Carbon/Core/State.h"
 #include "Carbon/Core/UTF8.h"
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Core/Version.h"
@@ -28,7 +32,15 @@
 #include "Carbon/Input/InputEvent.h"
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
+#include "Carbon/Layout/Layout.h"
+#include "Carbon/Layout/ScrollView.h"
+#include "Carbon/Layout/Size.h"
+#include "Carbon/Layout/Stack.h"
 #include "Carbon/Renderer/Render.h"
+#include "Carbon/Style/Style.h"
+#include "Carbon/Style/StyleColor.h"
+#include "Carbon/Style/StyleVar.h"
+#include "Carbon/Style/Theme.h"
 #include "Carbon/Text/Font.h"
 #include "Carbon/Text/Icons.h"
 #include "Carbon/Text/TextSpec.h"

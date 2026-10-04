@@ -7,9 +7,12 @@
 #include "Carbon/Core/Callbacks.h"
 #include "Carbon/Core/ContentScale.h"
 #include "Carbon/Core/ID.h"
+#include "Carbon/Core/StateStorageInternal.h"
 #include "Carbon/Draw/DrawList.h"
 #include "Carbon/Input/IO.h"
 #include "Carbon/Input/InputStateInternal.h"
+#include "Carbon/Layout/LayoutInternal.h"
+#include "Carbon/Style/StyleInternal.h"
 
 namespace Carbon
 {
@@ -34,6 +37,15 @@ namespace Carbon
         DrawList Draw;
         std::unique_ptr<Internal::TextSystem> Text;
         std::unique_ptr<Internal::Renderer> Renderer;
+
+        Internal::StateStorage States;
+        Internal::StyleState Style;
+        Internal::LayoutState Layout;
+
+        bool ReduceMotion = false;
+        /// Set during a frame by anything that is still moving; becomes WasAnimatingLastFrame at EndFrame.
+        bool IsAnimatingThisFrame = false;
+        bool WasAnimatingLastFrame = false;
 
         ContentScale Scale;
         Vec2 DisplaySize;

@@ -2,6 +2,7 @@
 
 #include <gtest/gtest.h>
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -47,6 +48,22 @@ namespace Carbon
             GetIO().SetDeltaTime(deltaTime);
             NewFrame();
             EndFrame();
+        }
+
+        /// Runs one frame whose interface is built by `build`.
+        void Frame(const std::function<void()>& build, float deltaTime = FrameTime)
+        {
+            GetIO().SetDeltaTime(deltaTime);
+            NewFrame();
+            build();
+            EndFrame();
+        }
+
+        /// Runs `build` for enough frames that layout measurements and appear fades have settled.
+        void Settle(const std::function<void()>& build, int frames = 20)
+        {
+            for (int i = 0; i < frames; i++)
+                Frame(build);
         }
 
     protected:

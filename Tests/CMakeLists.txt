@@ -1,6 +1,8 @@
 include(GoogleTest)
 
 add_executable(CarbonTests
+    src/Animation/AnimationTests.cpp
+    src/Animation/SpringTests.cpp
     src/Assets/EmbeddedAssetsTests.cpp
     src/Core/ContextTests.cpp
     src/Core/IDTests.cpp
@@ -10,7 +12,10 @@ add_executable(CarbonTests
     src/Draw/DrawListTests.cpp
     src/Draw/SquircleTests.cpp
     src/Input/InputTests.cpp
+    src/Layout/LayoutTests.cpp
+    src/Layout/ScrollViewTests.cpp
     src/Renderer/RendererTests.cpp
+    src/Style/ThemeTests.cpp
     src/Support/ContextTest.h
     src/Support/GpuTest.cpp
     src/Support/GpuTest.h

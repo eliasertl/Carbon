@@ -87,6 +87,15 @@ namespace Carbon
         uint32_t IndexCount = 0;
     };
 
+    /// A squircle that was added to the draw list before its rectangle was known; see
+    /// DrawList::AddDeferredSquircle.
+    struct DeferredShape
+    {
+        uint32_t FirstVertex = 0;
+        uint32_t Primitive = 0;
+        bool IsValid = false;
+    };
+
     /// Everything a renderer needs to draw one frame. The spans stay valid until the next NewFrame.
     struct DrawData
     {

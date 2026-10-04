@@ -12,6 +12,9 @@ set(CARBON_GENERATED_DIR "${CMAKE_CURRENT_BINARY_DIR}/Generated")
 # CarbonExtensions and by custom components.
 set(CARBON_PUBLIC_HEADERS
     src/Carbon/Carbon.h
+    src/Carbon/Animation/Animation.h
+    src/Carbon/Animation/Easing.h
+    src/Carbon/Animation/Spring.h
     src/Carbon/Assets/EmbeddedAssets.h
     src/Carbon/Core/Assert.h
     src/Carbon/Core/Callbacks.h
@@ -26,6 +29,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Core/Math.h
     src/Carbon/Core/Platform.h
     src/Carbon/Core/Rect.h
+    src/Carbon/Core/State.h
     src/Carbon/Core/UTF8.h
     src/Carbon/Core/Vec2.h
     src/Carbon/Core/Version.h
@@ -38,7 +42,15 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Input/InputEvent.h
     src/Carbon/Input/Key.h
     src/Carbon/Input/MouseButton.h
+    src/Carbon/Layout/Layout.h
+    src/Carbon/Layout/ScrollView.h
+    src/Carbon/Layout/Size.h
+    src/Carbon/Layout/Stack.h
     src/Carbon/Renderer/Render.h
+    src/Carbon/Style/Style.h
+    src/Carbon/Style/StyleColor.h
+    src/Carbon/Style/StyleVar.h
+    src/Carbon/Style/Theme.h
     src/Carbon/Text/Font.h
     src/Carbon/Text/TextSpec.h
     src/Carbon/Text/TextStyle.h
@@ -52,19 +64,26 @@ set(CARBON_GENERATED_PUBLIC_HEADERS
 # Internal headers: implementation details, never installed.
 set(CARBON_INTERNAL_HEADERS
     src/Carbon/Core/ContextInternal.h
+    src/Carbon/Core/StateStorageInternal.h
     src/Carbon/Input/InputStateInternal.h
+    src/Carbon/Layout/LayoutInternal.h
     src/Carbon/Renderer/RendererInternal.h
+    src/Carbon/Style/StyleInternal.h
     src/Carbon/Text/Internal/FontFace.h
     src/Carbon/Text/Internal/GlyphAtlas.h
     src/Carbon/Text/Internal/TextSystem.h
 )
 
 set(CARBON_SOURCES
+    src/Carbon/Animation/Animation.cpp
+    src/Carbon/Animation/Easing.cpp
+    src/Carbon/Animation/Spring.cpp
     src/Carbon/Assets/EmbeddedAssets.cpp
     src/Carbon/Core/Assert.cpp
     src/Carbon/Core/Context.cpp
     src/Carbon/Core/ID.cpp
     src/Carbon/Core/Log.cpp
+    src/Carbon/Core/StateStorageInternal.cpp
     src/Carbon/Core/UTF8.cpp
     src/Carbon/Core/Version.cpp
     src/Carbon/Draw/DrawList.cpp
@@ -72,13 +91,17 @@ set(CARBON_SOURCES
     src/Carbon/Input/IO.cpp
     src/Carbon/Input/Input.cpp
     src/Carbon/Input/InputStateInternal.cpp
+    src/Carbon/Layout/LayoutInternal.cpp
+    src/Carbon/Layout/ScrollView.cpp
+    src/Carbon/Layout/Stack.cpp
     src/Carbon/Renderer/RendererInternal.cpp
+    src/Carbon/Style/Style.cpp
+    src/Carbon/Style/Theme.cpp
     src/Carbon/Text/Font.cpp
     src/Carbon/Text/Internal/FontFace.cpp
     src/Carbon/Text/Internal/GlyphAtlas.cpp
     src/Carbon/Text/Internal/TextSystem.cpp
     src/Carbon/Text/TextSpec.cpp
-    src/Carbon/Text/TextStyle.cpp
 )
 
 carbon_generate_icons("${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/style.css")
