@@ -9,6 +9,7 @@ pass that your application owns; it never creates windows, devices or OS hooks.
 | Light | Dark |
 | --- | --- |
 | ![The Gallery example in the light appearance](Docs/Images/Gallery-Light.png) | ![The Gallery example in the dark appearance](Docs/Images/Gallery-Dark.png) |
+| ![A list and a table](Docs/Images/Gallery-Lists-Light.png) | ![A line chart and a bar chart](Docs/Images/Gallery-Charts-Dark.png) |
 
 ```cpp
 Carbon::NewFrame();
@@ -31,14 +32,21 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 
 ![The MinimalIntegration example: Carbon's controls next to a triangle drawn by the host](Docs/Images/MinimalIntegration-Light.png)
 
-> **Status: in development.** The core library is usable: rendering, text, layout, animation, themes and the
-> core components below. The extension components (sidebar, menus, tables, charts, …) are next; see the roadmap
-> in [Docs/Architecture.md](Docs/Architecture.md#15-milestones).
+> **Status: in development.** The core library and the extension components are in place. Documentation,
+> continuous integration and packaging are being completed; see the roadmap in
+> [Docs/Architecture.md](Docs/Architecture.md#15-milestones).
 
 ## What works today
 
 - **Components**: Text, Icon, Button, Toggle (switch and checkbox), Slider, TextField, Image, Separator,
   Tooltip, stacks, Spacer and ScrollView, each with hover, pressed, focused and disabled states that animate.
+- **Extension components** (`CarbonExtensions`): Sidebar with a sliding selection, TabView, SegmentedControl,
+  line and bar charts, Popover, Menu with submenus, ContextMenu, PopUpButton, PullDownButton, Stepper,
+  ProgressIndicator (bar and spinner), SearchField, List, Table, SplitView, Alert, Sheet and ColorWell.
+- **Overlays**: popovers, menus, alerts and sheets float in a layer above the interface and take the pointer and
+  the keyboard while they are open.
+- **Custom components**: the extension components are built only on Carbon's public extension API, and yours
+  can be too. [Docs/CustomComponents.md](Docs/CustomComponents.md) walks through a star rating control.
 - **Squircles**: every rounded shape has continuous-curvature corners, evaluated analytically in the fragment
   shader, so it is crisp and antialiased at any scale.
 - **Text**: shaped with HarfBuzz and rasterized with FreeType at the display's content scale, with the embedded
@@ -49,7 +57,8 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
   switches.
 - **Styling**: light and dark themes with Apple-like semantic colors (the dark theme is pure black), a style
   stack, and per-call options.
-- **Keyboard**: Tab navigation, Space/Enter activation, arrow keys inside controls, and an animated focus ring.
+- **Keyboard**: Tab navigation, Space/Enter activation, arrow keys inside controls, menus and lists, Escape for
+  overlays, and an animated focus ring.
 - **Integration**: a GPU-free draw list and a Dawn renderer that draws into the host's pass; an input queue
   that never loses fast clicks or keystrokes; one static library with no asset files to ship.
 
@@ -58,7 +67,8 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 | Example | Shows |
 | --- | --- |
 | [`MinimalIntegration`](Examples/MinimalIntegration/Main.cpp) | The host side, step by step: context, input forwarding, the frame loop, drawing your own content in the same pass |
-| [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, with a reduce-motion switch |
+| [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
+| [`CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
 
 Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
 `--screenshot <file.png>`.
@@ -90,7 +100,9 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Animation](Docs/Animation.md) — springs, timing curves, reduce motion, theme switches
 - [Styling](Docs/Styling.md) — the three styling layers, themes, typography, icons, corner shapes
 - [Keyboard navigation](Docs/KeyboardNavigation.md) — keys, focus order, the focus ring
+- [Overlays](Docs/Overlays.md) — how popovers, menus, alerts and sheets float above the interface
 - [Components](Docs/Components/README.md) — one page per component
+- [Custom components](Docs/CustomComponents.md) — the extension API, by example
 
 ## License
 

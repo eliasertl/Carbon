@@ -10,10 +10,10 @@ Access turned on: every control is a Tab stop.
 | Tab / Shift+Tab | Move focus to the next / previous control, wrapping around at the ends. Held keys repeat. |
 | Space | Activate the focused control: press a button, flip a toggle. |
 | Enter | Activate the focused button. With no button focused, activate the default button (`IsDefault`). In a text field, submit. |
-| Arrow keys | Act inside the focused control: move a slider, move the caret, move a selection. |
+| Arrow keys | Act inside the focused control: move a slider, the caret, the selected segment, the selection of a list, the highlight of a menu, a split view's divider. |
 | Home / End | Jump to the ends: a slider's minimum and maximum, the start and end of a text field. |
 | Page Up / Page Down | Scroll the scroll view under the pointer, or the outermost one. |
-| Escape | Give up editing a text field. |
+| Escape | Close the topmost popover, menu or sheet; cancel an alert; give up editing a text field. |
 | Ctrl+A, C, X, V, Z, Shift+Z / Y | Select all, copy, cut, paste, undo and redo in text fields. |
 
 The shortcut modifier is Ctrl by default. A host that prefers the Super/Command key calls
@@ -29,6 +29,24 @@ disappears gives up focus.
 
 When focus moves to a control that is scrolled out of view, the enclosing scroll views scroll just far enough to
 reveal it.
+
+## Overlays
+
+A popover, menu, alert or sheet takes the keyboard while it is open (see [Overlays](Overlays.md)):
+
+- Tab and Shift+Tab cycle through the controls **inside** it. What lies beneath cannot be reached.
+- Focus is taken from whatever had it and returns there when the overlay closes.
+- Enter goes to the default button inside the overlay.
+- Escape closes the topmost overlay, one per key press. An alert answers Escape with its cancel button.
+
+In menus the highlight is the keyboard focus: the up and down arrow keys move it, Enter and Space choose, the
+right and left arrow keys open and close submenus.
+
+## Groups that are one stop
+
+Some components are a single stop for Tab and use the arrow keys inside: a segmented control (left and right),
+a stepper (up and down), a sidebar, list or table (up, down, Home, End). Clicking one of them gives it focus,
+so the arrow keys continue from the click.
 
 ## The focus ring
 
@@ -64,6 +82,8 @@ being edited, so the host can keep those keys away from its own shortcuts.
 ```cpp
 Carbon::SetFocus(Carbon::GetID("Name"), true);   // focus a control; true shows the ring
 Carbon::ClearFocus();
+Carbon::FocusNext();                              // what Tab does, on the next frame
+Carbon::FocusPrevious();
 bool focused = Carbon::IsFocused(id);
 Carbon::ID current = Carbon::GetFocusedID();
 ```
@@ -82,4 +102,5 @@ Carbon::DrawFocusRing(id, rect, cornerRadius);                          // the r
 ```
 
 `ButtonBehavior` and `DragBehavior` register the item for Tab navigation unless `Focusable` is false.
-Components that handle input entirely on their own call `RegisterFocusable(id, rect)`.
+Components that handle input entirely on their own, or that are one stop made of several parts, call
+`RegisterFocusable(id, rect)`. [Custom components](CustomComponents.md#4-keyboard) has the details.

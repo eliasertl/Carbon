@@ -19,6 +19,35 @@ its options and its keyboard behaviour.
 | [Stacks and Spacer](Stack.md) | Lay items out vertically or horizontally |
 | [ScrollView](ScrollView.md) | A clipped, scrollable area |
 
+## Extensions (`CarbonExtensions`)
+
+Link `Carbon::Extensions` and include `Carbon/Extensions/Extensions.h`, or the header of a single component.
+These components are built only on Carbon's public extension API; see
+[Custom components](../CustomComponents.md) for building your own the same way.
+
+| Component | Purpose |
+| --- | --- |
+| [Sidebar](Sidebar.md) | Navigates between the areas of an app |
+| [TabView](TabView.md) | Several panes in one place, switched by tabs |
+| [SplitView](SplitView.md) | Two panes with a movable divider |
+| [SegmentedControl](SegmentedControl.md) | One of a few closely related choices |
+| [PopUpButton](PopUpButton.md) | One value from a list, shown on a button |
+| [PullDownButton](PullDownButton.md) | A button that opens a menu of commands |
+| [Menu](Menu.md) | Commands on demand, with submenus |
+| [ContextMenu](ContextMenu.md) | A menu at the pointer on a right click |
+| [Popover](Popover.md) | A transient view attached to a control |
+| [Alert](Alert.md) | Critical information that needs an answer |
+| [Sheet](Sheet.md) | A modal view for a task of its own |
+| [Stepper](Stepper.md) | Small steps on a value |
+| [ProgressIndicator](ProgressIndicator.md) | Progress as a bar or a spinner |
+| [SearchField](SearchField.md) | A text field for search terms |
+| [ColorWell](ColorWell.md) | Shows a color and opens a picker |
+| [List](List.md) | A scrolling column of selectable rows |
+| [Table](Table.md) | Rows in columns with a header |
+| [Charts](Chart.md) | Line and bar charts |
+
+Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
+
 ## Conventions shared by all components
 
 - **Label and ID.** The first argument of an interactive component is its label, which is also its identity.
@@ -39,3 +68,10 @@ its options and its keyboard behaviour.
   dims them and makes them ignore input and Tab.
 - **After the call.** `IsItemHovered()`, `IsItemFocused()`, `IsItemActive()`, `GetItemRect()` and `Tooltip()`
   refer to the component submitted last.
+- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
+  `BeginTable`, `BeginTabView` and `BeginSplitView` always need their `End`. Pairs that can be closed return a
+  `bool` from `Begin` (`BeginPopover`, `BeginMenu`, `BeginSubmenu`, `BeginContextMenu`, `BeginPullDownButton`,
+  `BeginSheet`, `BeginOverlay`): call `End` only when it returned `true`.
+- **Open at the same ID scope.** `OpenPopover("name")`, `OpenMenu`, `OpenAlert` and `OpenSheet` find their
+  component by name, so call them where the matching `Begin` is called: not inside another `PushID`, and not
+  from inside the overlay itself.

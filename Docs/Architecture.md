@@ -34,8 +34,10 @@ Framework/src/Carbon/
 ├── Layout/               Stack, Spacer, Size, ScrollView, layout cursor
 ├── Animation/            Spring, Easing, AnimationSpec, Animator (per-ID state)
 ├── Style/                Theme, StyleColor, StyleVar, style stacks, TextStyle ramp
-├── Interaction/          hit testing, ButtonBehavior, DragBehavior, focus and keyboard navigation, overlays
-├── Widgets/              Text, Button, Toggle, Slider, TextField, Image, Separator, Tooltip
+├── Interaction/          hit testing, ButtonBehavior, DragBehavior, focus and keyboard navigation
+├── Overlay/              floating surfaces above the interface: stacking, pointer capture, focus scopes
+├── Widgets/              Text, Button, Toggle, Slider, TextField, Image, Separator, Tooltip, ControlSize,
+│                         ControlFeedback (hover and pressed feedback shared by all controls)
 ├── Renderer/             the only folder that calls Dawn: Renderer, pipeline, WGSL, buffers, textures
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
@@ -43,17 +45,23 @@ Framework/src/Carbon/
 Dependency direction (each layer uses only the ones above it):
 
 ```
-Core → Input → Draw → Text → Animation → Style → Layout → Interaction → Widgets
-                                                                          ↑
+Core → Input → Draw → Text → Animation → Style → Layout → Interaction → Overlay → Widgets
+                                                                                    ↑
 Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends on it.
 ```
+
+`Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
+SegmentedControl, Chart, Popover, Menu, PopUpButton, PullDownButton, Stepper, ProgressIndicator, SearchField,
+List, Table, SplitView, Alert, Sheet, ColorWell) and `Internal/SelectionList`, the selection behaviour that
+Sidebar, List and Table share.
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
 subfolder and use `namespace Carbon::Internal`. Three checks keep the boundary honest:
 
-- a script (`Scripts/CheckPublicIncludes`) run by CTest and CI fails if `Extensions/` or
-  `Examples/CustomComponent` include a non-public header, or if a public header includes an internal one;
+- a CMake script (`Framework/CMake/CheckPublicIncludes.cmake`), run by CTest and CI as the three
+  `PublicApiBoundary.*` tests, fails if `Extensions/` or `Examples/CustomComponent` include a non-public
+  header, or if a public header includes an internal one;
 - CI builds `CarbonExtensions` and `Examples/CustomComponent` against the *installed* package, where internal
   headers do not exist;
 - only `Renderer/` and three public signatures (below) mention `wgpu::` types.
@@ -468,8 +476,10 @@ struct Theme
 - **Activation.** Space and Enter activate the focused control. Enter with no focused button triggers the
   `IsDefault` button of the active scope. Arrow keys act inside controls (slider, segmented control, lists,
   menus). Escape dismisses the topmost overlay.
-- **Focus scopes.** Overlays open a focus scope; modal scopes (alert, sheet) trap Tab and restore the previous
-  focus when they close. *(Milestone 5.)*
+- **Focus scopes.** An overlay that holds the pointer (it is modal or dismisses on outside clicks) also holds
+  the keyboard while it is the topmost one: every focusable item is tagged with the overlay it was submitted
+  in, Tab and `FocusNext`/`FocusPrevious` cycle through the items of that overlay only, the default button
+  beneath is ignored, and focus returns to where it was when the overlay closes.
 - **Hit testing.** Each item under the pointer *claims* it during the frame; the last claim wins, except that a
   claim from a higher draw layer is never replaced by a lower one. The winner is the hovered item of the next
   frame. While an item holds the pointer (between press and release) nothing else is hovered.
@@ -484,14 +494,25 @@ Popovers, menus, alerts, sheets and tooltips are not windows. They are submitted
 the `Overlay`/`Tooltip` layers and positioned against an anchor rect, flipped and clamped to stay on the display.
 
 ```cpp
-void OpenOverlay(ID id);   void CloseOverlay(ID id);   bool IsOverlayOpen(ID id);
-bool BeginOverlay(ID id, const OverlayOptions& options);   // .Anchor, .Placement, .Modal, .Scrim, .DismissOnOutsideClick
-void EndOverlay();
+void OpenOverlay(ID id);   void CloseOverlay(ID id);   void CloseCurrentOverlay();   bool IsOverlayOpen(ID id);
+bool BeginOverlay(ID id, const OverlayOptions& options);   // .Anchor, .Placement, .Alignment, .IsModal, .HasScrim,
+void EndOverlay();                                         // .DismissOnOutsideClick, .DismissOnEscape, .ShowsArrow
 ```
 
-An open overlay captures input: widgets below ignore hover and clicks inside it, modal overlays block everything
-below, and a click outside a non-modal overlay dismisses it (and is swallowed). The core provides this mechanism;
-the concrete components live in `CarbonExtensions`.
+Open overlays form a stack. Each one draws in its own sub-layer of `DrawLayer::Overlay` (its depth in the
+stack), so a later overlay is above an earlier one whatever the submission order, and closing an overlay closes
+everything above it. An overlay whose `BeginOverlay` is not called during a frame closes by itself.
+
+- **Layout.** The content is a floating container: laid out like a `VStack`, placed from the anchor and the
+  size measured in the previous frame, outside its parent's flow and opacity. A new overlay is hidden for its
+  first frame, then fades in; closing is immediate.
+- **Pointer.** A modal overlay, or one that dismisses on outside clicks, submits a display-sized invisible
+  button beneath itself: it takes every click that misses the overlay. `IsRectHovered` is false for anything
+  under an overlay's surface, and for everything under an overlay that holds the pointer.
+- **Keyboard.** See focus scopes in section 10. Escape closes the topmost overlay, one per key press.
+
+The core provides this mechanism (`Carbon/Overlay/Overlay.h`, see [Overlays](Overlays.md)); the concrete
+components (popover, menu, alert, sheet) live in `CarbonExtensions`.
 
 ## 12. Extension API (`#include <Carbon/Extension.h>`)
 
@@ -500,39 +521,54 @@ documented.
 
 ```cpp
 // Identity and per-ID state
-ID GetID(std::string_view label);
-template <typename T> T* GetState(ID id);                    // zero-initialized, trivially copyable T, persisted while used
+ID GetID(std::string_view label);   ID HashID(std::string_view label, ID seed);   void PushID(...);   void PopID();
+template <typename T> T* GetState(ID id, StateLifetime lifetime = Transient);   // zero-initialized, trivially copyable
 
 // Layout
-Rect AllocateItem(Vec2 size, const ItemOptions& options = {});   // reserves space in the current stack
-Rect GetAvailableRect();
+Rect AllocateItem(Vec2 size, const ItemOptions& options = {});   // reserves space in the current container
+Vec2 ResolveItemSize(Vec2 size, const ItemOptions& options = {});
+Rect GetContentRect();   Rect GetLastItemRect();   Vec2 GetCursorPos();   void SetCursorPos(Vec2 position);
 
 // Interaction
-bool RegisterItem(ID id, const Rect& rect, ItemFlags flags = ItemFlags::None);   // false when clipped
 Interaction ButtonBehavior(ID id, const Rect& rect, const ButtonBehaviorOptions& options = {});
-// Interaction { Hovered, Pressed, Clicked, DoubleClicked, Focused, FocusVisible, Activated }
-DragInteraction DragBehavior(ID id, const Rect& rect);           // { Active, Started, Ended, Delta, Total }
-bool IsItemHovered();  bool IsKeyPressed(Key key, bool repeat = true);  bool IsDisabled();
+// Interaction { Hovered, Pressed, Clicked, DoubleClicked, Focused, FocusVisible }
+DragInteraction DragBehavior(ID id, const Rect& rect, const DragBehaviorOptions& options = {});
+bool IsRectHovered(const Rect& rect);   void SetLastItem(ID id, const Rect& rect, const Interaction& interaction);
+void PushDisabled(bool disabled = true);   void PopDisabled();   bool IsDisabled();   void SetCursor(Cursor cursor);
+bool IsKeyPressed(Key key, bool repeat = true);   Vec2 GetMousePos();   // ... Input.h
 
 // Focus
-void RegisterFocusable(ID id, const Rect& rect, const FocusOptions& options = {});
-bool IsFocused(ID id);  void SetFocus(ID id);  void ClearFocus();
+void RegisterFocusable(ID id, const Rect& rect);
+bool IsFocused(ID id);   bool IsFocusVisible(ID id);   void SetFocus(ID id, bool showRing = false);   void ClearFocus();
+void FocusNext();   void FocusPrevious();
+void DrawFocusRing(ID id, const Rect& rect, float cornerRadius, bool alwaysWhenFocused = false);
 
 // Drawing and text
-DrawList& GetDrawList(DrawLayer layer = DrawLayer::Current);
-Vec2 MeasureText(std::string_view text, const TextSpec& spec);
-TextSpec GetTextSpec(TextStyle style);
+DrawList& GetDrawList();                        // PushLayer / PopLayer select the layer
+Vec2 MeasureText(std::string_view text, const TextSpec& spec);   TextSpec GetTextSpec(TextStyle style);
+void DrawLabel(DrawList&, const Rect&, float x, std::string_view text, const TextSpec&, Color);
+void DrawIcon(DrawList&, Vec2 center, std::string_view icon, float size, Color, IconVariant);
 
 // Style (applies the precedence rules)
 Color GetStyleColor(StyleColor color);   float GetStyleVar(StyleVar var);
 Color Resolve(const std::optional<Color>& perCall, StyleColor fallback);
 float Resolve(const std::optional<float>& perCall, StyleVar fallback);
+ControlMetrics GetControlMetrics(ControlSize size);
+ControlFeedback AnimateFeedback(ID id, bool isHovered, bool isPressed);   Color ApplyFeedback(...);
+
+// Frame
+float GetDeltaTime();   double GetTime();   Vec2 GetDisplaySize();   ContentScale GetContentScale();
+void RequestAnimationFrame();
 
 // Animation: Animate(...) from section 8.  Overlays: section 11.
 ```
 
-`Examples/CustomComponent` builds a star-rating control with exactly this API, and `Docs/CustomComponents.md`
-walks through it.
+There is no separate "internal" header for component authors: the list above is what `CarbonExtensions` itself
+is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Extensions/` and of
+`Examples/CustomComponent` and fail on any include of a Carbon header that is not in the list of public headers.
+
+`Examples/CustomComponent` builds a star-rating control with exactly this API, and
+[CustomComponents](CustomComponents.md) walks through it.
 
 ## 13. Logging and asserts
 
@@ -558,8 +594,10 @@ walks through it.
 - **Dawn**: developed against commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b` (2026-09-03). That install has
   no `webgpu_glfw` helper, so the examples create their surface per platform (Win32, X11, Wayland) in
   `Examples/Common/`.
-- Examples accept `--screenshot <file.png>`, `--theme light|dark` and `--scale <factor>`; screenshot mode renders
-  one settled frame to an offscreen texture and never opens a window.
+- Examples accept `--screenshot <file.png>`, `--theme light|dark`, `--scale <factor>` and
+  `--size <width>x<height>`; screenshot mode renders one settled frame to an offscreen texture and never opens a
+  window. For screenshots of states that need input there are `--page <name>` and `--show <name>` (Gallery) and
+  `--pointer`, `--click` and `--right-click <x>x<y>`, which script the pointer.
 - CI: GitHub Actions on Windows (MSVC) and Linux (GCC, Clang); Dawn is built once per pinned commit and cached.
 
 ## 15. Milestones
@@ -609,6 +647,18 @@ walks through it.
 | 29 | Text fields report Enter through `IsItemSubmitted()` | The return value stays "the text changed", consistent with every other value widget |
 | 30 | The default button reacts to Enter one frame later | Whether a focused control uses Enter is only known once the whole frame has been submitted |
 | 31 | Word wrap, truncation and alignment are part of `TextSpec` | `MeasureText` and `AddText` keep one signature; the shaping cache is unaffected |
+| 32 | `DrawLayer::Overlay` is a stack of eight sub-layers, one per open overlay | A menu opened from a popover must draw above it even when it is submitted first; the public enum keeps four layers |
+| 33 | Overlays capture the pointer with an invisible display-sized button beneath them, not with a special input mode | It reuses the hover-claim rule (decision 25): the highest layer wins, so nothing below needs to know about overlays |
+| 34 | Overlays close without an animation | A closed overlay is no longer submitted, so there is nothing to draw a fade-out from; macOS menus and popovers also disappear almost at once |
+| 35 | `OpenOverlay` and `BeginOverlay` take an `ID`; the components built on them take a label | The ID must be the same at both calls, so components document "call Open at the same ID scope as Begin" and offer `CloseCurrent...` for use inside |
+| 36 | The helpers in `WidgetInternal.h` became the public `ControlFeedback.h`; `DrawIcon`, `FocusNext`/`FocusPrevious`, `RequestAnimationFrame` and frame accessors were added | Writing the extensions showed what a component author needs; nothing in `CarbonExtensions` uses an internal header |
+| 37 | The extension boundary is checked by scanning includes (CTest `PublicApiBoundary.*`) | Cheap, runs everywhere, and catches relative includes too; building against the installed package follows in M6 |
+| 38 | Sidebar, List and Table do not own the selection: a row reports that it was picked and the application marks rows as selected | Immediate mode: the application owns the data. Arrow keys therefore take effect one frame later, through the row they move to |
+| 39 | A submenu is a modal overlay whose outside clicks are interpreted by the menu chain | The parent menu must stay open but inert while the pointer is in the submenu; the chain decides whether a click closes one level or all |
+| 40 | A pop-up button's menu opens with the current item over the button | macOS behaviour; the menu is anchored at a point computed from the row metrics |
+| 41 | Sheets are centered cards over a scrim, not attached to a title bar | macOS 11+ look, and Carbon has no window chrome to attach to; `OverlayPlacement::Top` exists for hosts that want the older look |
+| 42 | Charts draw lines as round-capped segments and bars as squircles clipped at the zero line; no polygon primitive was added | Keeps the renderer at one quad per shape; filled areas under lines are out of scope |
+| 43 | The examples accept `--page`, `--show`, `--pointer` and `--click` | Screenshots of hover states, menus and dialogs can be taken unattended |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
