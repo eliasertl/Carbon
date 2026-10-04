@@ -4,6 +4,7 @@
 #   --scale <factor>
 add_subdirectory(Common)
 add_subdirectory(MinimalIntegration)
+add_subdirectory(CustomComponent)
 # The Gallery shows the extension components too, so it needs CarbonExtensions.
 if(CARBON_BUILD_EXTENSIONS)
     add_subdirectory(Gallery)
