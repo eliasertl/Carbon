@@ -1,0 +1,4 @@
+add_executable(Gallery Main.cpp)
+target_link_libraries(Gallery PRIVATE CarbonExampleCommon)
+carbon_configure_target(Gallery)
+carbon_copy_dawn_runtime(Gallery)

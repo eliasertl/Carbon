@@ -7,6 +7,10 @@
 #include <string_view>
 #include <vector>
 
+#if defined(_MSC_VER)
+#include <crtdbg.h>
+#endif
+
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
@@ -56,10 +60,28 @@ namespace Example
                     arguments.Scale = 0.0f;
                 }
             }
+            else if (option == "--size" && hasValue)
+            {
+                const std::string size = argv[++i];
+                const size_t separator = size.find('x');
+                if (separator != std::string::npos)
+                {
+                    arguments.Width = std::atoi(size.substr(0, separator).c_str());
+                    arguments.Height = std::atoi(size.substr(separator + 1).c_str());
+                }
+                if (arguments.Width <= 0 || arguments.Height <= 0)
+                {
+                    std::fprintf(stderr, "Invalid size '%s'; expected <width>x<height>\n", argv[i]);
+                    arguments.Width = 0;
+                    arguments.Height = 0;
+                }
+            }
             else
             {
                 std::fprintf(stderr, "Unknown option '%s'\n", argv[i]);
-                std::fprintf(stderr, "Options: --screenshot <file.png>  --theme light|dark  --scale <factor>\n");
+                std::fprintf(stderr,
+                             "Options: --screenshot <file.png>  --theme light|dark  --scale <factor>  "
+                             "--size <width>x<height>\n");
             }
         }
         return arguments;
@@ -67,6 +89,23 @@ namespace Example
 
     Host::Host(const Arguments& arguments, const char* title, int width, int height) : m_Arguments(arguments)
     {
+#if defined(_MSC_VER) && defined(_DEBUG)
+        // Screenshot mode runs unattended: a failed assertion of the debug runtime must end up on stderr, not in
+        // a dialog that waits for a click.
+        if (IsScreenshotMode())
+        {
+            _CrtSetReportMode(_CRT_ASSERT, _CRTDBG_MODE_FILE);
+            _CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+            _CrtSetReportMode(_CRT_ERROR, _CRTDBG_MODE_FILE);
+            _CrtSetReportFile(_CRT_ERROR, _CRTDBG_FILE_STDERR);
+        }
+#endif
+        if (arguments.Width > 0 && arguments.Height > 0)
+        {
+            width = arguments.Width;
+            height = arguments.Height;
+        }
+
         if (IsScreenshotMode())
         {
             m_ContentScale = arguments.Scale > 0.0f ? arguments.Scale : 1.0f;

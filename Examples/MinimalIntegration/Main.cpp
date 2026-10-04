@@ -19,26 +19,6 @@
 
 namespace
 {
-    using Carbon::Color;
-    using Carbon::Rect;
-    using Carbon::Vec2;
-
-    // The colors come from Carbon's current theme. During an animated theme switch they are the blend of the
-    // old and the new theme, so everything drawn with them glides along.
-    struct Palette
-    {
-        Color Background = Carbon::GetStyleColor(Carbon::StyleColor::Background);
-        Color Label = Carbon::GetStyleColor(Carbon::StyleColor::Label);
-        Color SecondaryLabel = Carbon::GetStyleColor(Carbon::StyleColor::SecondaryLabel);
-        Color Control = Carbon::GetStyleColor(Carbon::StyleColor::ControlFill);
-        Color Separator = Carbon::GetStyleColor(Carbon::StyleColor::ControlBorder);
-        Color Accent = Carbon::GetStyleColor(Carbon::StyleColor::Accent);
-        Color FocusRing = Carbon::GetStyleColor(Carbon::StyleColor::FocusRing);
-    };
-
-    // Where the host draws its own content, in points. Carbon frames it and labels it.
-    constexpr Rect HostContentRect(448.0f, 124.0f, 280.0f, 232.0f);
-
     // ---------------------------------------------------------------------------------------------------------
     // The host's own rendering: one triangle with its own pipeline, drawn into the same pass as Carbon.
     // ---------------------------------------------------------------------------------------------------------
@@ -48,6 +28,11 @@ namespace
         HostTriangle(const wgpu::Device& device, wgpu::TextureFormat format)
         {
             static const char* const Source = R"(
+                struct Uniforms {
+                    brightness: f32,
+                }
+                @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+
                 struct VertexOutput {
                     @builtin(position) position: vec4f,
                     @location(0) color: vec3f,
@@ -65,7 +50,7 @@ namespace
 
                 @fragment
                 fn FragmentMain(input: VertexOutput) -> @location(0) vec4f {
-                    return vec4f(input.color, 1.0);
+                    return vec4f(input.color * uniforms.brightness, 1.0);
                 }
             )";
 
@@ -88,12 +73,34 @@ namespace
             descriptor.vertex.entryPoint = "VertexMain";
             descriptor.fragment = &fragment;
             m_Pipeline = device.CreateRenderPipeline(&descriptor);
+
+            wgpu::BufferDescriptor bufferDescriptor;
+            bufferDescriptor.size = 16;
+            bufferDescriptor.usage = wgpu::BufferUsage::Uniform | wgpu::BufferUsage::CopyDst;
+            m_Uniforms = device.CreateBuffer(&bufferDescriptor);
+
+            wgpu::BindGroupEntry entry;
+            entry.binding = 0;
+            entry.buffer = m_Uniforms;
+            entry.size = 16;
+            wgpu::BindGroupDescriptor groupDescriptor;
+            groupDescriptor.layout = m_Pipeline.GetBindGroupLayout(0);
+            groupDescriptor.entryCount = 1;
+            groupDescriptor.entries = &entry;
+            m_BindGroup = device.CreateBindGroup(&groupDescriptor);
+            m_Queue = device.GetQueue();
         }
 
         // Draws the triangle into `area` (in points) of the pass.
-        void Draw(const wgpu::RenderPassEncoder& pass, const Rect& area, float contentScale) const
+        void Draw(const wgpu::RenderPassEncoder& pass, const Carbon::Rect& area, float contentScale,
+                  float brightness) const
         {
+            if (area.IsEmpty())
+                return;
+            const float uniforms[4] = {brightness, 0.0f, 0.0f, 0.0f};
+            m_Queue.WriteBuffer(m_Uniforms, 0, uniforms, sizeof(uniforms));
             pass.SetPipeline(m_Pipeline);
+            pass.SetBindGroup(0, m_BindGroup);
             pass.SetViewport(area.X * contentScale, area.Y * contentScale, area.Width * contentScale,
                              area.Height * contentScale, 0.0f, 1.0f);
             pass.Draw(3);
@@ -101,123 +108,91 @@ namespace
 
     private:
         wgpu::RenderPipeline m_Pipeline;
+        wgpu::Buffer m_Uniforms;
+        wgpu::BindGroup m_BindGroup;
+        wgpu::Queue m_Queue;
     };
 
     // ---------------------------------------------------------------------------------------------------------
-    // The interface. Carbon's widgets and layout arrive in later milestones; for now it is drawn directly with
-    // the draw list, which is also what custom components use.
+    // The interface. It is rebuilt from this code every frame; the application owns all of its state.
     // ---------------------------------------------------------------------------------------------------------
-    void DrawCenteredLabel(Carbon::DrawList& drawList, const Rect& rect, std::string_view text,
-                           const Carbon::TextSpec& spec, Color color)
+    struct Settings
     {
-        const Vec2 size = Carbon::MeasureText(text, spec);
-        drawList.AddText(rect.GetCenter() - size * 0.5f, text, spec, color);
-    }
+        bool IsDark = false;
+        bool ShowTriangle = true;
+        float Brightness = 1.0f;
+        std::string Name = "Triangle";
+        int Saves = 0;
+        // Where the host draws its own content this frame, in points. The interface reserves the space.
+        Carbon::Rect HostArea;
+    };
 
-    void BuildInterface(const Palette& palette)
+    void BuildInterface(Settings& settings)
     {
-        Carbon::DrawList& drawList = Carbon::GetDrawList();
-        const Carbon::TextSpec body = Carbon::GetTextSpec(Carbon::TextStyle::Body);
-        const Carbon::TextSpec headline = Carbon::GetTextSpec(Carbon::TextStyle::Headline);
-        const Carbon::TextSpec caption = Carbon::GetTextSpec(Carbon::TextStyle::Caption1);
-        const float left = 32.0f;
+        using namespace Carbon;
 
-        drawList.AddText(Vec2(left, 28.0f), "Carbon", Carbon::GetTextSpec(Carbon::TextStyle::LargeTitle, true),
-                         palette.Label);
-        drawList.AddText(Vec2(left, 64.0f),
-                         "Immediate-mode UI, rendered into the host's own render pass. Press T to switch theme.", body,
-                         palette.SecondaryLabel);
+        BeginHStack({.Spacing = 24.0f,
+                     .Padding = 24.0f,
+                     .Alignment = VerticalAlignment::Top,
+                     .Width = Size::Fill(),
+                     .Height = Size::Fill()});
 
-        // Corner smoothing: the same rectangle with circular, default and maximum smoothing.
-        drawList.AddText(Vec2(left, 104.0f), "Corner smoothing", headline, palette.Label);
-        const float smoothings[3] = {0.0f, Carbon::DefaultCornerSmoothing, 1.0f};
-        const char* const smoothingLabels[3] = {"0 (circular)", "0.6 (default)", "1.0"};
-        for (int i = 0; i < 3; i++)
+        // Left: a column of controls.
+        BeginVStack({.Spacing = 12.0f, .Width = 300.0f, .Height = Size::Fill()});
+        Text("Settings", {.Style = TextStyle::LargeTitle, .Emphasized = true});
+        Text("Carbon's interface and the host's triangle are drawn into the same render pass.",
+             {.Secondary = true, .Width = Size::Fill(), .Wraps = true});
+        Spacer({.Length = 4.0f});
+
+        if (Toggle("Dark Mode", &settings.IsDark, {.Width = Size::Fill()}))
+            SetTheme(settings.IsDark ? Theme::Dark() : Theme::Light()); // animated
+        Separator();
+        Toggle("Show Triangle", &settings.ShowTriangle, {.Width = Size::Fill()});
+        Separator();
+
+        BeginHStack({.Spacing = 10.0f, .Width = Size::Fill()});
+        Text("Brightness");
+        Slider("Brightness", &settings.Brightness, 0.2f, 1.0f,
+               {.Width = Size::Fill(), .Disabled = !settings.ShowTriangle});
+        EndHStack();
+
+        BeginHStack({.Spacing = 10.0f, .Width = Size::Fill()});
+        Text("Name");
+        TextField("Name", &settings.Name, {.Width = Size::Fill()});
+        EndHStack();
+
+        Spacer();
+        BeginHStack({.Spacing = 8.0f, .Width = Size::Fill()});
+        Text(settings.Saves == 0 ? std::string("Not saved yet") : "Saved " + std::to_string(settings.Saves) + " times",
+             {.Style = TextStyle::Subheadline, .Secondary = true});
+        Spacer();
+        if (Button("Reset"))
         {
-            const Rect shape(left + static_cast<float>(i) * 124.0f, 130.0f, 108.0f, 72.0f);
-            drawList.AddSquircle(shape, palette.Control, 26.0f, smoothings[i]);
-            drawList.AddText(Vec2(shape.X, shape.GetBottom() + 6.0f), smoothingLabels[i], caption,
-                             palette.SecondaryLabel);
+            settings.Brightness = 1.0f;
+            settings.Name = "Triangle";
         }
+        if (Button("Save", {.Role = ButtonRole::Prominent, .IsDefault = true}))
+            settings.Saves++;
+        EndHStack();
+        EndVStack();
 
-        // Shapes that the controls of later milestones are made of.
-        drawList.AddText(Vec2(left, 244.0f), "Shapes", headline, palette.Label);
-        const float controlTop = 270.0f;
+        // Right: a framed area the interface only reserves; the host fills it after EndFrame.
+        BeginVStack({.Spacing = 8.0f, .Width = Size::Fill(), .Height = Size::Fill()});
+        Text(std::string(Icons::Cube) + "  " + settings.Name, {.Style = TextStyle::Headline});
+        const Rect frame = AllocateItem(Vec2(), {.Width = Size::Fill(), .Height = Size::Fill()});
+        GetDrawList().AddSquircleStroke(frame, GetStyleColor(StyleColor::Separator), 14.0f, 1.0f);
+        settings.HostArea = settings.ShowTriangle ? frame.Inset(EdgeInsets(24.0f)) : Rect();
+        Text("Drawn by the host in the same pass", {.Style = TextStyle::Caption1, .Secondary = true});
+        EndVStack();
 
-        const Rect cancel(left, controlTop, 74.0f, 24.0f);
-        drawList.AddSquircle(cancel, palette.Control, 6.0f);
-        DrawCenteredLabel(drawList, cancel, "Cancel", body, palette.Label);
-
-        const Rect save(left + 84.0f, controlTop, 62.0f, 24.0f);
-        drawList.AddSquircle(save, palette.Accent, 6.0f);
-        DrawCenteredLabel(drawList, save, "Save", body, Color::White());
-
-        const Rect focused(left + 160.0f, controlTop, 84.0f, 24.0f);
-        drawList.AddSquircle(focused, palette.Control, 6.0f);
-        drawList.AddFocusRing(focused, palette.FocusRing, 6.0f, 3.0f, 1.0f);
-        DrawCenteredLabel(drawList, focused, "Focused", body, palette.Label);
-
-        const Rect field(left + 260.0f, controlTop, 110.0f, 24.0f);
-        drawList.AddSquircle(field, palette.Background, 6.0f);
-        drawList.AddSquircleStroke(field, palette.Separator, 6.0f, 1.0f);
-        drawList.AddText(Vec2(field.X + 8.0f, field.Y + 4.0f), "Text field", body, palette.SecondaryLabel);
-
-        // A switch and a slider.
-        const float secondRow = controlTop + 40.0f;
-        const Rect switchTrack(left, secondRow, 38.0f, 22.0f);
-        drawList.AddSquircle(switchTrack, palette.Accent, 11.0f);
-        drawList.AddShadow(Rect(switchTrack.GetRight() - 20.0f, secondRow + 2.0f, 18.0f, 18.0f),
-                           Color::Black().WithAlpha(0.25f), 9.0f, 2.0f, Vec2(0.0f, 1.0f));
-        drawList.AddCircle(Vec2(switchTrack.GetRight() - 11.0f, secondRow + 11.0f), 9.0f, Color::White());
-
-        const float sliderY = secondRow + 11.0f;
-        const float sliderStart = left + 60.0f;
-        const float sliderEnd = left + 250.0f;
-        const float sliderValue = sliderStart + (sliderEnd - sliderStart) * 0.62f;
-        drawList.AddLine(Vec2(sliderStart, sliderY), Vec2(sliderEnd, sliderY), palette.Control, 4.0f);
-        drawList.AddLine(Vec2(sliderStart, sliderY), Vec2(sliderValue, sliderY), palette.Accent, 4.0f);
-        drawList.AddShadow(Rect::FromCenter(Vec2(sliderValue, sliderY), Vec2(20.0f)), Color::Black().WithAlpha(0.25f),
-                           10.0f, 3.0f, Vec2(0.0f, 1.0f));
-        drawList.AddCircle(Vec2(sliderValue, sliderY), 10.0f, Color::White());
-        drawList.AddCircleStroke(Vec2(sliderValue, sliderY), 10.0f, Color::Black().WithAlpha(0.08f), 0.5f);
-
-        // Icons come from the embedded Phosphor fonts and are drawn through the text pipeline.
-        drawList.AddText(Vec2(left, 356.0f), "Icons", headline, palette.Label);
-        const std::string icons = std::string(Carbon::Icons::House) + "  " + Carbon::Icons::Gear + "  " +
-                                  Carbon::Icons::MagnifyingGlass + "  " + Carbon::Icons::Bell + "  " +
-                                  Carbon::Icons::Heart + "  " + Carbon::Icons::Star + "  " + Carbon::Icons::Folder;
-        Carbon::TextSpec iconSpec;
-        iconSpec.Size = 17.0f;
-        iconSpec.LineHeight = 22.0f;
-        drawList.AddText(Vec2(left, 380.0f), icons, iconSpec, palette.Label);
-        iconSpec.Weight = Carbon::FontWeight::Bold;
-        drawList.AddText(Vec2(left, 408.0f), icons, iconSpec, palette.Label);
-        iconSpec.Icons = Carbon::IconVariant::Fill;
-        drawList.AddText(Vec2(left, 436.0f), icons, iconSpec, palette.Accent);
-
-        // Text and icons share a line; the icon is centered on the capital letters.
-        const std::string documents = std::string(Carbon::Icons::Folder) + "  Documents";
-        drawList.AddText(Vec2(left + 236.0f, 382.0f), documents, body, palette.Label);
-        Carbon::TextSpec italic = body;
-        italic.Italic = true;
-        drawList.AddText(Vec2(left + 236.0f, 410.0f), "Italic, kerned: AV To Wa", italic, palette.Label);
-        Carbon::TextSpec medium = body;
-        medium.Weight = Carbon::FontWeight::Medium;
-        drawList.AddText(Vec2(left + 236.0f, 438.0f), "Weights from the variable font", medium, palette.Label);
-
-        // A frame around the area the host draws itself.
-        drawList.AddText(Vec2(HostContentRect.X, 104.0f), "Host content", headline, palette.Label);
-        drawList.AddSquircleStroke(HostContentRect, palette.Separator, 14.0f, 1.0f);
-        const Vec2 noteSize = Carbon::MeasureText("Drawn by the host in the same pass", caption);
-        drawList.AddText(Vec2(HostContentRect.GetCenter().X - noteSize.X * 0.5f, HostContentRect.GetBottom() - 22.0f),
-                         "Drawn by the host in the same pass", caption, palette.SecondaryLabel);
+        EndHStack();
     }
 } // namespace
 
 int main(int argc, char** argv)
 {
     const Example::Arguments arguments = Example::ParseArguments(argc, argv);
-    Example::Host host(arguments, "Carbon - Minimal Integration", 760, 480);
+    Example::Host host(arguments, "Carbon - Minimal Integration", 760, 440);
     if (!host.IsReady())
         return 1;
 
@@ -233,6 +208,11 @@ int main(int argc, char** argv)
     };
     Example::InstallPlatformCallbacks(host, description.Callbacks); // clipboard and cursor, through GLFW
     Carbon::Context* context = Carbon::CreateContext(description);
+
+    // The host chooses the appearance; Carbon cannot detect the OS setting.
+    Settings settings;
+    settings.IsDark = arguments.IsDark;
+    Carbon::SetTheme(settings.IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
 
     // ---- 2. Forward the window's input events to Carbon ------------------------------------------------------
     // Written out here because it is the heart of an integration; the other examples call
@@ -277,9 +257,6 @@ int main(int argc, char** argv)
             window, [](GLFWwindow*, int focused) { Carbon::GetIO().AddFocusEvent(focused == GLFW_TRUE); });
     }
 
-    // The host chooses the appearance; Carbon cannot detect the OS setting.
-    bool isDark = arguments.IsDark;
-    Carbon::SetTheme(isDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
     const HostTriangle triangle(host.GetDevice(), host.GetColorFormat());
 
     // ---- 3. The frame loop ----------------------------------------------------------------------------------
@@ -292,30 +269,23 @@ int main(int argc, char** argv)
         io.SetDeltaTime(host.GetDeltaTime());
 
         Carbon::NewFrame();
-        // Press T to switch between the light and the dark theme; the switch is animated.
-        if (Carbon::IsKeyPressed(Carbon::Key::T, false))
-        {
-            isDark = !isDark;
-            Carbon::SetTheme(isDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
-        }
-        const Palette palette;
-        BuildInterface(palette);
+        BuildInterface(settings);
         Carbon::EndFrame();
 
         // The render pass belongs to the host. It clears the target, draws its own content, then Carbon's.
+        const Carbon::Color background = Carbon::GetStyleColor(Carbon::StyleColor::Background);
         wgpu::RenderPassColorAttachment colorAttachment;
         colorAttachment.view = host.GetTargetView();
         colorAttachment.loadOp = wgpu::LoadOp::Clear;
         colorAttachment.storeOp = wgpu::StoreOp::Store;
-        colorAttachment.clearValue = {palette.Background.R, palette.Background.G, palette.Background.B, 1.0};
+        colorAttachment.clearValue = {background.R, background.G, background.B, 1.0};
         wgpu::RenderPassDescriptor passDescriptor;
         passDescriptor.colorAttachmentCount = 1;
         passDescriptor.colorAttachments = &colorAttachment;
 
         const wgpu::CommandEncoder encoder = host.GetDevice().CreateCommandEncoder();
         const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
-        triangle.Draw(pass, HostContentRect.Inset(Carbon::EdgeInsets(24.0f, 20.0f, 24.0f, 36.0f)),
-                      host.GetContentScale());
+        triangle.Draw(pass, settings.HostArea, host.GetContentScale(), settings.Brightness);
         Carbon::Render(pass);
         pass.End();
 

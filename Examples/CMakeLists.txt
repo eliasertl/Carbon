@@ -4,3 +4,4 @@
 #   --scale <factor>
 add_subdirectory(Common)
 add_subdirectory(MinimalIntegration)
+add_subdirectory(Gallery)

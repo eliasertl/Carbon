@@ -1,5 +1,7 @@
 # Host-side code shared by the examples: window, device, surface, screenshots, GLFW input forwarding.
 add_library(CarbonExampleCommon STATIC
+    ExampleApp.cpp
+    ExampleApp.h
     ExampleHost.cpp
     ExampleHost.h
     GlfwInput.cpp

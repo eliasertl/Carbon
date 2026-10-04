@@ -17,6 +17,9 @@ namespace Example
         bool IsDark = false;
         /// --scale <factor>: content scale; 0 uses the monitor's scale (1 in screenshot mode).
         float Scale = 0.0f;
+        /// --size <width>x<height>: size in points; 0 uses the example's default. Handy for tall screenshots.
+        int Width = 0;
+        int Height = 0;
     };
 
     /// Parses the options above. Unknown options are reported on stderr and ignored.
