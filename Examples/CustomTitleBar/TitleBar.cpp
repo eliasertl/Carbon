@@ -146,7 +146,7 @@ namespace Example
         Text(s_Options.Title,
              {.Style = TextStyle::Subheadline,
               .Color = GetStyleColor(s_Options.IsActive ? StyleColor::Label : StyleColor::TertiaryLabel)});
-        Spacer({.Length = 20.0f});
+        Spacer({.Length = 8.0f});
 
         // The toolbar.
         BeginHStack({.Spacing = 8.0f, .Width = Size::Fill(), .ID = "##toolbar"});

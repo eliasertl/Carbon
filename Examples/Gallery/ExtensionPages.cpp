@@ -93,6 +93,25 @@ namespace Gallery
         EndRow();
         EndSection();
 
+        BeginSection("Combo box",
+                     "A text field with a list of choices: type any value, or pick one. While you type, the list "
+                     "shows the matching choices; the arrow keys move through it and Enter picks.");
+        static const std::string_view Fonts[] = {"Courier",  "Georgia",  "Helvetica", "Menlo",        "Public Sans",
+                                                 "Palatino", "Rockwell", "Times",     "Trebuchet MS", "Verdana"};
+        static const std::string_view Cities[] = {"Amsterdam", "Berlin", "Copenhagen", "Lisbon", "London",
+                                                  "Madrid",    "Paris",  "Prague",     "Rome",   "Vienna"};
+        BeginRow("Font:");
+        ComboBox("Font", &state.FontName, Fonts, {.Width = 200.0f});
+        Text(std::format("\"{}\"", state.FontName), {.Secondary = true});
+        EndRow();
+        BeginRow("City:");
+        ComboBox("City", &state.City, Cities, {.Placeholder = "Choose or type a city", .Width = 200.0f});
+        EndRow();
+        BeginRow("Disabled");
+        ComboBox("Disabled", &state.FontName, Fonts, {.Width = 200.0f, .Disabled = true});
+        EndRow();
+        EndSection();
+
         BeginSection("Stepper", "Small steps on a value that is shown next to it. Hold a button to repeat.");
         BeginRow("Copies");
         Text(std::format("{}", state.Copies), {.Width = 24.0f, .Alignment = TextAlignment::Trailing});
@@ -127,6 +146,93 @@ namespace Gallery
 
     void MenusPage(GalleryState& state)
     {
+        BeginSection("Menu bar",
+                     "The menus of a window, in a row at its top. Click a title, then move along the bar: the menus "
+                     "follow the pointer. Alt or F10 opens the first menu; the arrow keys move between menus.");
+        BeginVStack({.Spacing = 0.0f,
+                     .Width = Size::Fill(),
+                     .Background = GetStyleColor(StyleColor::Background),
+                     .CornerRadius = 8.0f,
+                     .ID = "window"});
+        BeginMenuBar({.Background = Color::Transparent()});
+        if (BeginMenuBarMenu("File"))
+        {
+            if (MenuItem("New", {.Icon = Icons::FilePlus, .Shortcut = "Ctrl+N"}))
+                state.MenuBarAction = "New";
+            if (MenuItem("Open...", {.Icon = Icons::FolderOpen, .Shortcut = "Ctrl+O"}))
+                state.MenuBarAction = "Open";
+            if (BeginSubmenu("Open Recent"))
+            {
+                if (MenuItem("Quarterly Report.pdf"))
+                    state.MenuBarAction = "Open Quarterly Report.pdf";
+                if (MenuItem("Budget.xlsx"))
+                    state.MenuBarAction = "Open Budget.xlsx";
+                EndSubmenu();
+            }
+            MenuSeparator();
+            if (MenuItem("Save", {.Shortcut = "Ctrl+S"}))
+                state.MenuBarAction = "Save";
+            if (MenuItem("Export As...", {.Icon = Icons::Export}))
+                state.MenuBarAction = "Export As";
+            MenuSeparator();
+            if (MenuItem("Close Window", {.Shortcut = "Ctrl+W"}))
+                state.MenuBarAction = "Close Window";
+            EndMenuBarMenu();
+        }
+        if (BeginMenuBarMenu("Edit"))
+        {
+            if (MenuItem("Undo Typing", {.Icon = Icons::ArrowCounterClockwise, .Shortcut = "Ctrl+Z"}))
+                state.MenuBarAction = "Undo Typing";
+            MenuItem("Redo", {.Icon = Icons::ArrowClockwise, .Shortcut = "Ctrl+Y", .Disabled = true});
+            MenuSeparator();
+            if (MenuItem("Cut", {.Icon = Icons::Scissors, .Shortcut = "Ctrl+X"}))
+                state.MenuBarAction = "Cut";
+            if (MenuItem("Copy", {.Icon = Icons::Copy, .Shortcut = "Ctrl+C"}))
+                state.MenuBarAction = "Copy";
+            if (MenuItem("Paste", {.Icon = Icons::ClipboardText, .Shortcut = "Ctrl+V"}))
+                state.MenuBarAction = "Paste";
+            MenuSeparator();
+            if (MenuItem("Select All", {.Shortcut = "Ctrl+A"}))
+                state.MenuBarAction = "Select All";
+            EndMenuBarMenu();
+        }
+        if (BeginMenuBarMenu("View"))
+        {
+            // Show/Hide items name what they will do, as the HIG asks.
+            if (MenuItem(state.ShowsToolbar ? "Hide Toolbar" : "Show Toolbar"))
+                state.ShowsToolbar = !state.ShowsToolbar;
+            if (MenuItem(state.ShowsStatusBar ? "Hide Status Bar" : "Show Status Bar"))
+                state.ShowsStatusBar = !state.ShowsStatusBar;
+            MenuSeparator();
+            if (MenuItem("Enter Full Screen", {.Shortcut = "F11"}))
+                state.MenuBarAction = "Enter Full Screen";
+            EndMenuBarMenu();
+        }
+        if (BeginMenuBarMenu("Window"))
+        {
+            if (MenuItem("Minimize", {.Shortcut = "Ctrl+M"}))
+                state.MenuBarAction = "Minimize";
+            if (MenuItem("Zoom"))
+                state.MenuBarAction = "Zoom";
+            EndMenuBarMenu();
+        }
+        if (BeginMenuBarMenu("Help"))
+        {
+            if (MenuItem("Gallery Help", {.Icon = Icons::Question}))
+                state.MenuBarAction = "Gallery Help";
+            EndMenuBarMenu();
+        }
+        EndMenuBar();
+        BeginVStack({.Spacing = 6.0f, .Padding = 16.0f, .Width = Size::Fill()});
+        if (state.ShowsToolbar)
+            Text("Toolbar", {.Style = TextStyle::Subheadline, .Secondary = true});
+        Text(std::format("Last command: {}", state.MenuBarAction));
+        if (state.ShowsStatusBar)
+            Text("Status bar", {.Style = TextStyle::Subheadline, .Secondary = true});
+        EndVStack();
+        EndVStack();
+        EndSection();
+
         BeginSection("Menu",
                      "Commands on demand. Arrow keys move the highlight, Enter chooses, the right arrow opens a "
                      "submenu, Escape closes.");

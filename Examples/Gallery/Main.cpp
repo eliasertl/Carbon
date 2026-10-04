@@ -37,8 +37,10 @@ namespace Gallery
             {Page::Selection, "Selection Controls", "selection", Icons::SquaresFour},
             {Page::Menus, "Menus and Popovers", "menus", Icons::List},
             {Page::Dialogs, "Alerts and Sheets", "dialogs", Icons::AppWindow},
+            {Page::Notifications, "Notifications", "notifications", Icons::Bell},
             {Page::Progress, "Progress", "progress", Icons::CircleNotch},
             {Page::Lists, "Lists and Tables", "lists", Icons::Table},
+            {Page::Hierarchies, "Outlines and Columns", "hierarchies", Icons::TreeStructure},
             {Page::Navigation, "Tabs and Split Views", "navigation", Icons::Columns},
             {Page::Charts, "Charts", "charts", Icons::ChartBar},
         };
@@ -122,6 +124,12 @@ namespace Gallery
                 case Page::Dialogs:
                     DialogsPage(state);
                     break;
+                case Page::Notifications:
+                    NotificationsPage(state);
+                    break;
+                case Page::Hierarchies:
+                    HierarchiesPage(state);
+                    break;
                 case Page::Progress:
                     ProgressPage(state);
                     break;
@@ -176,6 +184,9 @@ namespace Gallery
 
             EndVStack();
             EndHStack();
+
+            // Notifications float above everything, wherever they were posted from.
+            ShowGalleryNotifications(state);
         }
     } // namespace
 } // namespace Gallery

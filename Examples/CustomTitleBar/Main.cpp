@@ -53,14 +53,57 @@ namespace
                                 .Icon = Icons::Notepad,
                                 .IsMaximized = window.IsMaximized(),
                                 .IsActive = window.IsActive()});
-        if (BeginPullDownButton("New", {.Icon = Icons::Plus, .ControlSize = ControlSize::Small}))
+        // The menu bar sits in the title bar, as in many Windows applications. It is transparent: the bar's
+        // background shows through, and the empty space around it still moves the window.
+        BeginMenuBar({.Width = Size::Fit(),
+                      .Height = Example::TitleBarHeight,
+                      .Background = Color::Transparent(),
+                      .HasSeparator = false});
+        if (BeginMenuBarMenu("File"))
         {
-            if (MenuItem("Note", {.Icon = Icons::NotePencil, .Shortcut = "Ctrl+N"}))
+            if (MenuItem("New Note", {.Icon = Icons::NotePencil, .Shortcut = "Ctrl+N"}))
                 state.LastAction = "New note";
-            if (MenuItem("Folder", {.Icon = Icons::Folder}))
+            if (MenuItem("New Folder", {.Icon = Icons::Folder, .Shortcut = "Ctrl+Shift+N"}))
                 state.LastAction = "New folder";
-            EndPullDownButton();
+            MenuSeparator();
+            if (MenuItem("Export as PDF...", {.Icon = Icons::Export}))
+                state.LastAction = "Export as PDF";
+            MenuSeparator();
+            if (MenuItem("Close Window", {.Shortcut = "Alt+F4"}))
+                window.Close();
+            EndMenuBarMenu();
         }
+        if (BeginMenuBarMenu("Edit"))
+        {
+            if (MenuItem("Undo", {.Icon = Icons::ArrowCounterClockwise, .Shortcut = "Ctrl+Z"}))
+                state.LastAction = "Undo";
+            MenuSeparator();
+            if (MenuItem("Cut", {.Icon = Icons::Scissors, .Shortcut = "Ctrl+X"}))
+                state.LastAction = "Cut";
+            if (MenuItem("Copy", {.Icon = Icons::Copy, .Shortcut = "Ctrl+C"}))
+                state.LastAction = "Copy";
+            if (MenuItem("Paste", {.Icon = Icons::ClipboardText, .Shortcut = "Ctrl+V"}))
+                state.LastAction = "Paste";
+            EndMenuBarMenu();
+        }
+        if (BeginMenuBarMenu("View"))
+        {
+            if (MenuItem(window.IsMaximized() ? "Restore Window" : "Maximize Window"))
+                window.ToggleMaximize();
+            if (MenuItem(state.IsDark ? "Light Appearance" : "Dark Appearance"))
+            {
+                state.IsDark = !state.IsDark;
+                SetTheme(state.IsDark ? Theme::Dark() : Theme::Light());
+            }
+            EndMenuBarMenu();
+        }
+        if (BeginMenuBarMenu("Help"))
+        {
+            if (MenuItem("About Notes", {.Icon = Icons::Info}))
+                state.LastAction = "About Notes";
+            EndMenuBarMenu();
+        }
+        EndMenuBar();
         Spacer();
         SearchField("Search", &state.Query,
                     {.Placeholder = "Search notes", .Width = 220.0f, .ControlSize = ControlSize::Small});

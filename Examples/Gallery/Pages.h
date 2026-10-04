@@ -35,4 +35,8 @@ namespace Gallery
     void ListsPage(GalleryState& state);
     void NavigationPage(GalleryState& state);
     void ChartsPage(GalleryState& state);
+    void NotificationsPage(GalleryState& state);
+    void HierarchiesPage(GalleryState& state);
+    /// Draws the notifications posted from any page and reports what the user did with them.
+    void ShowGalleryNotifications(GalleryState& state);
 } // namespace Gallery

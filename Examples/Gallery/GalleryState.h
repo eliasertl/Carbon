@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 #include <Carbon/Extensions/Extensions.h>
 
@@ -21,8 +22,10 @@ namespace Gallery
         Selection,
         Menus,
         Dialogs,
+        Notifications,
         Progress,
         Lists,
+        Hierarchies,
         Navigation,
         Charts,
 
@@ -66,6 +69,29 @@ namespace Gallery
         Carbon::Color Shadow = Carbon::Color::FromHex(0x5856D6, 0.6f);
         std::string Query;
         std::string LastAction = "None yet";
+
+        // Combo boxes.
+        std::string FontName = "Public Sans";
+        std::string City;
+
+        // Menu bar.
+        bool ShowsToolbar = true;
+        bool ShowsStatusBar = false;
+        std::string MenuBarAction = "None yet";
+
+        // Outline and column views.
+        const void* OutlineSelection = nullptr;
+        std::string OutlineAction = "None yet";
+        std::vector<int> ColumnPath = {0};
+
+        // Notifications.
+        int NotificationPosition = 2;
+        int NotificationStyle = 3;
+        bool NotificationHasImage = false;
+        bool NotificationHasActions = true;
+        bool NotificationIsSticky = false;
+        int NotificationsPosted = 0;
+        std::string NotificationEvent = "None yet";
 
         // Menus and popovers.
         bool ShowRuler = true;
