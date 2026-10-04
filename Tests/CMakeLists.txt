@@ -4,6 +4,7 @@ add_executable(CarbonTests
     src/Animation/AnimationTests.cpp
     src/Animation/SpringTests.cpp
     src/Assets/EmbeddedAssetsTests.cpp
+    src/Core/AllocationTests.cpp
     src/Core/ContextTests.cpp
     src/Core/IDTests.cpp
     src/Core/MathTests.cpp

@@ -1,9 +1,8 @@
 #include "Carbon/Extensions/ColorWell.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
-#include <format>
-#include <iterator>
 #include <string>
 
 namespace Carbon
@@ -29,9 +28,15 @@ namespace Carbon
 
         void FormatHex(const Color& color, std::string& text)
         {
+            // Written by hand rather than with std::format, which allocates: this runs every frame.
+            static constexpr char Digits[] = "0123456789ABCDEF";
             text.clear();
-            std::format_to(std::back_inserter(text), "#{:02X}{:02X}{:02X}", ToByte(color.R), ToByte(color.G),
-                           ToByte(color.B));
+            text.push_back('#');
+            for (const int channel : {ToByte(color.R), ToByte(color.G), ToByte(color.B)})
+            {
+                text.push_back(Digits[channel >> 4]);
+                text.push_back(Digits[channel & 15]);
+            }
         }
 
         // Accepts "RRGGBB" with or without a leading '#'.
@@ -108,7 +113,7 @@ namespace Carbon
             }
 
             char number[8] = {};
-            const auto end = std::format_to_n(number, std::size(number) - 1, "{}", static_cast<int>(value)).out;
+            const char* end = std::to_chars(number, number + sizeof(number), static_cast<int>(value)).ptr;
             Text(std::string_view(number, static_cast<size_t>(end - number)),
                  {.Secondary = true, .Width = 24.0f, .Alignment = TextAlignment::Trailing});
             EndHStack();

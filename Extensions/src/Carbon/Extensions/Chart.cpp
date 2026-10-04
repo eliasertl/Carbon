@@ -1,9 +1,8 @@
 #include "Carbon/Extensions/Chart.h"
 
 #include <algorithm>
+#include <charconv>
 #include <cmath>
-#include <format>
-#include <iterator>
 #include <string>
 
 namespace Carbon
@@ -64,10 +63,20 @@ namespace Carbon
             return series.Color.value_or(GetStyleColor(Palette[index % std::size(Palette)]));
         }
 
+        // Appends a number with up to six significant digits and no trailing zeros. std::to_chars is used
+        // because, unlike std::format, it never allocates: axis labels are formatted every frame.
+        void AppendNumber(std::string& text, float value)
+        {
+            char buffer[32];
+            const std::to_chars_result result =
+                std::to_chars(buffer, buffer + sizeof(buffer), value, std::chars_format::general, 6);
+            text.append(buffer, result.ptr);
+        }
+
         std::string_view FormatNumber(float value)
         {
             s_Text.clear();
-            std::format_to(std::back_inserter(s_Text), "{:.6g}", value);
+            AppendNumber(s_Text, value);
             return s_Text;
         }
 
@@ -238,7 +247,7 @@ namespace Carbon
                     s_Text.push_back('\n');
                 if (!entry.Label.empty())
                     s_Text.append(entry.Label).append(": ");
-                std::format_to(std::back_inserter(s_Text), "{:.6g}", entry.Values[index]);
+                AppendNumber(s_Text, entry.Values[index]);
             }
             if (s_Text.empty())
                 return;
