@@ -227,4 +227,22 @@ if(CARBON_INSTALL)
     install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/Carbon"
     )
+    # The licenses of what is inside the installed libraries: the embedded fonts, and FreeType and HarfBuzz.
+    # The fonts' licenses require their text to accompany every distribution.
+    set(carbon_license_files
+        "PublicSans/OFL.txt|PublicSans-OFL.txt"
+        "Phosphor/LICENSE|Phosphor-LICENSE.txt"
+        "FreeType/docs/FTL.TXT|FreeType-FTL.txt"
+        "HarfBuzz/COPYING|HarfBuzz-COPYING.txt"
+    )
+    foreach(license_file IN LISTS carbon_license_files)
+        string(REPLACE "|" ";" license_file "${license_file}")
+        list(GET license_file 0 license_source)
+        list(GET license_file 1 license_name)
+        if(EXISTS "${PROJECT_SOURCE_DIR}/ThirdParty/${license_source}")
+            install(FILES "${PROJECT_SOURCE_DIR}/ThirdParty/${license_source}"
+                DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/Carbon/Licenses" RENAME "${license_name}"
+            )
+        endif()
+    endforeach()
 endif()

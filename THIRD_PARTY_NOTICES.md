@@ -2,7 +2,8 @@
 
 Carbon is licensed under the MIT License (see [LICENSE](LICENSE)). It uses the third-party components below.
 Each one is a git submodule under `ThirdParty/`, pinned to the listed version; the authoritative license text is
-the file named in the last column inside that submodule.
+the file named in the last column inside that submodule. `cmake --install` copies this file and the license
+texts of everything that ends up inside the installed libraries to `share/doc/Carbon`.
 
 ## Linked into the `Carbon` library
 

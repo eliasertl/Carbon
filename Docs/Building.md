@@ -175,7 +175,8 @@ What gets installed:
   were found with `find_package` (`CARBON_DEPS_<NAME>_BUILD=OFF`) are found again by `CarbonConfig.cmake`.
 - `include/`: the public headers only. Internal headers are not installed.
 - `lib/cmake/Carbon/`: the package files.
-- `share/doc/Carbon/`: the license and the third-party notices.
+- `share/doc/Carbon/`: Carbon's license, the third-party notices and, in `Licenses/`, the license texts of the
+  embedded fonts, FreeType and HarfBuzz. Ship them with your application.
 
 Dawn is not installed with Carbon; the application's build must be able to find the same Dawn install. With
 MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one minor
