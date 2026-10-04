@@ -12,15 +12,20 @@ add_executable(CarbonTests
     src/Draw/DrawListTests.cpp
     src/Draw/SquircleTests.cpp
     src/Input/InputTests.cpp
+    src/Interaction/InteractionTests.cpp
     src/Layout/LayoutTests.cpp
     src/Layout/ScrollViewTests.cpp
     src/Renderer/RendererTests.cpp
+    src/Style/StyleTests.cpp
     src/Style/ThemeTests.cpp
     src/Support/ContextTest.h
     src/Support/GpuTest.cpp
     src/Support/GpuTest.h
+    src/Support/WidgetTest.h
     src/Text/GlyphAtlasTests.cpp
     src/Text/TextTests.cpp
+    src/Widgets/TextFieldTests.cpp
+    src/Widgets/WidgetTests.cpp
 )
 
 target_include_directories(CarbonTests PRIVATE src)

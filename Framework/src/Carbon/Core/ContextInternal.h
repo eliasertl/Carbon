@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "Carbon/Core/Callbacks.h"
@@ -11,8 +12,10 @@
 #include "Carbon/Draw/DrawList.h"
 #include "Carbon/Input/IO.h"
 #include "Carbon/Input/InputStateInternal.h"
+#include "Carbon/Interaction/InteractionInternal.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Style/StyleInternal.h"
+#include "Carbon/Widgets/Internal/TextEditor.h"
 
 namespace Carbon
 {
@@ -41,6 +44,11 @@ namespace Carbon
         Internal::StateStorage States;
         Internal::StyleState Style;
         Internal::LayoutState Layout;
+        Internal::InteractionState Interaction;
+        Internal::TextEditState TextEdit;
+
+        /// Reused by widgets that have to compose a string, so steady-state frames do not allocate.
+        std::string ScratchText;
 
         bool ReduceMotion = false;
         /// Set during a frame by anything that is still moving; becomes WasAnimatingLastFrame at EndFrame.

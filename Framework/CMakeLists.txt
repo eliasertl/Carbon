@@ -42,6 +42,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Input/InputEvent.h
     src/Carbon/Input/Key.h
     src/Carbon/Input/MouseButton.h
+    src/Carbon/Interaction/Interaction.h
     src/Carbon/Layout/Layout.h
     src/Carbon/Layout/ScrollView.h
     src/Carbon/Layout/Size.h
@@ -54,6 +55,15 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Text/Font.h
     src/Carbon/Text/TextSpec.h
     src/Carbon/Text/TextStyle.h
+    src/Carbon/Widgets/Button.h
+    src/Carbon/Widgets/ControlSize.h
+    src/Carbon/Widgets/Image.h
+    src/Carbon/Widgets/Separator.h
+    src/Carbon/Widgets/Slider.h
+    src/Carbon/Widgets/Text.h
+    src/Carbon/Widgets/TextField.h
+    src/Carbon/Widgets/Toggle.h
+    src/Carbon/Widgets/Tooltip.h
 )
 
 # Public headers generated at build time.
@@ -66,12 +76,15 @@ set(CARBON_INTERNAL_HEADERS
     src/Carbon/Core/ContextInternal.h
     src/Carbon/Core/StateStorageInternal.h
     src/Carbon/Input/InputStateInternal.h
+    src/Carbon/Interaction/InteractionInternal.h
     src/Carbon/Layout/LayoutInternal.h
     src/Carbon/Renderer/RendererInternal.h
     src/Carbon/Style/StyleInternal.h
     src/Carbon/Text/Internal/FontFace.h
     src/Carbon/Text/Internal/GlyphAtlas.h
     src/Carbon/Text/Internal/TextSystem.h
+    src/Carbon/Widgets/Internal/TextEditor.h
+    src/Carbon/Widgets/WidgetInternal.h
 )
 
 set(CARBON_SOURCES
@@ -91,6 +104,7 @@ set(CARBON_SOURCES
     src/Carbon/Input/IO.cpp
     src/Carbon/Input/Input.cpp
     src/Carbon/Input/InputStateInternal.cpp
+    src/Carbon/Interaction/Interaction.cpp
     src/Carbon/Layout/LayoutInternal.cpp
     src/Carbon/Layout/ScrollView.cpp
     src/Carbon/Layout/Stack.cpp
@@ -102,6 +116,16 @@ set(CARBON_SOURCES
     src/Carbon/Text/Internal/GlyphAtlas.cpp
     src/Carbon/Text/Internal/TextSystem.cpp
     src/Carbon/Text/TextSpec.cpp
+    src/Carbon/Widgets/Button.cpp
+    src/Carbon/Widgets/ControlSize.cpp
+    src/Carbon/Widgets/Image.cpp
+    src/Carbon/Widgets/Internal/TextEditor.cpp
+    src/Carbon/Widgets/Separator.cpp
+    src/Carbon/Widgets/Slider.cpp
+    src/Carbon/Widgets/Text.cpp
+    src/Carbon/Widgets/TextField.cpp
+    src/Carbon/Widgets/Toggle.cpp
+    src/Carbon/Widgets/Tooltip.cpp
 )
 
 carbon_generate_icons("${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/style.css")

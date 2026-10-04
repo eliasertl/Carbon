@@ -3,6 +3,7 @@
 #include <webgpu/webgpu_cpp.h>
 
 #include "Carbon/Draw/DrawTypes.h"
+#include "Carbon/Widgets/Image.h"
 
 namespace Carbon
 {
@@ -19,4 +20,7 @@ namespace Carbon
     /// reference to the view while it is in use and releases it when a whole frame passes without it being drawn,
     /// so either call this every frame or keep drawing the ID you got.
     TextureID GetTextureID(const wgpu::TextureView& view);
+
+    /// Displays one of the host's texture views at `size` points. Shorthand for Image(GetTextureID(view), ...).
+    void Image(const wgpu::TextureView& view, Vec2 size, const ImageOptions& options = {});
 } // namespace Carbon

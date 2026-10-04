@@ -394,4 +394,9 @@ namespace Carbon
     {
         return Internal::GetContext().Renderer->RegisterTexture(view);
     }
+
+    void Image(const wgpu::TextureView& view, Vec2 size, const ImageOptions& options)
+    {
+        Image(GetTextureID(view), size, options);
+    }
 } // namespace Carbon
