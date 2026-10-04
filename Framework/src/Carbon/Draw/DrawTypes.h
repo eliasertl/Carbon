@@ -25,11 +25,16 @@ namespace Carbon
     {
         Background,
         Content,
+        /// Popovers, menus, alerts and sheets. This layer is a stack of sub-layers, one per open overlay, so an
+        /// overlay opened later always draws above one opened earlier.
         Overlay,
         Tooltip,
 
         Count
     };
+
+    /// Number of sub-layers of DrawLayer::Overlay: how many overlays can be stacked on top of each other.
+    inline constexpr uint32_t MaxOverlayDepth = 8;
 
     /// How the fragment shader evaluates a primitive.
     enum class DrawPrimitiveKind : uint32_t
@@ -93,6 +98,8 @@ namespace Carbon
     {
         uint32_t FirstVertex = 0;
         uint32_t Primitive = 0;
+        /// Shadows are drawn shifted by this much.
+        Vec2 Offset;
         bool IsValid = false;
     };
 

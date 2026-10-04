@@ -347,6 +347,84 @@ namespace Carbon
         EXPECT_EQ(drawData.Vertices.size(), 12u);
     }
 
+    TEST(DrawListTests, OverlaySubLayersStackInOrder)
+    {
+        DrawList drawList;
+        drawList.Reset(Display, 1.0f);
+
+        // Submitted top down: tooltip, the upper overlay, the lower overlay.
+        drawList.PushLayer(DrawLayer::Tooltip);
+        drawList.AddRect(Rect(0.0f, 0.0f, 30.0f, 30.0f), Color::White());
+        drawList.PopLayer();
+        drawList.PushLayer(DrawLayer::Overlay, 1);
+        EXPECT_EQ(drawList.GetLayer(), DrawLayer::Overlay);
+        const uint32_t upperOrder = drawList.GetLayerOrder();
+        drawList.AddRect(Rect(0.0f, 0.0f, 20.0f, 20.0f), Color::White());
+        drawList.PopLayer();
+        drawList.PushLayer(DrawLayer::Overlay);
+        EXPECT_LT(drawList.GetLayerOrder(), upperOrder);
+        EXPECT_GT(drawList.GetLayerOrder(), DrawList::GetLayerOrder(DrawLayer::Content));
+        drawList.AddRect(Rect(0.0f, 0.0f, 10.0f, 10.0f), Color::White());
+        drawList.PopLayer();
+        EXPECT_LT(upperOrder, DrawList::GetLayerOrder(DrawLayer::Tooltip));
+
+        EXPECT_EQ(drawList.GetIndices(DrawLayer::Overlay, 0).size(), 6u);
+        EXPECT_EQ(drawList.GetIndices(DrawLayer::Overlay, 1).size(), 6u);
+        EXPECT_TRUE(drawList.GetIndices(DrawLayer::Overlay, 2).empty());
+
+        const DrawData& drawData = drawList.Finalize();
+        ASSERT_EQ(drawData.Commands.size(), 3u);
+        EXPECT_EQ(drawData.Indices[drawData.Commands[0].IndexOffset], 8u);
+        EXPECT_EQ(drawData.Indices[drawData.Commands[1].IndexOffset], 4u);
+        EXPECT_EQ(drawData.Indices[drawData.Commands[2].IndexOffset], 0u);
+
+        // Depths beyond the last sub-layer share it.
+        EXPECT_EQ(DrawList::GetLayerOrder(DrawLayer::Overlay, 100),
+                  DrawList::GetLayerOrder(DrawLayer::Overlay, MaxOverlayDepth - 1));
+    }
+
+    TEST(DrawListTests, DeferredStrokeAndShadowAreResolvedLikeTheFill)
+    {
+        DrawList drawList;
+        drawList.Reset(Display, 1.0f);
+        const DeferredShape shadow = drawList.AddDeferredShadow(Color::Black(), 10.0f, Vec2(0.0f, 4.0f));
+        const DeferredShape stroke = drawList.AddDeferredSquircleStroke(Color::Black(), 2.0f);
+        ASSERT_TRUE(shadow.IsValid);
+        ASSERT_TRUE(stroke.IsValid);
+        EXPECT_FALSE(drawList.AddDeferredSquircleStroke(Color::Black(), 0.0f).IsValid);
+
+        const Rect rect(50.0f, 60.0f, 100.0f, 40.0f);
+        drawList.ResolveDeferredSquircle(shadow, rect, 8.0f);
+        drawList.ResolveDeferredSquircle(stroke, rect, 8.0f);
+
+        const std::span<const DrawVertex> vertices = drawList.GetVertices();
+        const std::span<const DrawPrimitive> primitives = drawList.GetPrimitives();
+        // The shadow is shifted by its offset and its quad leaves room for the blur.
+        EXPECT_EQ(primitives[shadow.Primitive].Kind, DrawPrimitiveKind::Shadow);
+        EXPECT_FLOAT_EQ(primitives[shadow.Primitive].Softness, 10.0f);
+        EXPECT_EQ(GetBounds(vertices, shadow.FirstVertex), Rect(50.0f, 64.0f, 100.0f, 40.0f).Expand(11.0f));
+        EXPECT_EQ(primitives[stroke.Primitive].Kind, DrawPrimitiveKind::SquircleStroke);
+        EXPECT_FLOAT_EQ(primitives[stroke.Primitive].StrokeWidth, 2.0f);
+        EXPECT_FLOAT_EQ(primitives[stroke.Primitive].Radius, 8.0f);
+        EXPECT_EQ(GetBounds(vertices, stroke.FirstVertex), rect.Expand(1.0f));
+    }
+
+    TEST(DrawListTests, OpacityCanBeReplacedInsteadOfInherited)
+    {
+        DrawList drawList;
+        drawList.Reset(Display, 1.0f);
+        drawList.PushOpacity(0.5f);
+        drawList.PushOpacity(0.5f);
+        EXPECT_FLOAT_EQ(drawList.GetOpacity(), 0.25f);
+        drawList.PushOpacity(0.8f, false);
+        EXPECT_FLOAT_EQ(drawList.GetOpacity(), 0.8f);
+        drawList.PopOpacity();
+        EXPECT_FLOAT_EQ(drawList.GetOpacity(), 0.25f);
+        drawList.PopOpacity();
+        drawList.PopOpacity();
+        EXPECT_TRUE(drawList.IsBalanced());
+    }
+
     TEST(DrawListTests, LayersHaveIndependentClipStacks)
     {
         DrawList drawList;

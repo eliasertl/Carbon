@@ -40,7 +40,7 @@ namespace Carbon
             layer.CommandUsesTexture = false;
         }
         m_LayerStack.clear();
-        m_LayerStack.push_back(DrawLayer::Content);
+        m_LayerStack.push_back(GetLayerSlot(DrawLayer::Content, 0));
         m_OpacityStack.clear();
         m_OpacityStack.push_back(1.0f);
         m_MergedIndices.clear();
@@ -49,10 +49,10 @@ namespace Carbon
         m_HasGlyphPrimitive = false;
     }
 
-    void DrawList::PushLayer(DrawLayer layer)
+    void DrawList::PushLayer(DrawLayer layer, uint32_t depth)
     {
         CB_VERIFY(layer < DrawLayer::Count, "Invalid draw layer {}", static_cast<int>(layer));
-        m_LayerStack.push_back(layer < DrawLayer::Count ? layer : DrawLayer::Content);
+        m_LayerStack.push_back(GetLayerSlot(layer < DrawLayer::Count ? layer : DrawLayer::Content, depth));
     }
 
     void DrawList::PopLayer()
@@ -60,6 +60,15 @@ namespace Carbon
         CB_VERIFY(m_LayerStack.size() > 1, "PopLayer called without a matching PushLayer");
         if (m_LayerStack.size() > 1)
             m_LayerStack.pop_back();
+    }
+
+    DrawLayer DrawList::GetLayer() const
+    {
+        const uint8_t slot = m_LayerStack.back();
+        const uint8_t firstOverlay = GetLayerSlot(DrawLayer::Overlay, 0);
+        if (slot < firstOverlay)
+            return static_cast<DrawLayer>(slot);
+        return slot < firstOverlay + MaxOverlayDepth ? DrawLayer::Overlay : DrawLayer::Tooltip;
     }
 
     void DrawList::PushClipRect(const Rect& rect, bool intersectWithCurrent)
@@ -81,9 +90,9 @@ namespace Carbon
         return GetLayerData().ClipStack.back();
     }
 
-    void DrawList::PushOpacity(float opacity)
+    void DrawList::PushOpacity(float opacity, bool inherit)
     {
-        m_OpacityStack.push_back(m_OpacityStack.back() * std::clamp(opacity, 0.0f, 1.0f));
+        m_OpacityStack.push_back((inherit ? m_OpacityStack.back() : 1.0f) * std::clamp(opacity, 0.0f, 1.0f));
     }
 
     void DrawList::PopOpacity()
@@ -241,13 +250,39 @@ namespace Carbon
 
     DeferredShape DrawList::AddDeferredSquircle(Color color)
     {
+        DrawPrimitive primitive;
+        primitive.Kind = DrawPrimitiveKind::Squircle;
+        return AddDeferredShape(color, primitive);
+    }
+
+    DeferredShape DrawList::AddDeferredSquircleStroke(Color color, float width)
+    {
+        if (width <= 0.0f)
+            return DeferredShape();
+        DrawPrimitive primitive;
+        primitive.StrokeWidth = width;
+        primitive.Kind = DrawPrimitiveKind::SquircleStroke;
+        return AddDeferredShape(color, primitive);
+    }
+
+    DeferredShape DrawList::AddDeferredShadow(Color color, float blur, Vec2 offset)
+    {
+        DrawPrimitive primitive;
+        primitive.Softness = std::max(blur, 0.0f);
+        primitive.Kind = DrawPrimitiveKind::Shadow;
+        DeferredShape shape = AddDeferredShape(color, primitive);
+        shape.Offset = offset;
+        return shape;
+    }
+
+    DeferredShape DrawList::AddDeferredShape(Color color, const DrawPrimitive& description)
+    {
         DeferredShape shape;
         if (color.A * m_OpacityStack.back() <= 0.0f)
             return shape;
 
         // The primitive is marked as reserved so that no other shape shares it while its values are pending.
-        DrawPrimitive primitive;
-        primitive.Kind = DrawPrimitiveKind::Squircle;
+        DrawPrimitive primitive = description;
         primitive.Reserved = 1;
         shape.Primitive = static_cast<uint32_t>(m_Primitives.size());
         m_Primitives.push_back(primitive);
@@ -265,14 +300,15 @@ namespace Carbon
         if (!shape.IsValid || rect.IsEmpty() || static_cast<size_t>(shape.FirstVertex) + 4 > m_Vertices.size())
             return;
 
+        const Rect placed = rect.Offset(shape.Offset);
         DrawPrimitive& primitive = m_Primitives[shape.Primitive];
-        primitive.HalfSize = rect.GetSize() * 0.5f;
+        primitive.HalfSize = placed.GetSize() * 0.5f;
         primitive.Radius = ClampRadius(radius, primitive.HalfSize);
         primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
         primitive.Reserved = 0;
 
-        const Rect bounds = rect.Expand(m_Padding);
-        const Vec2 center = rect.GetCenter();
+        const Rect bounds = placed.Expand(m_Padding + primitive.Softness);
+        const Vec2 center = placed.GetCenter();
         const Vec2 positions[4] = {bounds.GetMin(), Vec2(bounds.GetRight(), bounds.Y), bounds.GetMax(),
                                    Vec2(bounds.X, bounds.GetBottom())};
         for (uint32_t i = 0; i < 4; i++)
@@ -283,14 +319,29 @@ namespace Carbon
         }
     }
 
-    std::span<const DrawIndex> DrawList::GetIndices(DrawLayer layer) const
+    std::span<const DrawIndex> DrawList::GetIndices(DrawLayer layer, uint32_t depth) const
     {
-        return m_Layers[static_cast<size_t>(layer)].Indices;
+        return m_Layers[GetLayerSlot(layer, depth)].Indices;
     }
 
-    std::span<const DrawCommand> DrawList::GetCommands(DrawLayer layer) const
+    std::span<const DrawCommand> DrawList::GetCommands(DrawLayer layer, uint32_t depth) const
     {
-        return m_Layers[static_cast<size_t>(layer)].Commands;
+        return m_Layers[GetLayerSlot(layer, depth)].Commands;
+    }
+
+    uint8_t DrawList::GetLayerSlot(DrawLayer layer, uint32_t depth)
+    {
+        switch (layer)
+        {
+            case DrawLayer::Background:
+                return 0;
+            case DrawLayer::Overlay:
+                return static_cast<uint8_t>(2 + std::min(depth, MaxOverlayDepth - 1));
+            case DrawLayer::Tooltip:
+                return static_cast<uint8_t>(2 + MaxOverlayDepth);
+            default:
+                return 1;
+        }
     }
 
     bool DrawList::IsBalanced() const

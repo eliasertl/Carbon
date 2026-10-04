@@ -28,18 +28,25 @@ namespace Carbon
         /// Clears all geometry and resets the stacks. Called by NewFrame.
         void Reset(const Rect& displayRect, float contentScale);
 
-        /// Redirects following shapes to a layer until PopLayer. Each layer has its own clip stack.
-        void PushLayer(DrawLayer layer);
+        /// Redirects following shapes to a layer until PopLayer. Each layer has its own clip stack. For
+        /// DrawLayer::Overlay, `depth` selects the sub-layer (0 is the lowest); other layers ignore it.
+        void PushLayer(DrawLayer layer, uint32_t depth = 0);
         void PopLayer();
-        DrawLayer GetLayer() const { return m_LayerStack.back(); }
+        DrawLayer GetLayer() const;
+        /// Position of the current layer in the drawing order, counting overlay sub-layers; higher is further
+        /// in front. Hit testing uses it to decide which of two overlapping items is on top.
+        uint32_t GetLayerOrder() const { return m_LayerStack.back(); }
+        /// The same for any layer and overlay sub-layer.
+        static uint32_t GetLayerOrder(DrawLayer layer, uint32_t depth = 0) { return GetLayerSlot(layer, depth); }
 
         /// Restricts following shapes to a rectangle, by default intersected with the current one.
         void PushClipRect(const Rect& rect, bool intersectWithCurrent = true);
         void PopClipRect();
         const Rect& GetClipRect() const;
 
-        /// Multiplies the alpha of following shapes; nests multiplicatively.
-        void PushOpacity(float opacity);
+        /// Multiplies the alpha of following shapes; nests multiplicatively. With `inherit` false the opacity
+        /// replaces the current one instead, which is how an overlay escapes the opacity of whatever opened it.
+        void PushOpacity(float opacity, bool inherit = true);
         void PopOpacity();
         float GetOpacity() const { return m_OpacityStack.back(); }
 
@@ -79,14 +86,17 @@ namespace Carbon
         /// uses it for its background: the shape must be drawn before the content, but its size is only known
         /// after. Call ResolveDeferredSquircle later in the same frame; an unresolved shape draws nothing.
         DeferredShape AddDeferredSquircle(Color color);
-        /// Gives a deferred squircle its rectangle and corner shape.
+        /// The same for an outline `width` wide and for a soft shadow; resolved with ResolveDeferredSquircle too.
+        DeferredShape AddDeferredSquircleStroke(Color color, float width);
+        DeferredShape AddDeferredShadow(Color color, float blur, Vec2 offset = Vec2());
+        /// Gives a deferred shape its rectangle and corner shape.
         void ResolveDeferredSquircle(const DeferredShape& shape, const Rect& rect, float radius,
                                      float smoothing = DefaultCornerSmoothing);
 
         std::span<const DrawVertex> GetVertices() const { return m_Vertices; }
         std::span<const DrawPrimitive> GetPrimitives() const { return m_Primitives; }
-        std::span<const DrawIndex> GetIndices(DrawLayer layer) const;
-        std::span<const DrawCommand> GetCommands(DrawLayer layer) const;
+        std::span<const DrawIndex> GetIndices(DrawLayer layer, uint32_t depth = 0) const;
+        std::span<const DrawCommand> GetCommands(DrawLayer layer, uint32_t depth = 0) const;
 
         /// True when every PushLayer, PushClipRect and PushOpacity has been popped.
         bool IsBalanced() const;
@@ -106,8 +116,13 @@ namespace Carbon
             bool CommandUsesTexture = false;
         };
 
-        LayerData& GetLayerData() { return m_Layers[static_cast<size_t>(m_LayerStack.back())]; }
-        const LayerData& GetLayerData() const { return m_Layers[static_cast<size_t>(m_LayerStack.back())]; }
+        /// Background, content, the overlay sub-layers, tooltip: one slot each, in drawing order.
+        static constexpr size_t LayerSlotCount = 3 + MaxOverlayDepth;
+        static uint8_t GetLayerSlot(DrawLayer layer, uint32_t depth);
+
+        LayerData& GetLayerData() { return m_Layers[m_LayerStack.back()]; }
+        const LayerData& GetLayerData() const { return m_Layers[m_LayerStack.back()]; }
+        DeferredShape AddDeferredShape(Color color, const DrawPrimitive& description);
 
         bool IsVisible(const Rect& bounds, Color color) const;
         uint32_t AddPrimitive(const DrawPrimitive& primitive);
@@ -119,8 +134,9 @@ namespace Carbon
     private:
         std::vector<DrawVertex> m_Vertices;
         std::vector<DrawPrimitive> m_Primitives;
-        std::array<LayerData, static_cast<size_t>(DrawLayer::Count)> m_Layers;
-        std::vector<DrawLayer> m_LayerStack;
+        std::array<LayerData, LayerSlotCount> m_Layers;
+        /// Slots into m_Layers.
+        std::vector<uint8_t> m_LayerStack;
         std::vector<float> m_OpacityStack;
         std::vector<DrawIndex> m_MergedIndices;
         std::vector<DrawCommand> m_MergedCommands;
