@@ -1,0 +1,203 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The Dawn commit Carbon is developed and tested against. Keep in sync with README.md and Docs/Building.md.
+  DAWN_COMMIT: 91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b
+  # Bump to rebuild Dawn with the same commit, for example after changing its build options below.
+  DAWN_CACHE_VERSION: 1
+  CLANG_FORMAT_VERSION: 20.1.8
+
+jobs:
+  format:
+    name: clang-format
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang-format
+        run: pipx install clang-format==${{ env.CLANG_FORMAT_VERSION }}
+      - name: Check formatting
+        run: Scripts/Format.sh --check
+
+  # Dawn takes most of an hour to build, so it is built once per platform and commit and then cached. The build
+  # jobs below only restore the cache.
+  dawn:
+    name: Dawn (${{ matrix.name }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows
+            os: windows-2022
+          - name: Linux
+            os: ubuntu-24.04
+    steps:
+      - name: Look for a cached Dawn
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: dawn-install
+          key: dawn-${{ runner.os }}-${{ env.DAWN_COMMIT }}-v${{ env.DAWN_CACHE_VERSION }}
+
+      - name: Install build tools (Linux)
+        if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config python3 \
+            libx11-dev libx11-xcb-dev libxcb1-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
+            libxext-dev mesa-common-dev
+
+      - name: Set up MSVC (Windows)
+        if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja (Windows)
+        if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
+        shell: bash
+        run: command -v ninja || choco install ninja --no-progress -y
+
+      - name: Fetch Dawn
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          git init dawn-source
+          cd dawn-source
+          git remote add origin https://dawn.googlesource.com/dawn
+          git fetch --depth 1 origin "$DAWN_COMMIT"
+          git checkout FETCH_HEAD
+
+      - name: Build and install Dawn
+        if: steps.cache.outputs.cache-hit != 'true'
+        shell: bash
+        run: |
+          cmake -S dawn-source -B dawn-build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DDAWN_FETCH_DEPENDENCIES=ON \
+            -DDAWN_ENABLE_INSTALL=ON \
+            -DDAWN_BUILD_SAMPLES=OFF \
+            -DDAWN_BUILD_TESTS=OFF \
+            -DDAWN_USE_GLFW=OFF \
+            -DDAWN_ENABLE_DESKTOP_GL=OFF \
+            -DDAWN_ENABLE_OPENGLES=OFF \
+            -DTINT_BUILD_TESTS=OFF \
+            -DTINT_BUILD_CMD_TOOLS=OFF
+          cmake --build dawn-build
+          cmake --install dawn-build --prefix dawn-install
+
+  build:
+    name: ${{ matrix.name }}
+    needs: dawn
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows MSVC (Release)
+            os: windows-2022
+            build_type: Release
+          - name: Linux GCC (Debug)
+            os: ubuntu-24.04
+            build_type: Debug
+            cc: gcc-13
+            cxx: g++-13
+          - name: Linux Clang (Release)
+            os: ubuntu-24.04
+            build_type: Release
+            cc: clang-18
+            cxx: clang++-18
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Restore Dawn
+        uses: actions/cache/restore@v4
+        with:
+          path: dawn-install
+          key: dawn-${{ runner.os }}-${{ env.DAWN_COMMIT }}-v${{ env.DAWN_CACHE_VERSION }}
+          fail-on-cache-miss: true
+
+      # The window-system packages are what GLFW needs for the examples. The Mesa Vulkan drivers provide a
+      # software adapter, so that the renderer tests and the screenshots below run without a GPU.
+      - name: Install build tools (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build pkg-config \
+            libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
+            libwayland-dev libxkbcommon-dev wayland-protocols \
+            mesa-vulkan-drivers libvulkan1
+          echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+          echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+
+      - name: Set up MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        run: command -v ninja || choco install ninja --no-progress -y
+
+      # CMake wants forward slashes, also on Windows: there, `pwd -W` prints the path that way.
+      - name: Configure
+        shell: bash
+        run: |
+          workspace="$(pwd -W 2>/dev/null || pwd)"
+          cmake -S . -B Build -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            "-DCMAKE_PREFIX_PATH=$workspace/dawn-install" \
+            -DCARBON_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: cmake --build Build
+
+      - name: Test
+        run: ctest --test-dir Build --output-on-failure
+
+      # A smoke test of the examples, and something to look at: the screenshots are uploaded as an artifact.
+      # It needs a WebGPU adapter (WARP on Windows, lavapipe on Linux), so a failure here is reported but does
+      # not fail the job.
+      - name: Render screenshots
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p Screenshots
+          Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Light.png --page selection
+          Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Dark.png --page charts --theme dark
+          Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Menu.png --page menus --show menu --scale 2
+          Build/Examples/MinimalIntegration/MinimalIntegration --screenshot Screenshots/MinimalIntegration.png
+          Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: Screenshots (${{ matrix.name }})
+          path: Screenshots
+          if-no-files-found: ignore
+
+      # The installed package: find_package(Carbon), a custom component and the extension sources built from
+      # the installed headers only.
+      - name: Install
+        run: cmake --install Build --prefix Install
+
+      - name: Build and test against the installed package
+        shell: bash
+        run: |
+          workspace="$(pwd -W 2>/dev/null || pwd)"
+          cmake -S Tests/Package -B Build/Package -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            "-DCMAKE_PREFIX_PATH=$workspace/Install;$workspace/dawn-install"
+          cmake --build Build/Package
+          ctest --test-dir Build/Package --output-on-failure
