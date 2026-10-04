@@ -659,6 +659,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 41 | Sheets are centered cards over a scrim, not attached to a title bar | macOS 11+ look, and Carbon has no window chrome to attach to; `OverlayPlacement::Top` exists for hosts that want the older look |
 | 42 | Charts draw lines as round-capped segments and bars as squircles clipped at the zero line; no polygon primitive was added | Keeps the renderer at one quad per shape; filled areas under lines are out of scope |
 | 43 | The examples accept `--page`, `--show`, `--pointer` and `--click` | Screenshots of hover states, menus and dialogs can be taken unattended |
+| 44 | The installed package exports bundled FreeType and HarfBuzz as `Carbon::freetype` and `Carbon::harfbuzz` | A static Carbon needs them at link time; installing their archives next to Carbon's keeps `find_package(Carbon)` self-contained without merging archives |
+| 45 | `Tests/Package` is a separate CMake project that consumes the installed package | It is the only way to prove that custom components and the extension sources compile from the installed headers alone |
+| 46 | CI builds Dawn once per platform and caches the install by commit; the Linux jobs share one Dawn built with GCC | Dawn dominates CI time; GCC and Clang both use libstdc++, so one static library serves both |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

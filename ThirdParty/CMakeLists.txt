@@ -21,6 +21,12 @@ function(carbon_declare_dependency NAME DEFAULT_TARGET)
     set(CARBON_DEPS_${NAME}_NAME "${DEFAULT_TARGET}" CACHE STRING "CMake target Carbon links for ${NAME}")
 endfunction()
 
+# Adds code to the installed CarbonConfig.cmake: a dependency that was found here, not built, has to be found
+# again by projects that use the installed package.
+function(carbon_add_package_dependency CODE)
+    set_property(GLOBAL APPEND_STRING PROPERTY CARBON_PACKAGE_DEPENDENCY_CODE "${CODE}\n")
+endfunction()
+
 # Fails with a helpful message when a submodule has not been checked out.
 function(carbon_require_submodule DIRECTORY MARKER)
     if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/${DIRECTORY}/${MARKER}")
@@ -54,9 +60,12 @@ if(NOT TARGET ${CARBON_DEPS_FREETYPE_NAME})
         add_subdirectory(FreeType EXCLUDE_FROM_ALL)
     else()
         find_package(Freetype REQUIRED)
+        carbon_add_package_dependency("find_dependency(Freetype)")
         if(NOT TARGET ${CARBON_DEPS_FREETYPE_NAME} AND TARGET Freetype::Freetype)
             add_library(${CARBON_DEPS_FREETYPE_NAME} INTERFACE IMPORTED GLOBAL)
             target_link_libraries(${CARBON_DEPS_FREETYPE_NAME} INTERFACE Freetype::Freetype)
+            carbon_add_package_dependency(
+                "if(NOT TARGET ${CARBON_DEPS_FREETYPE_NAME})\n    add_library(${CARBON_DEPS_FREETYPE_NAME} INTERFACE IMPORTED)\n    target_link_libraries(${CARBON_DEPS_FREETYPE_NAME} INTERFACE Freetype::Freetype)\nendif()")
         endif()
     endif()
 endif()
@@ -83,9 +92,12 @@ if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME})
         add_subdirectory(HarfBuzz EXCLUDE_FROM_ALL)
     else()
         find_package(harfbuzz REQUIRED)
+        carbon_add_package_dependency("find_dependency(harfbuzz)")
         if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME} AND TARGET harfbuzz::harfbuzz)
             add_library(${CARBON_DEPS_HARFBUZZ_NAME} INTERFACE IMPORTED GLOBAL)
             target_link_libraries(${CARBON_DEPS_HARFBUZZ_NAME} INTERFACE harfbuzz::harfbuzz)
+            carbon_add_package_dependency(
+                "if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME})\n    add_library(${CARBON_DEPS_HARFBUZZ_NAME} INTERFACE IMPORTED)\n    target_link_libraries(${CARBON_DEPS_HARFBUZZ_NAME} INTERFACE harfbuzz::harfbuzz)\nendif()")
         endif()
     endif()
 endif()
@@ -144,6 +156,8 @@ endif()
 # ---- Dawn (always found, never built) ---------------------------------------------------------
 set(CARBON_DEPS_DAWN_NAME "dawn::webgpu_dawn" CACHE STRING "CMake target Carbon links for Dawn (WebGPU)")
 if(NOT TARGET ${CARBON_DEPS_DAWN_NAME})
+    # Dawn's package links Threads::Threads without looking for it.
+    find_package(Threads QUIET)
     find_package(Dawn CONFIG QUIET)
     if(NOT TARGET ${CARBON_DEPS_DAWN_NAME})
         message(FATAL_ERROR

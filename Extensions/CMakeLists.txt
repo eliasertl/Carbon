@@ -59,3 +59,14 @@ target_sources(CarbonExtensions
 target_link_libraries(CarbonExtensions PUBLIC Carbon::Carbon)
 
 carbon_configure_target(CarbonExtensions)
+# The installed package exports the target under the same name as the alias: Carbon::Extensions.
+set_target_properties(CarbonExtensions PROPERTIES EXPORT_NAME Extensions)
+
+if(CARBON_INSTALL)
+    include(GNUInstallDirs)
+    install(TARGETS CarbonExtensions EXPORT CarbonExtensionsTargets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+    install(EXPORT CarbonExtensionsTargets NAMESPACE Carbon:: DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/Carbon")
+endif()

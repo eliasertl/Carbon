@@ -36,6 +36,12 @@ cmake --build out/Release
 cmake --install out/Release --prefix install/Release
 ```
 
+Dawn takes a while to build. These options leave out what Carbon does not need and are what Carbon's CI uses:
+`-DDAWN_BUILD_SAMPLES=OFF -DDAWN_BUILD_TESTS=OFF -DDAWN_USE_GLFW=OFF -DDAWN_ENABLE_DESKTOP_GL=OFF
+-DDAWN_ENABLE_OPENGLES=OFF -DTINT_BUILD_TESTS=OFF -DTINT_BUILD_CMD_TOOLS=OFF`. On Linux, Dawn needs the X11
+development packages (`libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
+libxext-dev`); add `-DDAWN_USE_WAYLAND=ON` if your application creates Wayland surfaces.
+
 Then point Carbon at the install prefix with `-DCMAKE_PREFIX_PATH=<dawn>/install/Release`, or set `Dawn_DIR` to
 `<prefix>/lib/cmake/Dawn`. Dawn's API changes often; other commits may need small adjustments in
 `Framework/src/Carbon/Renderer/`.
@@ -65,6 +71,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_BUILD_EXTENSIONS` | `ON` | Build the `CarbonExtensions` library |
 | `CARBON_BUILD_EXAMPLES` | `ON` when Carbon is the top-level project | Build the examples (needs GLFW and stb) |
 | `CARBON_BUILD_TESTS` | `ON` when Carbon is the top-level project | Build the unit tests (needs GoogleTest) |
+| `CARBON_INSTALL` | `ON` when Carbon is the top-level project | Generate install rules and the `CarbonConfig.cmake` package |
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
 
@@ -113,8 +120,8 @@ CMake scripts in `Framework/CMake/` (no Python or other tools needed). Nothing g
 
 ## Examples and tests
 
-Every example accepts `--screenshot <file.png>` (render one settled frame offscreen, save it and exit),
-`--theme light|dark` and `--scale <factor>`:
+Every example accepts `--screenshot <file.png>` (render a settled frame offscreen, save it and exit),
+`--theme light|dark`, `--scale <factor>` and `--size <width>x<height>`:
 
 ```sh
 Build/Examples/MinimalIntegration/MinimalIntegration --theme dark
@@ -135,8 +142,54 @@ add_subdirectory(External/Carbon)
 target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions)
 ```
 
-Examples and tests are off by default in this mode. Carbon does not set global compiler flags or output
-directories, and its warning flags apply only to its own targets.
+Examples, tests and install rules are off by default in this mode. Carbon does not set global compiler flags or
+output directories, and its warning flags apply only to its own targets.
+
+## Installing Carbon
+
+Carbon can also be installed and then found with `find_package`:
+
+```sh
+cmake -S . -B Build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=<dawn-install> -DCARBON_BUILD_EXAMPLES=OFF -DCARBON_BUILD_TESTS=OFF
+cmake --build Build
+cmake --install Build --prefix <carbon-install>
+```
+
+```cmake
+find_package(Carbon CONFIG REQUIRED)            # add COMPONENTS Extensions to require the extension library
+target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions)
+carbon_copy_dawn_runtime(MyApp)                # Windows: copies d3dcompiler_47.dll next to the executable
+```
+
+Configure the application with both prefixes: `-DCMAKE_PREFIX_PATH="<carbon-install>;<dawn-install>"`.
+
+What gets installed:
+
+- `lib/`: the static libraries `Carbon` and `CarbonExtensions`. Carbon is static, so an application links
+  FreeType and HarfBuzz as well: copies built from the submodules are installed next to Carbon and exported as
+  `Carbon::freetype` and `Carbon::harfbuzz` (linked automatically through `Carbon::Carbon`). Copies that
+  were found with `find_package` (`CARBON_DEPS_<NAME>_BUILD=OFF`) are found again by `CarbonConfig.cmake`.
+- `include/`: the public headers only. Internal headers are not installed.
+- `lib/cmake/Carbon/`: the package files.
+- `share/doc/Carbon/`: the license and the third-party notices.
+
+Dawn is not installed with Carbon; the application's build must be able to find the same Dawn install. With
+MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one minor
+version (0.1.x).
+
+[Tests/Package](../Tests/Package) is a small project that uses an installed Carbon; CI builds it on every
+platform.
+
+## Continuous integration
+
+[.github/workflows/CI.yml](../.github/workflows/CI.yml) runs on every push and pull request:
+
+- `clang-format` checks the formatting with the pinned clang-format version.
+- **Dawn** is built once per platform at the pinned commit and stored in the Actions cache, keyed by the
+  commit. Changing `DAWN_COMMIT` in the workflow rebuilds it.
+- **Windows MSVC (Release)**, **Linux GCC (Debug)** and **Linux Clang (Release)** configure with warnings as
+  errors, build everything, run the tests, render screenshots of the examples (uploaded as artifacts), install
+  Carbon and build `Tests/Package` against the installed package.
 
 ## Formatting
 

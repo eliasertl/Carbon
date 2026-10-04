@@ -177,3 +177,54 @@ target_link_libraries(Carbon
 )
 
 carbon_configure_target(Carbon)
+
+# ---- Installation -----------------------------------------------------------------------------
+# `cmake --install` produces a package that other projects use with find_package(Carbon CONFIG).
+if(CARBON_INSTALL)
+    include(GNUInstallDirs)
+    include(CMakePackageConfigHelpers)
+    set(CARBON_INSTALL_CMAKEDIR "${CMAKE_INSTALL_LIBDIR}/cmake/Carbon")
+
+    install(TARGETS Carbon EXPORT CarbonTargets
+        ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+        FILE_SET HEADERS DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+    )
+
+    # Carbon is a static library, so whoever links it also links FreeType and HarfBuzz. Copies built from the
+    # submodules are installed next to Carbon and exported with it (as Carbon::freetype and Carbon::harfbuzz);
+    # copies that were found on the system are found again by CarbonConfig.cmake.
+    foreach(dependency IN ITEMS FREETYPE HARFBUZZ)
+        get_target_property(dependency_target ${CARBON_DEPS_${dependency}_NAME} ALIASED_TARGET)
+        if(NOT dependency_target)
+            set(dependency_target ${CARBON_DEPS_${dependency}_NAME})
+        endif()
+        get_target_property(dependency_is_imported ${dependency_target} IMPORTED)
+        if(NOT dependency_is_imported)
+            install(TARGETS ${dependency_target} EXPORT CarbonTargets ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+        endif()
+    endforeach()
+
+    install(EXPORT CarbonTargets NAMESPACE Carbon:: DESTINATION "${CARBON_INSTALL_CMAKEDIR}")
+
+    get_property(CARBON_PACKAGE_DEPENDENCY_CODE GLOBAL PROPERTY CARBON_PACKAGE_DEPENDENCY_CODE)
+    configure_package_config_file(
+        "${CMAKE_CURRENT_SOURCE_DIR}/CMake/CarbonConfig.cmake.in"
+        "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfig.cmake"
+        INSTALL_DESTINATION "${CARBON_INSTALL_CMAKEDIR}"
+    )
+    # Before 1.0 a new minor version may change the API.
+    write_basic_package_version_file(
+        "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfigVersion.cmake"
+        VERSION ${PROJECT_VERSION}
+        COMPATIBILITY SameMinorVersion
+    )
+    install(FILES
+        "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfigVersion.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}/CMake/CarbonDawnRuntime.cmake"
+        DESTINATION "${CARBON_INSTALL_CMAKEDIR}"
+    )
+    install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
+        DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/Carbon"
+    )
+endif()
