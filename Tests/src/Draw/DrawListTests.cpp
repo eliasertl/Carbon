@@ -107,6 +107,28 @@ namespace Carbon
         EXPECT_EQ(drawList.GetVertices().size(), 8u);
     }
 
+    TEST(DrawListTests, EmptyAndInvertedRectanglesDrawNothing)
+    {
+        // Layout can hand out rectangles without area, or with a negative size while measurements are missing.
+        DrawList drawList;
+        drawList.Reset(Display, 1.0f);
+        const Rect inverted(50.0f, 50.0f, -4.0f, -20.0f);
+        const Rect flat(50.0f, 50.0f, 30.0f, 0.0f);
+        for (const Rect& rect : {inverted, flat})
+        {
+            drawList.AddRect(rect, Color::Black());
+            drawList.AddSquircle(rect, Color::Black(), 8.0f);
+            drawList.AddSquircleStroke(rect, Color::Black(), 8.0f, 1.0f);
+            drawList.AddShadow(rect, Color::Black(), 8.0f, 4.0f);
+            drawList.AddImage(TextureID{3}, rect);
+            drawList.ResolveDeferredSquircle(drawList.AddDeferredSquircle(Color::Black()), rect, 8.0f);
+        }
+        // Only the two deferred shapes exist, and they stay degenerate.
+        ASSERT_EQ(drawList.GetVertices().size(), 8u);
+        for (const DrawVertex& vertex : drawList.GetVertices())
+            EXPECT_EQ(vertex.Position, Vec2(0.0f, 0.0f));
+    }
+
     TEST(DrawListTests, CircleIsASquircleWithoutSmoothing)
     {
         DrawList drawList;

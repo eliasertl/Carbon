@@ -8,6 +8,15 @@
 
 namespace Carbon
 {
+    namespace
+    {
+        // A corner radius can be at most half of the shorter side. Empty and inverted rectangles get no radius.
+        float ClampRadius(float radius, Vec2 halfSize)
+        {
+            return std::clamp(radius, 0.0f, std::max(0.0f, std::min(halfSize.X, halfSize.Y)));
+        }
+    } // namespace
+
     DrawList::DrawList()
     {
         Reset(Rect(), 1.0f);
@@ -93,7 +102,7 @@ namespace Carbon
     {
         DrawPrimitive primitive;
         primitive.HalfSize = rect.GetSize() * 0.5f;
-        primitive.Radius = std::clamp(radius, 0.0f, std::min(primitive.HalfSize.X, primitive.HalfSize.Y));
+        primitive.Radius = ClampRadius(radius, primitive.HalfSize);
         primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
         primitive.Kind = DrawPrimitiveKind::Squircle;
         AddShape(rect, color, primitive, m_Padding);
@@ -105,7 +114,7 @@ namespace Carbon
             return;
         DrawPrimitive primitive;
         primitive.HalfSize = rect.GetSize() * 0.5f;
-        primitive.Radius = std::clamp(radius, 0.0f, std::min(primitive.HalfSize.X, primitive.HalfSize.Y));
+        primitive.Radius = ClampRadius(radius, primitive.HalfSize);
         primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
         primitive.StrokeWidth = width;
         primitive.Kind = DrawPrimitiveKind::SquircleStroke;
@@ -172,7 +181,7 @@ namespace Carbon
         const Rect shape = rect.Offset(offset);
         DrawPrimitive primitive;
         primitive.HalfSize = shape.GetSize() * 0.5f;
-        primitive.Radius = std::clamp(radius, 0.0f, std::min(primitive.HalfSize.X, primitive.HalfSize.Y));
+        primitive.Radius = ClampRadius(radius, primitive.HalfSize);
         primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
         primitive.Softness = std::max(blur, 0.0f);
         primitive.Kind = DrawPrimitiveKind::Shadow;
@@ -190,7 +199,7 @@ namespace Carbon
 
         DrawPrimitive primitive;
         primitive.HalfSize = rect.GetSize() * 0.5f;
-        primitive.Radius = std::clamp(radius, 0.0f, std::min(primitive.HalfSize.X, primitive.HalfSize.Y));
+        primitive.Radius = ClampRadius(radius, primitive.HalfSize);
         primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
         primitive.Kind = DrawPrimitiveKind::Image;
 
@@ -258,7 +267,7 @@ namespace Carbon
 
         DrawPrimitive& primitive = m_Primitives[shape.Primitive];
         primitive.HalfSize = rect.GetSize() * 0.5f;
-        primitive.Radius = std::clamp(radius, 0.0f, std::min(primitive.HalfSize.X, primitive.HalfSize.Y));
+        primitive.Radius = ClampRadius(radius, primitive.HalfSize);
         primitive.Smoothing = std::clamp(smoothing, 0.0f, 1.0f);
         primitive.Reserved = 0;
 

@@ -7,6 +7,8 @@ namespace Carbon
     class ScrollViewTests : public ContextTest
     {
     protected:
+        using Builder = std::function<void()>;
+
         // A 200 x 100 scroll view with ten rows of 30 points: 300 points of content, 200 to scroll.
         void BuildList()
         {
@@ -306,6 +308,88 @@ namespace Carbon
         EXPECT_FALSE(HasIndicator());
     }
 
+    TEST_F(ScrollViewTests, IndicatorCanBeDragged)
+    {
+        Settle([&] { BuildList(); }, IdleFrames);
+
+        // The pointer over the indicator's lane, at the trailing edge, makes it appear.
+        GetIO().AddMousePosEvent(196.0f, 10.0f);
+        Frame([&] { BuildList(); });
+        Frame([&] { BuildList(); });
+        Frame([&] { BuildList(); });
+        EXPECT_TRUE(HasIndicator());
+
+        // The thumb covers a third of the 96-point track (32 points) and travels the other 64 while the
+        // content scrolls 200: dragging it down by 32 points scrolls by 100.
+        GetIO().AddMouseButtonEvent(MouseButton::Left, true);
+        Frame([&] { BuildList(); });
+        GetIO().AddMousePosEvent(196.0f, 42.0f);
+        Frame([&] { BuildList(); });
+        Frame([&] { BuildList(); });
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, 100.0f);
+        EXPECT_FLOAT_EQ(m_Rows[0].Y, -100.0f); // the content follows the thumb directly, without gliding
+
+        // Dragging far past the end clamps, and the drag continues outside the view.
+        GetIO().AddMousePosEvent(400.0f, 900.0f);
+        Frame([&] { BuildList(); });
+        Frame([&] { BuildList(); });
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, 200.0f);
+
+        GetIO().AddMouseButtonEvent(MouseButton::Left, false);
+        Frame([&] { BuildList(); });
+        EXPECT_FALSE(GetActiveID().IsValid());
+    }
+
+    TEST_F(ScrollViewTests, PageKeysScrollTheViewUnderThePointer)
+    {
+        const Builder build = [&] { BuildList(); };
+        Settle(build);
+
+        // No pointer anywhere: the keys go to the outermost scroll view.
+        GetIO().AddKeyEvent(Key::PageDown, true);
+        Frame(build);
+        GetIO().AddKeyEvent(Key::PageDown, false);
+        Settle(build, 60);
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, 90.0f); // nine tenths of the 100-point viewport
+
+        GetIO().AddKeyEvent(Key::End, true);
+        Frame(build);
+        GetIO().AddKeyEvent(Key::End, false);
+        Frame(build);
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, 200.0f);
+
+        GetIO().AddKeyEvent(Key::PageUp, true);
+        Frame(build);
+        GetIO().AddKeyEvent(Key::PageUp, false);
+        Frame(build);
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, 110.0f);
+
+        GetIO().AddKeyEvent(Key::Home, true);
+        Frame(build);
+        GetIO().AddKeyEvent(Key::Home, false);
+        Frame(build);
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, 0.0f);
+    }
+
+    TEST_F(ScrollViewTests, CodeAfterAScrollViewStillSeesItsOwnLastItem)
+    {
+        // The draggable indicator is an item of its own, but it must not replace the content's last item.
+        ID lastItem;
+        Settle(
+            [&]
+            {
+                BeginScrollView("list", {.Width = 200.0f, .Height = 100.0f});
+                AllocateItem(Vec2(100.0f, 500.0f));
+                Button("Inside");
+                EndScrollView();
+                lastItem = GetItemID();
+            });
+        PushID("list");
+        const ID button = GetID("Inside");
+        PopID();
+        EXPECT_EQ(lastItem, button);
+    }
+
     TEST_F(ScrollViewTests, NoIndicatorWhenEverythingFits)
     {
         Settle(
@@ -318,6 +402,27 @@ namespace Carbon
             3);
         EXPECT_EQ(GetDrawData().Vertices.size(), 4u);
         EXPECT_FLOAT_EQ(GetScrollOffset("short").Y, 0.0f);
+    }
+
+    TEST_F(ScrollViewTests, FillingScrollViewSurvivesItsFirstFrame)
+    {
+        // A scroll view that fills its parent has no size at all on its first frame, while its content is
+        // already there. Nothing may be drawn with that empty viewport.
+        GetIO().SetDisplaySize(300.0f, 200.0f);
+        Rect viewport;
+        const auto build = [&]
+        {
+            BeginVStack({.Width = Size::Fill(), .Height = Size::Fill()});
+            BeginScrollView("page");
+            AllocateItem(Vec2(100.0f, 1000.0f));
+            EndScrollView();
+            viewport = GetLastItemRect();
+            EndVStack();
+        };
+        Frame(build);
+        Settle(build);
+        EXPECT_EQ(viewport, Rect(0.0f, 0.0f, 300.0f, 200.0f));
+        EXPECT_TRUE(m_AssertMessages.empty());
     }
 
     TEST_F(ScrollViewTests, UnbalancedScrollViewIsReportedOnce)

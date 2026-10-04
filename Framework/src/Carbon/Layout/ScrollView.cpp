@@ -6,6 +6,8 @@
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/State.h"
+#include "Carbon/Input/Input.h"
+#include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/LayoutInternal.h"
 
 namespace Carbon
@@ -18,6 +20,8 @@ namespace Carbon
         constexpr float IndicatorHoldTime = 1.0f;
         constexpr float IndicatorMargin = 2.0f;
         constexpr float IndicatorMinLength = 24.0f;
+        // How much wider the indicator gets while the pointer is over its lane.
+        constexpr float IndicatorHoverGrowth = 4.0f;
 
         // Survives while the scroll view is hidden, so returning to a view finds it where it was left.
         struct ScrollState
@@ -30,6 +34,10 @@ namespace Carbon
             float IdleTime;
             /// Set when the offset was assigned without animation: the displayed offset must jump too.
             bool IsJumpPending;
+            /// Length of the visible area along the scrolling axis, from last frame.
+            float ViewportLength;
+            /// The offset at the moment a drag of the indicator started.
+            float DragStartOffset;
         };
 
         const AnimationSpec ScrollSpring = AnimationSpec::Spring(0.25f, 1.0f);
@@ -59,6 +67,29 @@ namespace Carbon
                 state.IdleTime = 0.0f;
             }
         }
+        // Keyboard: Page Up and Page Down scroll the view under the pointer (or the outermost view when the
+        // pointer is elsewhere), unless a text field is being edited. Home and End do the same when no control
+        // has focus that might want those keys.
+        if (context.Layout.KeyboardScrollView == scrollID && !context.TextEdit.Owner.IsValid())
+        {
+            float& offset = isVertical ? state.Offset.Y : state.Offset.X;
+            const float before = offset;
+            const float page = state.ViewportLength * 0.9f;
+            if (IsKeyPressed(Key::PageDown))
+                offset += page;
+            if (IsKeyPressed(Key::PageUp))
+                offset -= page;
+            if (!context.Interaction.FocusedID.IsValid())
+            {
+                if (IsKeyPressed(Key::Home, false))
+                    offset = 0.0f;
+                if (IsKeyPressed(Key::End, false))
+                    offset = isVertical ? state.MaxOffset.Y : state.MaxOffset.X;
+            }
+            if (offset != before)
+                state.IdleTime = 0.0f;
+        }
+
         state.Offset = Max(Vec2(), Min(state.Offset, state.MaxOffset));
         if (state.IsJumpPending)
         {
@@ -87,6 +118,8 @@ namespace Carbon
         context.Draw.PushClipRect(viewport);
         if (context.Input.HasMousePos && context.Draw.GetClipRect().Contains(context.Input.MousePos))
             context.Layout.HoveredScrollViewCandidate = scrollID;
+        if (!context.Layout.FirstScrollViewCandidate.IsValid())
+            context.Layout.FirstScrollViewCandidate = scrollID;
 
         Internal::ScrollFrame scrollFrame;
         scrollFrame.Id = scrollID;
@@ -122,30 +155,77 @@ namespace Carbon
         const float maxOffset = std::max(0.0f, contentLength - viewportLength);
         state.MaxOffset = isVertical ? Vec2(0.0f, maxOffset) : Vec2(maxOffset, 0.0f);
 
-        // The overlay indicator: visible while scrolling, fading out once the view has been idle.
+        state.ViewportLength = viewportLength;
+
+        // The overlay indicator: a pill at the trailing edge that appears while scrolling or while the pointer
+        // is over its lane, can be dragged, and fades out once the view has been idle.
+        const float thickness = context.Style.GetVar(StyleVar::ScrollIndicatorWidth);
+        const float trackLength = viewportLength - IndicatorMargin * 2.0f;
+        const bool canScroll = maxOffset > 0.0f && trackLength > 0.0f;
+        const Rect& viewport = scrollFrame.Viewport;
         state.IdleTime = std::min(state.IdleTime + context.DeltaTime, IndicatorHoldTime * 2.0f);
-        const bool isActive = maxOffset > 0.0f && state.IdleTime < IndicatorHoldTime;
+
+        float thumbLength = 0.0f;
+        float thumbRange = 0.0f;
+        bool isLaneHovered = false;
+        if (canScroll && scrollFrame.ShowsIndicator)
+        {
+            thumbLength = std::clamp(trackLength * viewportLength / contentLength,
+                                     std::min(IndicatorMinLength, trackLength), trackLength);
+            thumbRange = trackLength - thumbLength;
+            const float offset = isVertical ? scrollFrame.DisplayedOffset.Y : scrollFrame.DisplayedOffset.X;
+            const float travel = thumbRange * std::clamp(offset / maxOffset, 0.0f, 1.0f);
+
+            // The lane is wider than the thumb so it is easy to hit.
+            const float laneWidth = thickness + IndicatorMargin * 2.0f + IndicatorHoverGrowth;
+            const Rect lane = isVertical
+                                  ? Rect(viewport.GetRight() - laneWidth, viewport.Y, laneWidth, viewport.Height)
+                                  : Rect(viewport.X, viewport.GetBottom() - laneWidth, viewport.Width, laneWidth);
+            const Rect grip = isVertical ? Rect(lane.X, viewport.Y + IndicatorMargin + travel, laneWidth, thumbLength)
+                                         : Rect(viewport.X + IndicatorMargin + travel, lane.Y, thumbLength, laneWidth);
+
+            // The thumb is submitted after the content, so it wins the pointer over whatever is under it. It
+            // must not become "the last item" for code that follows the scroll view.
+            const Internal::InteractionState::LastItemData lastItem = context.Interaction.LastItem;
+            DragBehaviorOptions dragOptions;
+            dragOptions.Focusable = false;
+            const DragInteraction drag = DragBehavior(HashID("##thumb", scrollFrame.Id), grip, dragOptions);
+            context.Interaction.LastItem = lastItem;
+
+            float& target = isVertical ? state.Offset.Y : state.Offset.X;
+            if (drag.Started)
+                state.DragStartOffset = target;
+            if (drag.Active && thumbRange > 0.0f)
+            {
+                const float moved = isVertical ? drag.Total.Y : drag.Total.X;
+                target = std::clamp(state.DragStartOffset + moved * maxOffset / thumbRange, 0.0f, maxOffset);
+                state.IsJumpPending = true; // the content follows the thumb directly
+            }
+
+            isLaneHovered = drag.Active || (IsRectHovered(lane) && !context.Interaction.ActiveID.IsValid());
+            if (isLaneHovered)
+                state.IdleTime = 0.0f;
+        }
+
+        const bool isActive = canScroll && state.IdleTime < IndicatorHoldTime;
         if (isActive)
             context.IsAnimatingThisFrame = true;
         const float opacity =
             Animate(HashID("##indicator", scrollFrame.Id), isActive ? 1.0f : 0.0f, AnimationSpec::Fade(0.25f));
-        if (scrollFrame.ShowsIndicator && opacity > 0.0f && maxOffset > 0.0f)
+        if (canScroll && scrollFrame.ShowsIndicator && opacity > 0.0f)
         {
-            const float thickness = context.Style.GetVar(StyleVar::ScrollIndicatorWidth);
-            const float trackLength = viewportLength - IndicatorMargin * 2.0f;
-            const float thumbLength = std::clamp(trackLength * viewportLength / contentLength,
-                                                 std::min(IndicatorMinLength, trackLength), trackLength);
+            // Under the pointer the thumb grows a little, as macOS scrollers do.
+            const float growth = Animate(HashID("##indicatorwidth", scrollFrame.Id),
+                                         isLaneHovered ? IndicatorHoverGrowth : 0.0f, AnimationSpec::Spring(0.2f));
+            const float width = thickness + growth;
             const float offset = isVertical ? scrollFrame.DisplayedOffset.Y : scrollFrame.DisplayedOffset.X;
-            const float travel = (trackLength - thumbLength) * std::clamp(offset / maxOffset, 0.0f, 1.0f);
-
-            const Rect& viewport = scrollFrame.Viewport;
-            const Rect thumb = isVertical
-                                   ? Rect(viewport.GetRight() - IndicatorMargin - thickness,
-                                          viewport.Y + IndicatorMargin + travel, thickness, thumbLength)
-                                   : Rect(viewport.X + IndicatorMargin + travel,
-                                          viewport.GetBottom() - IndicatorMargin - thickness, thumbLength, thickness);
+            const float travel = thumbRange * std::clamp(offset / maxOffset, 0.0f, 1.0f);
+            const Rect thumb = isVertical ? Rect(viewport.GetRight() - IndicatorMargin - width,
+                                                 viewport.Y + IndicatorMargin + travel, width, thumbLength)
+                                          : Rect(viewport.X + IndicatorMargin + travel,
+                                                 viewport.GetBottom() - IndicatorMargin - width, thumbLength, width);
             const Color color = context.Style.GetColor(StyleColor::ScrollIndicator).WithOpacity(opacity);
-            context.Draw.AddSquircle(thumb, color, thickness * 0.5f, 0.0f);
+            context.Draw.AddSquircle(thumb, color, width * 0.5f, 0.0f);
         }
 
         context.Draw.PopClipRect();

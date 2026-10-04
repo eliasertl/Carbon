@@ -125,6 +125,9 @@ namespace Carbon::Internal
         /// The scroll view under the pointer: found during a frame, used by the next one.
         ID HoveredScrollView;
         ID HoveredScrollViewCandidate;
+        /// The scroll view that Page Up and Page Down act on: the hovered one, or else the first (outermost) one.
+        ID KeyboardScrollView;
+        ID FirstScrollViewCandidate;
     };
 
     /// Called by NewFrame: opens the root container, which covers the display.

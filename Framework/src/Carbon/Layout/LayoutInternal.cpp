@@ -203,7 +203,10 @@ namespace Carbon::Internal
         }
 
         layout.HoveredScrollView = layout.HoveredScrollViewCandidate;
+        layout.KeyboardScrollView =
+            layout.HoveredScrollView.IsValid() ? layout.HoveredScrollView : layout.FirstScrollViewCandidate;
         layout.HoveredScrollViewCandidate = ID();
+        layout.FirstScrollViewCandidate = ID();
     }
 
     LayoutFrame& BeginContainer(Context& context, const ContainerDescription& description)
