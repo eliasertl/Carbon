@@ -42,6 +42,10 @@ Dawn takes a while to build. These options leave out what Carbon does not need a
 development packages (`libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
 libxext-dev`); add `-DDAWN_USE_WAYLAND=ON` if your application creates Wayland surfaces.
 
+With GCC 13 and the Ninja generator, also pass `-DDAWN_SUPPORTS_CXX_MODULES=OFF`: Dawn detects C++ module
+support that CMake cannot use with that compiler, and configuring fails with an error about `dawncpp_module`
+otherwise.
+
 Then point Carbon at the install prefix with `-DCMAKE_PREFIX_PATH=<dawn>/install/Release`, or set `Dawn_DIR` to
 `<prefix>/lib/cmake/Dawn`. Dawn's API changes often; other commits may need small adjustments in
 `Framework/src/Carbon/Renderer/`.

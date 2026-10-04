@@ -6,9 +6,11 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer commit of a pull request replaces the run of the older one. Pushes to main are never cancelled: a run
+# that is building Dawn should get to store it in the cache.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 env:
   # The Dawn commit Carbon is developed and tested against. Keep in sync with README.md and Docs/Building.md.
@@ -39,8 +41,10 @@ jobs:
         include:
           - name: Windows
             os: windows-2022
+          # Dawn detects C++ module support with GCC 13, which CMake cannot use with that compiler yet.
           - name: Linux
             os: ubuntu-24.04
+            options: -DDAWN_SUPPORTS_CXX_MODULES=OFF
     steps:
       - name: Look for a cached Dawn
         id: cache
@@ -90,13 +94,16 @@ jobs:
             -DDAWN_ENABLE_DESKTOP_GL=OFF \
             -DDAWN_ENABLE_OPENGLES=OFF \
             -DTINT_BUILD_TESTS=OFF \
-            -DTINT_BUILD_CMD_TOOLS=OFF
+            -DTINT_BUILD_CMD_TOOLS=OFF \
+            ${{ matrix.options }}
           cmake --build dawn-build
           cmake --install dawn-build --prefix dawn-install
 
   build:
     name: ${{ matrix.name }}
     needs: dawn
+    # Also when Dawn failed to build for another platform: the cache restore below decides for this one.
+    if: ${{ !cancelled() }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
