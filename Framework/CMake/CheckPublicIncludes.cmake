@@ -10,6 +10,9 @@
 # CarbonExtensions and custom components must be buildable from the installed headers alone. Includes below
 # "Carbon/Extensions/" are the extension library's own files and always allowed.
 
+# A script has no project to take its policies from; without this, older CMake versions do not know IN_LIST.
+cmake_minimum_required(VERSION 3.25)
+
 if(NOT CHECK_DIR OR NOT ALLOWED_FILE)
     message(FATAL_ERROR "CheckPublicIncludes.cmake needs CHECK_DIR and ALLOWED_FILE")
 endif()

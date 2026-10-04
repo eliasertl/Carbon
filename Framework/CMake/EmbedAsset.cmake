@@ -7,6 +7,8 @@
 #   extern const unsigned long long g_<Name>Size;
 # C++20 has no #embed, so this runs at build time; the output lives in the build tree and is never committed.
 
+cmake_minimum_required(VERSION 3.25) # a script has no project to take its policies from
+
 if(NOT DEFINED INPUT OR NOT DEFINED OUTPUT OR NOT DEFINED SYMBOL)
     message(FATAL_ERROR "EmbedAsset.cmake needs -DINPUT, -DOUTPUT and -DSYMBOL")
 endif()

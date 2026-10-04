@@ -6,6 +6,8 @@
 #   inline constexpr const char* AddressBook = "\xee\x9b\xb8";   // the code point encoded as UTF-8
 # The regular, bold and fill fonts share their code points, so one set of constants serves all three.
 
+cmake_minimum_required(VERSION 3.25) # a script has no project to take its policies from
+
 if(NOT DEFINED INPUT OR NOT DEFINED OUTPUT)
     message(FATAL_ERROR "GenerateIcons.cmake needs -DINPUT and -DOUTPUT")
 endif()
