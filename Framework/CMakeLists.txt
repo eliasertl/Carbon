@@ -133,6 +133,15 @@ set(CARBON_SOURCES
     src/Carbon/Widgets/Tooltip.cpp
 )
 
+# The public headers as they are written in an include directive. The PublicApiBoundary tests use this list to
+# verify that CarbonExtensions and the CustomComponent example stay on the public API.
+set(carbon_public_include_names "Carbon/Text/Icons.h")
+foreach(header IN LISTS CARBON_PUBLIC_HEADERS)
+    string(REGEX REPLACE "^src/" "" header_name "${header}")
+    list(APPEND carbon_public_include_names "${header_name}")
+endforeach()
+set_property(TARGET Carbon PROPERTY CARBON_PUBLIC_INCLUDE_NAMES "${carbon_public_include_names}")
+
 carbon_generate_icons("${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/style.css")
 
 target_sources(Carbon

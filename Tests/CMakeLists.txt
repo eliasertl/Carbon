@@ -47,5 +47,28 @@ carbon_configure_target(CarbonTests)
 # The renderer tests create a real device when the machine has an adapter (they skip otherwise).
 carbon_copy_dawn_runtime(CarbonTests)
 
+# CarbonExtensions and the CustomComponent example may include public Carbon headers only.
+get_target_property(carbon_public_include_names Carbon CARBON_PUBLIC_INCLUDE_NAMES)
+list(JOIN carbon_public_include_names "\n" carbon_public_include_text)
+set(carbon_public_include_file "${CMAKE_CURRENT_BINARY_DIR}/PublicHeaders.txt")
+file(WRITE "${carbon_public_include_file}" "${carbon_public_include_text}\n")
+foreach(boundary IN ITEMS Extensions/src Examples/CustomComponent)
+    string(REPLACE "/" "." boundary_name "${boundary}")
+    add_test(NAME PublicApiBoundary.${boundary_name}
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCHECK_DIR=${PROJECT_SOURCE_DIR}/${boundary}"
+            "-DALLOWED_FILE=${carbon_public_include_file}"
+            -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckPublicIncludes.cmake"
+    )
+endforeach()
+# A public header must not pull in an internal one either.
+add_test(NAME PublicApiBoundary.PublicHeaders
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCHECK_DIR=${PROJECT_SOURCE_DIR}/Framework/src"
+        "-DALLOWED_FILE=${carbon_public_include_file}"
+        "-DCHECK_LIST_FILE=${carbon_public_include_file}"
+        -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckPublicIncludes.cmake"
+)
+
 # PRE_TEST discovery keeps the build independent of being able to run the test binary.
 gtest_discover_tests(CarbonTests DISCOVERY_MODE PRE_TEST)
