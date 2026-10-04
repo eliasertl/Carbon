@@ -41,9 +41,13 @@ jobs:
         include:
           - name: Windows
             os: windows-2022
-          # Dawn detects C++ module support with GCC 13, which CMake cannot use with that compiler yet.
+          # Dawn at this commit does not compile with GCC 13, so it is built with Clang. The static library
+          # serves both Linux jobs below: GCC and Clang share libstdc++. Its C++ module target is switched off
+          # because CMake cannot scan modules with the compilers on the runner.
           - name: Linux
             os: ubuntu-24.04
+            cc: clang-18
+            cxx: clang++-18
             options: -DDAWN_SUPPORTS_CXX_MODULES=OFF
     steps:
       - name: Look for a cached Dawn
@@ -60,6 +64,8 @@ jobs:
           sudo apt-get install -y ninja-build pkg-config python3 \
             libx11-dev libx11-xcb-dev libxcb1-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev \
             libxext-dev mesa-common-dev
+          echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
+          echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
 
       - name: Set up MSVC (Windows)
         if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
