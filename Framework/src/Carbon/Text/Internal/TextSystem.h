@@ -45,6 +45,8 @@ namespace Carbon::Internal
         float Y = 0.0f;
         /// Size multiplier; icons are drawn slightly larger than the surrounding text.
         float Scale = 1.0f;
+        /// Byte offset, in the shaped line, of the first character this glyph belongs to.
+        uint32_t Cluster = 0;
     };
 
     /// A shaped line of text, cached between frames.
@@ -83,6 +85,10 @@ namespace Carbon::Internal
         Vec2 Measure(std::string_view text, const TextSpec& spec);
         void Draw(DrawList& drawList, Vec2 position, std::string_view text, const TextSpec& spec, Color color);
 
+        /// Fills `positions` with the horizontal caret position, in points, before every byte of a line and
+        /// after its last one (size + 1 entries).
+        void GetCaretPositions(std::string_view line, const TextSpec& spec, std::vector<float>& positions);
+
         GlyphAtlas& GetAtlas() { return m_Atlas; }
         size_t GetShapedLineCount() const { return m_ShapedLines.size(); }
         size_t GetCachedGlyphCount() const { return m_Glyphs.size(); }
@@ -104,6 +110,16 @@ namespace Carbon::Internal
             size_t operator()(const GlyphKey& key) const noexcept;
         };
 
+        /// A visual line: a range of glyphs of a shaped paragraph.
+        struct LineRange
+        {
+            size_t First = 0;
+            size_t End = 0;
+            /// Pen position of the first glyph and width without trailing spaces, in points.
+            float Start = 0.0f;
+            float Width = 0.0f;
+        };
+
         struct CachedGlyph
         {
             AtlasRegion Region;
@@ -119,8 +135,15 @@ namespace Carbon::Internal
         void ShapeRun(std::string_view line, size_t start, size_t length, uint16_t face, uint16_t primaryFace,
                       const TextSpec& spec, ShapedLine& shaped);
         const CachedGlyph* GetGlyph(const ShapedGlyph& glyph, float pixelSize, uint8_t subpixelBin);
-        void DrawLine(DrawList& drawList, Vec2 position, std::string_view line, const TextSpec& spec,
-                      const FontMetrics& metrics, Color color);
+        /// Pen position of a glyph in points; for index == glyph count, the end of the line.
+        static float GetGlyphX(const ShapedLine& shaped, const TextSpec& spec, size_t index);
+        /// Splits a shaped paragraph into visual lines no wider than the spec's MaxWidth.
+        void BreakLines(std::string_view paragraph, const ShapedLine& shaped, const TextSpec& spec,
+                        std::vector<LineRange>& lines);
+        void DrawGlyphs(DrawList& drawList, Vec2 position, const ShapedLine& shaped, size_t first, size_t end,
+                        const TextSpec& spec, const FontMetrics& metrics, Color color);
+        void DrawTruncated(DrawList& drawList, Vec2 position, const ShapedLine& shaped, const TextSpec& spec,
+                           const FontMetrics& metrics, Color color);
 
     private:
         FT_Library m_Library = nullptr;
@@ -137,5 +160,7 @@ namespace Carbon::Internal
         uint64_t m_FrameCount = 0;
         float m_ContentScale = 1.0f;
         bool m_AtlasOverflowed = false;
+        /// Scratch storage for line breaking, reused between calls.
+        std::vector<LineRange> m_LineRanges;
     };
 } // namespace Carbon::Internal

@@ -16,6 +16,11 @@ namespace Carbon
         return Internal::GetContext().Text->Measure(text, spec);
     }
 
+    void GetCaretPositions(std::string_view line, const TextSpec& spec, std::vector<float>& positions)
+    {
+        Internal::GetContext().Text->GetCaretPositions(line, spec, positions);
+    }
+
     // Declared in Draw/DrawList.h; implemented here because drawing text needs the text system, which sits above
     // the draw list in Carbon's layering.
     void DrawList::AddText(Vec2 position, std::string_view text, const TextSpec& spec, Color color)

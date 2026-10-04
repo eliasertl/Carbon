@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <string_view>
+#include <vector>
 
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Text/Font.h"
@@ -18,7 +19,15 @@ namespace Carbon
         Fill
     };
 
-    /// Everything that determines how a piece of text is shaped and rasterized.
+    /// Where the lines of a text sit inside its maximum width.
+    enum class TextAlignment : uint8_t
+    {
+        Leading,
+        Center,
+        Trailing
+    };
+
+    /// Everything that determines how a piece of text is shaped, laid out and rasterized.
     struct TextSpec
     {
         /// The font family; null selects the default font.
@@ -32,6 +41,12 @@ namespace Carbon
         /// Extra space between characters, in points.
         float Tracking = 0.0f;
         IconVariant Icons = IconVariant::Auto;
+        /// The width available to the text, in points; 0 means unlimited. Text that is wider wraps or is cut off.
+        float MaxWidth = 0.0f;
+        /// With a MaxWidth: true breaks lines between words; false keeps one line and ends it with an ellipsis.
+        bool Wraps = true;
+        /// Where lines sit inside MaxWidth.
+        TextAlignment Alignment = TextAlignment::Leading;
     };
 
     /// Vertical metrics of a TextSpec, in points.
@@ -52,6 +67,12 @@ namespace Carbon
     /// Returns the vertical metrics for a spec.
     FontMetrics GetFontMetrics(const TextSpec& spec);
 
-    /// Measures text in points. Lines are separated by '\n'; the result is the widest line by the total height.
+    /// Measures text in points. Lines are separated by '\n' and wrap at the spec's MaxWidth; the result is the
+    /// widest line by the total height.
     Vec2 MeasureText(std::string_view text, const TextSpec& spec);
+
+    /// Fills `positions` with the horizontal position of the text caret, in points from the start of the line,
+    /// before each byte of a single line of text and after its last one (text.size() + 1 entries). Text editors
+    /// use it to place the caret and to turn a click into a text offset.
+    void GetCaretPositions(std::string_view line, const TextSpec& spec, std::vector<float>& positions);
 } // namespace Carbon

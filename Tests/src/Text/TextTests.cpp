@@ -336,4 +336,133 @@ namespace Carbon
 
         EXPECT_EQ(AddFontFromFile("this/file/does/not/exist.ttf"), nullptr);
     }
+
+    TEST_F(TextTests, WrapsBetweenWords)
+    {
+        TextSpec spec = GetTextSpec(TextStyle::Body);
+        const std::string_view text = "one two three four five six seven eight nine ten";
+        const float fullWidth = GetWidth(text, spec);
+
+        spec.MaxWidth = 100.0f;
+        const Vec2 wrapped = MeasureText(text, spec);
+        EXPECT_LE(wrapped.X, 100.0f);
+        EXPECT_GT(wrapped.X, 50.0f); // lines are filled reasonably
+        const float lines = wrapped.Y / 16.0f;
+        EXPECT_FLOAT_EQ(lines, std::round(lines));
+        EXPECT_GE(lines, std::ceil(fullWidth / 100.0f));
+        EXPECT_LE(lines, std::ceil(fullWidth / 100.0f) + 2.0f);
+
+        // A wide limit changes nothing.
+        spec.MaxWidth = fullWidth + 1.0f;
+        EXPECT_FLOAT_EQ(MeasureText(text, spec).Y, 16.0f);
+
+        // Explicit line breaks still count.
+        spec.MaxWidth = 1000.0f;
+        EXPECT_FLOAT_EQ(MeasureText("first\nsecond", spec).Y, 32.0f);
+    }
+
+    TEST_F(TextTests, WordsLongerThanTheLineBreakAnywhere)
+    {
+        TextSpec spec = GetTextSpec(TextStyle::Body);
+        spec.MaxWidth = 60.0f;
+        const Vec2 size = MeasureText("Donaudampfschifffahrtsgesellschaft", spec);
+        EXPECT_LE(size.X, 60.0f);
+        EXPECT_GE(size.Y, 3.0f * 16.0f);
+    }
+
+    TEST_F(TextTests, WrappedTextIsDrawnInsideItsWidth)
+    {
+        TextSpec spec = GetTextSpec(TextStyle::Body);
+        spec.MaxWidth = 120.0f;
+        NewFrame();
+        GetDrawList().AddText(Vec2(40.0f, 20.0f), "The quick brown fox jumps over the lazy dog", spec, Color::Black());
+        const std::span<const DrawVertex> vertices = GetDrawList().GetVertices();
+        ASSERT_FALSE(vertices.empty());
+        float lowest = 0.0f;
+        for (const DrawVertex& vertex : vertices)
+        {
+            EXPECT_GE(vertex.Position.X, 39.0f);
+            EXPECT_LE(vertex.Position.X, 161.0f);
+            lowest = std::max(lowest, vertex.Position.Y);
+        }
+        EXPECT_GT(lowest, 20.0f + 32.0f); // at least three lines
+        EndFrame();
+    }
+
+    TEST_F(TextTests, TruncatesWithAnEllipsis)
+    {
+        TextSpec spec = GetTextSpec(TextStyle::Body);
+        const std::string_view text = "A label that is far too long for its column";
+        spec.MaxWidth = 90.0f;
+        spec.Wraps = false;
+        const Vec2 size = MeasureText(text, spec);
+        EXPECT_FLOAT_EQ(size.X, 90.0f);
+        EXPECT_FLOAT_EQ(size.Y, 16.0f);
+
+        NewFrame();
+        GetDrawList().AddText(Vec2(10.0f, 10.0f), text, spec, Color::Black());
+        const std::span<const DrawVertex> vertices = GetDrawList().GetVertices();
+        ASSERT_GE(vertices.size(), 8u);
+        for (const DrawVertex& vertex : vertices)
+            EXPECT_LE(vertex.Position.X, 101.0f);
+        // Fewer glyphs than the full text, and the last one is the ellipsis.
+        EXPECT_LT(vertices.size() / 4, text.size());
+        const Internal::ShapedLine& ellipsis = GetTextSystem().Shape("\xE2\x80\xA6", GetTextSpec(TextStyle::Body));
+        ASSERT_EQ(ellipsis.Glyphs.size(), 1u);
+        EndFrame();
+
+        // Text that fits is left alone.
+        spec.MaxWidth = 1000.0f;
+        EXPECT_FLOAT_EQ(MeasureText(text, spec).X, GetWidth(text, GetTextSpec(TextStyle::Body)));
+    }
+
+    TEST_F(TextTests, AlignmentPlacesLinesInsideTheWidth)
+    {
+        TextSpec spec = GetTextSpec(TextStyle::Body);
+        const float width = GetWidth("Hi", spec);
+        spec.MaxWidth = 200.0f;
+
+        const auto firstGlyphX = [&](TextAlignment alignment)
+        {
+            spec.Alignment = alignment;
+            NewFrame();
+            GetDrawList().AddText(Vec2(0.0f, 0.0f), "Hi", spec, Color::Black());
+            const float x = GetDrawList().GetVertices()[0].Position.X;
+            EndFrame();
+            return x;
+        };
+        const float leading = firstGlyphX(TextAlignment::Leading);
+        const float center = firstGlyphX(TextAlignment::Center);
+        const float trailing = firstGlyphX(TextAlignment::Trailing);
+        EXPECT_NEAR(center - leading, (200.0f - width) * 0.5f, 1.0f);
+        EXPECT_NEAR(trailing - leading, 200.0f - width, 1.0f);
+    }
+
+    TEST_F(TextTests, CaretPositionsFollowTheGlyphs)
+    {
+        const TextSpec spec = GetTextSpec(TextStyle::Body);
+        const std::string text = "Wi\xC3\xA4\xE2\x82\xACm"; // W, i, ä (2 bytes), € (3 bytes), m
+        std::vector<float> positions;
+        GetCaretPositions(text, spec, positions);
+        ASSERT_EQ(positions.size(), text.size() + 1);
+
+        EXPECT_FLOAT_EQ(positions[0], 0.0f);
+        EXPECT_FLOAT_EQ(positions.back(), GetWidth(text, spec));
+        // Never decreasing, and strictly increasing from one character to the next.
+        for (size_t i = 1; i < positions.size(); i++)
+            EXPECT_GE(positions[i], positions[i - 1]);
+        EXPECT_GT(positions[1], positions[0]);
+        EXPECT_GT(positions[2], positions[1]);
+        EXPECT_GT(positions[4], positions[2]);
+        EXPECT_GT(positions[7], positions[4]);
+        // "W" is wider than "i".
+        EXPECT_GT(positions[1] - positions[0], positions[2] - positions[1]);
+        // A prefix ends where its caret position is.
+        EXPECT_NEAR(positions[2], GetWidth("Wi", spec), 0.5f);
+
+        // An empty line has a single caret position.
+        GetCaretPositions("", spec, positions);
+        ASSERT_EQ(positions.size(), 1u);
+        EXPECT_FLOAT_EQ(positions[0], 0.0f);
+    }
 } // namespace Carbon
