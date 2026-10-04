@@ -24,7 +24,7 @@ jobs:
     name: clang-format
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Install clang-format
         run: pipx install clang-format==${{ env.CLANG_FORMAT_VERSION }}
       - name: Check formatting
@@ -52,7 +52,7 @@ jobs:
     steps:
       - name: Look for a cached Dawn
         id: cache
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: dawn-install
           key: dawn-${{ runner.os }}-${{ env.DAWN_COMMIT }}-v${{ env.DAWN_CACHE_VERSION }}
@@ -69,8 +69,13 @@ jobs:
 
       - name: Set up MSVC (Windows)
         if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
+        shell: pwsh
+        run: |
+          # The environment of a VS developer prompt, for the steps that follow: cl, link and the SDK on PATH.
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          cmd /c "`"$vs\VC\Auxiliary\Build\vcvars64.bat`" >nul && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" | Out-File $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
       - name: Install Ninja (Windows)
         if: steps.cache.outputs.cache-hit != 'true' && runner.os == 'Windows'
         shell: bash
@@ -129,12 +134,12 @@ jobs:
             cc: clang-18
             cxx: clang++-18
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
 
       - name: Restore Dawn
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6
         with:
           path: dawn-install
           key: dawn-${{ runner.os }}-${{ env.DAWN_COMMIT }}-v${{ env.DAWN_CACHE_VERSION }}
@@ -155,8 +160,13 @@ jobs:
 
       - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
-        uses: ilammy/msvc-dev-cmd@v1
-
+        shell: pwsh
+        run: |
+          # The environment of a VS developer prompt, for the steps that follow: cl, link and the SDK on PATH.
+          $vs = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -products * -property installationPath
+          cmd /c "`"$vs\VC\Auxiliary\Build\vcvars64.bat`" >nul && set" | ForEach-Object {
+            if ($_ -match '^([^=]+)=(.*)$') { "$($Matches[1])=$($Matches[2])" | Out-File $env:GITHUB_ENV -Append -Encoding utf8 }
+          }
       - name: Install Ninja (Windows)
         if: runner.os == 'Windows'
         shell: bash
@@ -194,7 +204,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: Screenshots (${{ matrix.name }})
           path: Screenshots
