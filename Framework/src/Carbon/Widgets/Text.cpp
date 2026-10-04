@@ -65,4 +65,14 @@ namespace Carbon
         context.Draw.AddText(rect.GetMin(), icon, spec, Resolve(options.Color, StyleColor::Label));
         SetStaticLastItem(rect);
     }
+
+    void DrawIcon(DrawList& drawList, Vec2 center, std::string_view icon, float size, Color color, IconVariant variant)
+    {
+        TextSpec spec;
+        spec.Font = GetTheme().Font;
+        spec.Size = size / IconFontScale;
+        spec.LineHeight = size;
+        spec.Icons = variant;
+        drawList.AddText(center - Vec2(size * 0.5f), icon, spec, color);
+    }
 } // namespace Carbon

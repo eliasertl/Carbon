@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "Carbon/Core/Color.h"
+#include "Carbon/Core/Vec2.h"
 #include "Carbon/Layout/Size.h"
 #include "Carbon/Text/Font.h"
 #include "Carbon/Text/TextSpec.h"
@@ -11,6 +12,8 @@
 
 namespace Carbon
 {
+    class DrawList;
+
     /// Options of Text. All fields are optional.
     struct TextOptions
     {
@@ -51,4 +54,9 @@ namespace Carbon
 
     /// Displays one icon from Carbon::Icons in a square of `Size` points.
     void Icon(std::string_view icon, const IconOptions& options = {});
+
+    /// Draws an icon into a square of `size` points around `center`, without taking part in layout. Components
+    /// use it for the glyphs inside controls (chevrons, checkmarks).
+    void DrawIcon(DrawList& drawList, Vec2 center, std::string_view icon, float size, Color color,
+                  IconVariant variant = IconVariant::Regular);
 } // namespace Carbon

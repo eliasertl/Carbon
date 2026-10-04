@@ -53,3 +53,13 @@
 #include "Carbon/Style/Theme.h"
 #include "Carbon/Widgets/ControlFeedback.h"
 #include "Carbon/Widgets/ControlSize.h"
+
+// The built-in widgets, for components that are composed of them.
+#include "Carbon/Widgets/Button.h"
+#include "Carbon/Widgets/Image.h"
+#include "Carbon/Widgets/Separator.h"
+#include "Carbon/Widgets/Slider.h"
+#include "Carbon/Widgets/Text.h"
+#include "Carbon/Widgets/TextField.h"
+#include "Carbon/Widgets/Toggle.h"
+#include "Carbon/Widgets/Tooltip.h"
