@@ -1,4 +1,4 @@
-#include "Carbon/Layout/LayoutInternal.h"
+#include "Carbon/Layout/Layout.h"
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +8,7 @@
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Hash.h"
 #include "Carbon/Core/State.h"
-#include "Carbon/Layout/Layout.h"
+#include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Layout/Stack.h"
 #include "Carbon/Overlay/OverlayInternal.h"
 

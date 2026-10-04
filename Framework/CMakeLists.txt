@@ -108,7 +108,7 @@ set(CARBON_SOURCES
     src/Carbon/Input/Input.cpp
     src/Carbon/Input/InputStateInternal.cpp
     src/Carbon/Interaction/Interaction.cpp
-    src/Carbon/Layout/LayoutInternal.cpp
+    src/Carbon/Layout/Layout.cpp
     src/Carbon/Layout/ScrollView.cpp
     src/Carbon/Layout/Stack.cpp
     src/Carbon/Overlay/Overlay.cpp

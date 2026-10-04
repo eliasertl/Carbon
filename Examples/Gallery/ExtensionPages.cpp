@@ -162,6 +162,7 @@ namespace Gallery
                 }
                 EndSubmenu();
             }
+            MenuSeparator();
             MenuHeader("View");
             if (MenuItem("Show Ruler", {.IsChecked = state.ShowRuler}))
                 state.ShowRuler = !state.ShowRuler;
