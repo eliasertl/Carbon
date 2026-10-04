@@ -20,6 +20,13 @@ namespace Carbon
     /// axis by the item's size plus the container's spacing.
     Rect AllocateItem(Vec2 size, const ItemOptions& options = {});
 
+    /// The size AllocateItem would give an item, without reserving anything. Components whose height depends on
+    /// their width (wrapping text) ask first, then allocate.
+    Vec2 ResolveItemSize(Vec2 size, const ItemOptions& options = {});
+
+    /// The direction the current container lays its items out in.
+    Axis GetLayoutAxis();
+
     /// Where the next item will be placed (its top-left corner, before alignment across the axis).
     Vec2 GetCursorPos();
     /// Places the next item's top-left corner at an absolute position instead of the flow position. The escape

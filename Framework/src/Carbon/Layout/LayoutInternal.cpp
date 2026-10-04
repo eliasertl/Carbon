@@ -170,7 +170,7 @@ namespace Carbon::Internal
         root.Record = GetState<ContainerRecord>(root.Id, StateLifetime::Transient);
         root.Record->LastFrame = context.FrameCount;
         root.ResolvedSize = context.DisplaySize;
-        root.Spacing = context.Style.Current.GetVar(StyleVar::Spacing);
+        root.Spacing = context.Style.GetVar(StyleVar::Spacing);
         StartFlow(root, *root.Record, 0.0f, false, Vec2());
         layout.Frames.push_back(root);
     }
@@ -288,7 +288,7 @@ namespace Carbon::Internal
         if (frame.Background.IsValid)
         {
             context.Draw.ResolveDeferredSquircle(frame.Background, rect, frame.BackgroundRadius,
-                                                 context.Style.Current.GetVar(StyleVar::CornerSmoothing));
+                                                 context.Style.GetVar(StyleVar::CornerSmoothing));
         }
         if (frame.HasOpacity)
             context.Draw.PopOpacity();
@@ -323,6 +323,17 @@ namespace Carbon
         const Vec2 origin = Internal::PlaceItem(context, frame, flow.Size);
         Internal::CommitItem(frame, origin, flow);
         return Rect(origin, flow.Size);
+    }
+
+    Vec2 ResolveItemSize(Vec2 size, const ItemOptions& options)
+    {
+        const Context& context = Internal::GetFrameContext();
+        return Internal::ResolveItem(context.Layout.Frames.back(), options.Width, options.Height, size).Size;
+    }
+
+    Axis GetLayoutAxis()
+    {
+        return Internal::GetFrameContext().Layout.Frames.back().Axis;
     }
 
     Vec2 GetCursorPos()

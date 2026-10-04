@@ -47,6 +47,14 @@ namespace Carbon
         IO& io = GetIO();
         io.AddMousePosEvent(50.0f, 50.0f);
         io.AddMouseButtonEvent(MouseButton::Left, true);
+
+        // A press that arrives together with a move waits one frame: Carbon needs the pointer to be in place
+        // for a frame to know which item is on top there.
+        NewFrame();
+        EXPECT_EQ(GetMousePos(), Vec2(50.0f, 50.0f));
+        EXPECT_FALSE(IsMousePressed());
+        EndFrame();
+
         NewFrame();
         EXPECT_TRUE(IsMousePressed());
         EXPECT_TRUE(IsMouseDown());
@@ -72,6 +80,7 @@ namespace Carbon
     {
         IO& io = GetIO();
         io.AddMousePosEvent(5.0f, 5.0f);
+        RunFrame();
         io.AddMouseButtonEvent(MouseButton::Left, true);
         io.AddMouseButtonEvent(MouseButton::Left, false);
 
@@ -91,6 +100,7 @@ namespace Carbon
     {
         IO& io = GetIO();
         io.AddMousePosEvent(10.0f, 10.0f);
+        RunFrame();
         io.AddMouseButtonEvent(MouseButton::Left, true);
         io.AddMousePosEvent(60.0f, 10.0f);
         io.AddMouseButtonEvent(MouseButton::Left, false);
@@ -113,6 +123,7 @@ namespace Carbon
     {
         IO& io = GetIO();
         io.AddMousePosEvent(100.0f, 100.0f);
+        RunFrame();
         io.AddMouseButtonEvent(MouseButton::Left, true);
         NewFrame();
         EXPECT_EQ(GetMouseClickCount(), 1);
@@ -138,6 +149,7 @@ namespace Carbon
 
         // Too far away: also a single click.
         io.AddMousePosEvent(140.0f, 100.0f);
+        RunFrame();
         io.AddMouseButtonEvent(MouseButton::Left, true);
         NewFrame();
         EXPECT_EQ(GetMouseClickCount(), 1);

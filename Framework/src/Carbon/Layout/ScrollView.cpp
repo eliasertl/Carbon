@@ -76,7 +76,7 @@ namespace Carbon
         description.Width = options.Width;
         description.Height = options.Height;
         description.Padding = options.Padding;
-        description.Spacing = options.Spacing.value_or(context.Style.Current.GetVar(StyleVar::Spacing));
+        description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
         description.CrossFactor =
             options.Alignment == Alignment::Leading ? 0.0f : (options.Alignment == Alignment::Center ? 0.5f : 1.0f);
         description.IsScrolling = true;
@@ -131,7 +131,7 @@ namespace Carbon
             Animate(HashID("##indicator", scrollFrame.Id), isActive ? 1.0f : 0.0f, AnimationSpec::Fade(0.25f));
         if (scrollFrame.ShowsIndicator && opacity > 0.0f && maxOffset > 0.0f)
         {
-            const float thickness = context.Style.Current.GetVar(StyleVar::ScrollIndicatorWidth);
+            const float thickness = context.Style.GetVar(StyleVar::ScrollIndicatorWidth);
             const float trackLength = viewportLength - IndicatorMargin * 2.0f;
             const float thumbLength = std::clamp(trackLength * viewportLength / contentLength,
                                                  std::min(IndicatorMinLength, trackLength), trackLength);
@@ -144,12 +144,48 @@ namespace Carbon
                                           viewport.Y + IndicatorMargin + travel, thickness, thumbLength)
                                    : Rect(viewport.X + IndicatorMargin + travel,
                                           viewport.GetBottom() - IndicatorMargin - thickness, thumbLength, thickness);
-            const Color color = context.Style.Current.GetColor(StyleColor::ScrollIndicator).WithOpacity(opacity);
+            const Color color = context.Style.GetColor(StyleColor::ScrollIndicator).WithOpacity(opacity);
             context.Draw.AddSquircle(thumb, color, thickness * 0.5f, 0.0f);
         }
 
         context.Draw.PopClipRect();
         Internal::EndContainer(context, Internal::ContainerKind::ScrollView);
+    }
+
+    void Internal::RevealInScrollViews(Context& context, const Rect& rect)
+    {
+        // Innermost first. Each view scrolls just far enough, with a little margin so the focus ring fits.
+        const float margin = 6.0f;
+        Rect target = rect.Expand(margin);
+        for (size_t i = context.Layout.ScrollFrames.size(); i > 0; i--)
+        {
+            const Internal::ScrollFrame& scrollFrame = context.Layout.ScrollFrames[i - 1];
+            ScrollState& state = *GetState<ScrollState>(scrollFrame.Id, StateLifetime::Persistent);
+            const Rect& viewport = scrollFrame.Viewport;
+            const bool isVertical = scrollFrame.Axis == Axis::Vertical;
+
+            // The item is drawn at the displayed offset, which may still be gliding towards the target offset.
+            // Decide from where the item will be once the view has arrived there.
+            const Vec2 pending = state.Offset - scrollFrame.DisplayedOffset;
+            target = target.Offset(-pending);
+
+            const float start = isVertical ? target.Y - viewport.Y : target.X - viewport.X;
+            const float end =
+                isVertical ? target.GetBottom() - viewport.GetBottom() : target.GetRight() - viewport.GetRight();
+
+            float delta = 0.0f;
+            if (start < 0.0f)
+                delta = start;
+            else if (end > 0.0f)
+                delta = std::min(end, start);
+            if (delta == 0.0f)
+                continue;
+
+            (isVertical ? state.Offset.Y : state.Offset.X) += delta;
+            state.IdleTime = 0.0f;
+            // The outer views see the item where it will be once this view has scrolled.
+            target = isVertical ? target.Offset(Vec2(0.0f, -delta)) : target.Offset(Vec2(-delta, 0.0f));
+        }
     }
 
     Vec2 GetScrollOffset(std::string_view id)

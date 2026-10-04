@@ -137,6 +137,10 @@ namespace Carbon::Internal
     /// Closes the current container, which must be of `kind`. Returns its final rectangle.
     Rect EndContainer(Context& context, ContainerKind kind);
 
+    /// Scrolls the open scroll views so that a rectangle becomes visible. Used when keyboard focus moves to an
+    /// item.
+    void RevealInScrollViews(Context& context, const Rect& rect);
+
     /// Identifies a container by its call site, the enclosing container and the ID scope.
     ID GetCallSiteID(Context& context, const char* file, uint32_t line, uint32_t column);
 } // namespace Carbon::Internal

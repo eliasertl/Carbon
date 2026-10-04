@@ -13,7 +13,8 @@ namespace Carbon
     namespace Internal
     {
         struct InputState;
-    }
+        struct InteractionState;
+    } // namespace Internal
 
     /// The host's side of a context: display metrics, timing and input. The host sets the display size, content
     /// scale and delta time and queues input events before every NewFrame; Carbon applies them in NewFrame.
@@ -62,7 +63,7 @@ namespace Carbon
 
     private:
         friend struct Internal::InputState;
-        friend struct Context;
+        friend struct Internal::InteractionState;
 
     private:
         Vec2 m_DisplaySize;

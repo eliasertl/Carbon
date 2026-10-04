@@ -35,6 +35,7 @@ namespace Carbon::Internal
         KeyReleased.fill(false);
         Characters.clear();
 
+        bool mouseMoved = false;
         bool textEntered = false;
         bool actionKeyPressed = false;
         std::array<bool, MouseButtonCount> buttonChanged{};
@@ -63,12 +64,15 @@ namespace Carbon::Internal
                     HasMousePos = event.Type == InputEventType::MousePos;
                     if (HasMousePos)
                         MousePos = event.Value;
+                    mouseMoved = true;
                     break;
                 }
                 case InputEventType::MouseButton:
                 {
                     const size_t button = static_cast<size_t>(event.Button);
-                    if (buttonChanged[button])
+                    // A press right after a move waits a frame: hit testing knows the topmost item under the
+                    // pointer from the previous frame, so the pointer has to be there for one frame first.
+                    if (buttonChanged[button] || (event.Down && mouseMoved))
                     {
                         defer = true;
                         break;

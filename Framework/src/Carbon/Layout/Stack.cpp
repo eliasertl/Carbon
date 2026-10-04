@@ -48,7 +48,7 @@ namespace Carbon
             if (!color.has_value())
                 return;
             frame.Background = context.Draw.AddDeferredSquircle(*color);
-            frame.BackgroundRadius = cornerRadius.value_or(context.Style.Current.GetVar(StyleVar::GroupCornerRadius));
+            frame.BackgroundRadius = cornerRadius.value_or(context.Style.GetVar(StyleVar::GroupCornerRadius));
         }
     } // namespace
 
@@ -62,7 +62,7 @@ namespace Carbon
         description.Width = options.Width;
         description.Height = options.Height;
         description.Padding = options.Padding;
-        description.Spacing = options.Spacing.value_or(context.Style.Current.GetVar(StyleVar::Spacing));
+        description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
         description.CrossFactor = GetFactor(options.Alignment);
         description.JustifyFactor = GetFactor(options.Justify);
         Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
@@ -84,7 +84,7 @@ namespace Carbon
         description.Width = options.Width;
         description.Height = options.Height;
         description.Padding = options.Padding;
-        description.Spacing = options.Spacing.value_or(context.Style.Current.GetVar(StyleVar::Spacing));
+        description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
         description.CrossFactor = GetFactor(options.Alignment);
         description.JustifyFactor = GetFactor(options.Justify);
         Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
