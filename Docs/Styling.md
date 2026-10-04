@@ -80,7 +80,7 @@ float radius = Carbon::GetStyleVar(Carbon::StyleVar::CornerRadius);
 | `BorderWidth` | 1 | Control outlines and separators |
 | `FocusRingWidth` / `FocusRingOffset` | 3 / 1 | The keyboard focus ring |
 | `DisabledOpacity` | 0.4 | Opacity of disabled content |
-| `HoverAmount` / `PressedAmount` | 0.05 / 0.12 | How far a control's fill shifts towards the label color |
+| `HoverAmount` / `PressedAmount` | 0.07 / 0.14 | How strongly the label color is laid over a control's fill under the pointer and while pressed |
 | `ScrollIndicatorWidth` | 7 | Overlay scroll indicators |
 
 ## Typography

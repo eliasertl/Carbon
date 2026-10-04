@@ -27,7 +27,8 @@ The label identifies the control and is not drawn. Segments can also be passed a
 - All segments have the same width.
 - The selected segment is a raised plate that slides to its new place with a spring (it jumps with Reduce
   Motion).
-- A segment is selected when the mouse button goes down on it.
+- An unselected segment under the pointer is tinted. A segment is selected when the mouse button goes down on
+  it.
 - An index outside the range is treated as the nearest segment.
 
 ## Keyboard

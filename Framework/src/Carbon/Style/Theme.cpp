@@ -21,8 +21,8 @@ namespace Carbon
             theme.SetVar(StyleVar::FocusRingWidth, 3.0f);
             theme.SetVar(StyleVar::FocusRingOffset, 1.0f);
             theme.SetVar(StyleVar::DisabledOpacity, 0.4f);
-            theme.SetVar(StyleVar::HoverAmount, 0.05f);
-            theme.SetVar(StyleVar::PressedAmount, 0.12f);
+            theme.SetVar(StyleVar::HoverAmount, 0.07f);
+            theme.SetVar(StyleVar::PressedAmount, 0.14f);
             theme.SetVar(StyleVar::ScrollIndicatorWidth, 7.0f);
 
             // The macOS built-in text styles from the HIG's Typography page. Public Sans has the same x-height

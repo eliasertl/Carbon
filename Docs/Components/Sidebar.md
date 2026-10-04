@@ -53,6 +53,7 @@ when `SidebarItem` returns `true`.
   with Reduce Motion.
 - The highlight is gray, and takes the selection color with on-accent text while the sidebar has keyboard
   focus.
+- An item under the pointer is tinted.
 - Titles that do not fit are cut off with an ellipsis.
 
 ## Keyboard

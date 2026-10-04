@@ -168,9 +168,17 @@ namespace Carbon
 
     Color Blend(const Color& base, const Color& over, float amount)
     {
-        const float t = std::clamp(amount, 0.0f, 1.0f);
-        return Color(base.R + (over.R - base.R) * t, base.G + (over.G - base.G) * t, base.B + (over.B - base.B) * t,
-                     base.A);
+        // `over` at an opacity of `amount`, composited on top of `base`. For an opaque base this is a plain mix
+        // of the two colors. For a translucent one (the control fill) the result also becomes more opaque, which
+        // is what makes the tint visible: mixing only the color of a 16 % fill changes almost nothing.
+        const float overAlpha = std::clamp(amount, 0.0f, 1.0f) * over.A;
+        const float baseAlpha = base.A * (1.0f - overAlpha);
+        const float alpha = overAlpha + baseAlpha;
+        if (alpha <= 0.0f)
+            return Color(base.R, base.G, base.B, 0.0f);
+        return Color((over.R * overAlpha + base.R * baseAlpha) / alpha,
+                     (over.G * overAlpha + base.G * baseAlpha) / alpha,
+                     (over.B * overAlpha + base.B * baseAlpha) / alpha, alpha);
     }
 
     // Declared in Text/TextStyle.h; implemented here because the type ramp belongs to the theme.

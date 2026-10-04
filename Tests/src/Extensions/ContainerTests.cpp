@@ -117,6 +117,44 @@ namespace Carbon
         EXPECT_FALSE(IsAnimating());
     }
 
+    TEST_F(SidebarTests, HighlightSlidesUpwardsToo)
+    {
+        // Picking a row above the selected one changes the application's selection after the new row was
+        // submitted and before the old one is: for one frame no row is marked as selected.
+        m_Selected = 4;
+        Settle(Interface(), 60);
+        // Shapes in order: background, trailing hairline, highlight.
+        const auto getHighlightTop = [] { return GetDrawData().Vertices[8].Position.Y + 1.0f; };
+        EXPECT_FLOAT_EQ(getHighlightTop(), m_Rects[4].Y);
+
+        Click(m_Rects[0].GetCenter(), Interface());
+        EXPECT_EQ(m_Selected, 0);
+        EXPECT_FLOAT_EQ(getHighlightTop(), m_Rects[4].Y) << "the highlight stays while the selection changes hands";
+
+        Frame(Interface());
+        Frame(Interface());
+        EXPECT_LT(getHighlightTop(), m_Rects[4].Y);
+        EXPECT_GT(getHighlightTop(), m_Rects[0].Y) << "it slides, it does not jump";
+
+        Settle(Interface(), 120);
+        EXPECT_NEAR(getHighlightTop(), m_Rects[0].Y, 0.01f);
+    }
+
+    TEST_F(SidebarTests, RowUnderThePointerIsTinted)
+    {
+        Settle(Interface());
+        const size_t before = GetDrawData().Vertices.size();
+        MoveMouse(m_Rects[2].GetCenter(), Interface());
+        Settle(Interface());
+        // One more shape than without the pointer: the tint behind the hovered row.
+        EXPECT_EQ(GetDrawData().Vertices.size(), before + 4);
+
+        // The selected row has its highlight and gets no tint.
+        MoveMouse(m_Rects[0].GetCenter(), Interface());
+        Settle(Interface(), 60);
+        EXPECT_EQ(GetDrawData().Vertices.size(), before);
+    }
+
     // ---- List ---------------------------------------------------------------------------------------------------
 
     class ListTests : public WidgetTest

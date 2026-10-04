@@ -189,11 +189,37 @@ namespace Carbon
 
     TEST_F(StyleTests, BlendMixesTowardsAColor)
     {
-        const Color base(0.2f, 0.4f, 0.6f, 0.5f);
-        EXPECT_EQ(Blend(base, Color::White(), 0.0f), base);
-        const Color half = Blend(base, Color::White(), 0.5f);
+        // On an opaque base it is a plain mix.
+        const Color opaque(0.2f, 0.4f, 0.6f, 1.0f);
+        EXPECT_EQ(Blend(opaque, Color::White(), 0.0f), opaque);
+        const Color half = Blend(opaque, Color::White(), 0.5f);
         EXPECT_FLOAT_EQ(half.R, 0.6f);
-        EXPECT_FLOAT_EQ(half.A, 0.5f); // the base's alpha is kept
-        EXPECT_FLOAT_EQ(Blend(base, Color::White(), 2.0f).R, 1.0f);
+        EXPECT_FLOAT_EQ(half.G, 0.7f);
+        EXPECT_FLOAT_EQ(half.A, 1.0f);
+        EXPECT_FLOAT_EQ(Blend(opaque, Color::White(), 2.0f).R, 1.0f);
+    }
+
+    TEST_F(StyleTests, BlendOnATranslucentBaseAddsCoverage)
+    {
+        // The tint is laid over the base, so the result is more opaque than the base: this is what makes hover
+        // and pressed states visible on the translucent control fill.
+        const Color base(0.2f, 0.4f, 0.6f, 0.5f);
+        const Color unchanged = Blend(base, Color::Black(), 0.0f);
+        EXPECT_FLOAT_EQ(unchanged.R, base.R);
+        EXPECT_FLOAT_EQ(unchanged.A, base.A);
+
+        const Color tinted = Blend(base, Color::White(), 0.5f);
+        EXPECT_FLOAT_EQ(tinted.A, 0.75f);
+        EXPECT_NEAR(tinted.R, (1.0f * 0.5f + 0.2f * 0.25f) / 0.75f, 1e-5f);
+
+        // The translucent control fill with the theme's hover tint, over a light surface, is clearly darker
+        // than the fill alone.
+        const Color fill = GetTheme().GetColor(StyleColor::ControlFill);
+        const Color hovered = Blend(fill, Color::Black(), GetStyleVar(StyleVar::HoverAmount));
+        const float surface = 0.95f;
+        const float rest = surface * (1.0f - fill.A) + fill.R * fill.A;
+        const float over = surface * (1.0f - hovered.A) + hovered.R * hovered.A;
+        EXPECT_GT(rest - over, 0.04f);
+        EXPECT_EQ(Blend(Color::Transparent(), Color::Black(), 0.0f).A, 0.0f);
     }
 } // namespace Carbon

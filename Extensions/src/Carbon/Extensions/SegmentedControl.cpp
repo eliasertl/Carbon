@@ -52,6 +52,7 @@ namespace Carbon
         RegisterFocusable(id, rect);
         Interaction summary;
         summary.Hovered = IsRectHovered(rect);
+        int hovered = -1;
         for (int i = 0; i < count; i++)
         {
             ButtonBehaviorOptions behavior;
@@ -60,6 +61,8 @@ namespace Carbon
             const Interaction interaction =
                 ButtonBehavior(HashID(i, id), getSegmentRect(static_cast<float>(i)), behavior);
             summary.Pressed = summary.Pressed || interaction.Pressed;
+            if (interaction.Hovered)
+                hovered = i;
             if (interaction.Clicked)
             {
                 current = i;
@@ -85,6 +88,20 @@ namespace Carbon
         // Track.
         const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);
         drawList.AddSquircle(rect, GetStyleColor(StyleColor::ControlFill), metrics.CornerRadius, smoothing);
+
+        // An unselected segment under the pointer is tinted; the tint fades out where the pointer left it.
+        int& tinted = *GetState<int>(HashID("##hovered", id));
+        const bool isTinting = hovered >= 0 && hovered != current;
+        if (isTinting)
+            tinted = hovered;
+        const float hover = Animate(HashID("##hover", id), isTinting ? 1.0f : 0.0f, AnimationSpec::Fade(0.12f));
+        if (hover > 0.001f && tinted < count)
+        {
+            drawList.AddSquircle(
+                getSegmentRect(static_cast<float>(tinted)),
+                GetStyleColor(StyleColor::Label).WithOpacity(GetStyleVar(StyleVar::HoverAmount) * hover),
+                std::max(metrics.CornerRadius - TrackInset, 0.0f), smoothing);
+        }
 
         // The selected segment is a raised plate that slides to its place.
         const float position = Animate(HashID("##selection", id), static_cast<float>(current), SelectionSpring);

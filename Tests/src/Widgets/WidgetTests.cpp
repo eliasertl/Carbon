@@ -235,6 +235,59 @@ namespace Carbon
         EXPECT_EQ(fills[3], Color::FromHex(0x34C759));
     }
 
+    TEST_F(WidgetTests, EveryControlReactsToThePointer)
+    {
+        // What a frame looks like, as one number: every vertex and every shape parameter.
+        const auto getAppearance = []
+        {
+            const DrawData& drawData = GetDrawData();
+            const std::string_view vertices(reinterpret_cast<const char*>(drawData.Vertices.data()),
+                                            drawData.Vertices.size_bytes());
+            const std::string_view primitives(reinterpret_cast<const char*>(drawData.Primitives.data()),
+                                              drawData.Primitives.size_bytes());
+            return HashBytes(primitives, HashBytes(vertices));
+        };
+
+        bool isOn = false;
+        float amount = 0.5f;
+        std::string text = "Text";
+        struct Case
+        {
+            const char* Name;
+            std::function<void()> Build;
+        };
+        const Case cases[] = {
+            {"Button", [] { Button("Button"); }},
+            {"Prominent button", [] { Button("Button", {.Role = ButtonRole::Prominent}); }},
+            {"Plain button", [] { Button("Button", {.Role = ButtonRole::Plain}); }},
+            {"Destructive button", [] { Button("Button", {.Role = ButtonRole::Destructive}); }},
+            {"Switch", [&] { Toggle("##switch", &isOn); }},
+            {"Checkbox", [&] { Toggle("##checkbox", &isOn, {.Kind = ToggleKind::Checkbox}); }},
+            {"Slider", [&] { Slider("Slider", &amount, 0.0f, 1.0f); }},
+            {"Text field", [&] { TextField("Field", &text); }},
+        };
+        for (const Case& entry : cases)
+        {
+            Rect rect;
+            const Builder build = [&]
+            {
+                entry.Build();
+                rect = GetItemRect();
+            };
+            MoveMouse(Vec2(700.0f, 500.0f), build);
+            Settle(build, 40);
+            const uint64_t idle = getAppearance();
+
+            MoveMouse(rect.GetCenter(), build);
+            Settle(build, 40);
+            EXPECT_NE(getAppearance(), idle) << entry.Name << " looks the same under the pointer";
+
+            MoveMouse(Vec2(700.0f, 500.0f), build);
+            Settle(build, 40);
+            EXPECT_EQ(getAppearance(), idle) << entry.Name << " does not return to its idle look";
+        }
+    }
+
     TEST_F(WidgetTests, ButtonShowsHoverAndPressFeedback)
     {
         Rect rect;
@@ -245,16 +298,18 @@ namespace Carbon
         };
         Settle(build);
         const Color idle = GetQuadColor(0);
+        // The fill is translucent: what counts is how it looks on the (white) background.
+        const auto getShade = [](const Color& color) { return 1.0f - color.A + color.R * color.A; };
 
         MoveMouse(rect.GetCenter(), build);
         Settle(build, 30);
         const Color hovered = GetQuadColor(0);
-        EXPECT_LT(hovered.R, idle.R); // shifted towards the (black) label color
+        EXPECT_GT(getShade(idle) - getShade(hovered), 0.03f) << "hovering must be visible, not just measurable";
 
         PressMouse(build);
         Settle(build, 30);
         const Color pressed = GetQuadColor(0);
-        EXPECT_LT(pressed.R, hovered.R);
+        EXPECT_GT(getShade(hovered) - getShade(pressed), 0.03f);
 
         ReleaseMouse(build);
         MoveMouse(Vec2(600.0f, 500.0f), build);

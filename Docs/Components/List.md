@@ -43,7 +43,7 @@ no selection at all the application's choice. For rows with several columns see 
 
 - Rows span the list. The selected row has a rounded highlight: gray, or the selection color with on-accent
   text while the list has keyboard focus.
-- Clicking a row gives the list focus.
+- A row under the pointer is tinted. Clicking a row gives the list focus.
 - Titles that do not fit are cut off with an ellipsis.
 - All rows are submitted every frame; rows outside the visible area are not drawn. For very long lists, submit
   only the rows near the visible range and reserve the rest of the height with a `Spacer`.

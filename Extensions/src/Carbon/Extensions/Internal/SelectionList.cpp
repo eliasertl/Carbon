@@ -20,16 +20,19 @@ namespace Carbon::Internal
             char Name[MaxNameLength + 1];
             size_t NameLength;
             DeferredShape Highlight;
+            DeferredShape Hover;
             Rect Viewport;
             Rect Content;
             /// Where the first row starts; moves with the scroll offset.
             Vec2 ContentOrigin;
             Rect SelectedRect;
+            Rect HoveredRect;
             float RowRadius;
             float BackgroundRadius;
             int Count;
             int SelectedOrdinal;
             bool HasSelection;
+            bool HasHoveredRow;
             bool IsFocused;
             bool IsEmphasized;
             bool AnimatesHighlight;
@@ -44,7 +47,16 @@ namespace Carbon::Internal
             int PendingOrdinal;
             /// The frame in which the newly selected row is scrolled into view.
             uint64_t RevealFrame;
-            bool HadSelection;
+            /// Where the highlight is heading, relative to the content, and the last frame a row was selected.
+            /// An application that selects a row in response to a click changes its selection in the middle of
+            /// a frame; when the new row was submitted before the old one, no row is selected in that frame.
+            /// The highlight then stays where it was instead of vanishing and jumping.
+            Rect HighlightTarget;
+            uint64_t LastSelectionFrame;
+            bool HasHighlightTarget;
+            /// The unselected row under the pointer, relative to the content, for the hover tint.
+            Rect HoverRect;
+            bool HasHoveredRow;
         };
 
         SelectionListBuild& GetBuild()
@@ -105,6 +117,14 @@ namespace Carbon::Internal
                     GetStyleColor(build.IsEmphasized ? StyleColor::Selection : StyleColor::UnemphasizedSelection),
                     AnimationSpec::Fade(0.15f));
         build.Highlight = drawList.AddDeferredSquircle(color);
+
+        // A row under the pointer is tinted. One tint per list is enough: it moves with the pointer and fades
+        // when the pointer leaves. Its place, like the highlight's, is known after the rows.
+        const SelectionListState& state = *GetState<SelectionListState>(listID, StateLifetime::Persistent);
+        const float hover =
+            Animate(HashID("##rowhover", listID), state.HasHoveredRow ? 1.0f : 0.0f, AnimationSpec::Fade(0.12f));
+        build.Hover = drawList.AddDeferredSquircle(
+            GetStyleColor(StyleColor::Label).WithOpacity(GetStyleVar(StyleVar::HoverAmount) * hover));
     }
 
     SelectionRow SelectionListRow(ID id, float height, bool isSelected, bool isDisabled)
@@ -145,6 +165,11 @@ namespace Carbon::Internal
             build.HasSelection = true;
             row.IsEmphasized = build.IsEmphasized;
         }
+        else if (row.Interaction.Hovered)
+        {
+            build.HoveredRect = row.Bounds;
+            build.HasHoveredRow = true;
+        }
         return row;
     }
 
@@ -161,18 +186,36 @@ namespace Carbon::Internal
             return;
         SelectionListState& state = *GetState<SelectionListState>(build.Id, StateLifetime::Persistent);
 
+        DrawList& drawList = GetDrawList();
+        const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);
+        const uint64_t frame = GetFrameCount();
+
+        // The highlight is animated relative to the content, so that scrolling does not leave it behind.
+        const ID animation = HashID("##highlight", build.Id);
+        const bool isContinuing = state.HasHighlightTarget && state.LastSelectionFrame + 2 >= frame;
         if (build.HasSelection)
         {
-            // Animated relative to the content, so that scrolling does not leave the highlight behind.
-            const ID animation = HashID("##highlight", build.Id);
             const Rect local = build.SelectedRect.Offset(Vec2() - build.ContentOrigin);
-            if (!state.HadSelection || !build.AnimatesHighlight)
+            // A selection that appears out of nowhere is simply there; one that moves, slides.
+            if (!isContinuing || !build.AnimatesHighlight)
                 SetAnimationValue(animation, local);
-            const Rect animated = Animate(animation, local, HighlightSpring);
-            GetDrawList().ResolveDeferredSquircle(build.Highlight, animated.Offset(build.ContentOrigin),
-                                                  build.RowRadius, GetStyleVar(StyleVar::CornerSmoothing));
+            state.HighlightTarget = local;
+            state.HasHighlightTarget = true;
+            state.LastSelectionFrame = frame;
         }
-        state.HadSelection = build.HasSelection;
+        if (build.HasSelection || (isContinuing && state.LastSelectionFrame + 1 == frame))
+        {
+            const Rect animated = Animate(animation, state.HighlightTarget, HighlightSpring);
+            drawList.ResolveDeferredSquircle(build.Highlight, animated.Offset(build.ContentOrigin), build.RowRadius,
+                                             smoothing);
+        }
+
+        if (build.HasHoveredRow)
+            state.HoverRect = build.HoveredRect.Offset(Vec2() - build.ContentOrigin);
+        state.HasHoveredRow = build.HasHoveredRow;
+        drawList.ResolveDeferredSquircle(build.Hover, state.HoverRect.Offset(build.ContentOrigin), build.RowRadius,
+                                         smoothing);
+
         // A row that no longer exists cannot be picked.
         state.PendingOrdinal = 0;
 

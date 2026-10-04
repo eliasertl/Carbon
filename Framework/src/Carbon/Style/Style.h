@@ -53,6 +53,7 @@ namespace Carbon
     Color Resolve(const std::optional<Color>& perCall, StyleColor fallback);
     float Resolve(const std::optional<float>& perCall, StyleVar fallback);
 
-    /// Blends `amount` (0..1) of `over` into `base`. Used for hover and pressed tints.
+    /// Lays `over` on top of `base` at an opacity of `amount` (0..1). Used for hover and pressed tints: with an
+    /// opaque base it mixes the two colors, with a translucent base the result also gets more opaque.
     Color Blend(const Color& base, const Color& over, float amount);
 } // namespace Carbon

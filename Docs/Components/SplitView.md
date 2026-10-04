@@ -39,8 +39,9 @@ Carbon::EndSplitView();
 
 ## Behaviour
 
-- The divider is a hairline that can be grabbed four points to either side of it; over it the cursor becomes a
-  resize cursor (through the host's `SetCursor` callback).
+- The divider is a hairline that can be grabbed four points to either side of it. Under the pointer and while
+  it is dragged it shows as a wider bar, and the cursor becomes a resize cursor (through the host's `SetCursor`
+  callback).
 - The position is the length of the first pane. It is remembered for as long as the context exists, also while
   the split view is not shown, and kept within the two minimums when the split view changes size.
 - Panes do not clip their content. Put a `ScrollView`, `List` or `Table` in a pane whose content can outgrow it.

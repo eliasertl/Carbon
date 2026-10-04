@@ -20,6 +20,8 @@ namespace Carbon
         constexpr float TrackThickness = 4.0f;
         // Without a step, the arrow keys move by this fraction of the range.
         constexpr float KeyboardFraction = 0.05f;
+        // How much the knob's radius grows under the pointer.
+        constexpr float KnobHoverGrowth = 1.0f;
 
         float GetKnobSize(ControlSize size)
         {
@@ -119,15 +121,16 @@ namespace Carbon
         }
 
         // Knob: a white circle with a soft shadow that darkens slightly while held.
-        const float press =
-            Animate(HashID("##press", id), drag.Active ? 1.0f : 0.0f, AnimationSpec::Spring(0.12f).AsAppearance());
-        const Rect knob = Rect::FromCenter(knobCenter, Vec2(knobSize));
-        context.Draw.AddShadow(knob, context.Style.GetColor(StyleColor::Shadow), knobSize * 0.5f, 3.0f,
-                               Vec2(0.0f, 1.0f), 0.0f);
-        context.Draw.AddCircle(knobCenter, knobSize * 0.5f,
-                               Blend(context.Style.GetColor(StyleColor::Knob), Color::Black(), 0.08f * press));
-        context.Draw.AddCircleStroke(knobCenter, knobSize * 0.5f, Color::Black().WithAlpha(0.1f), 0.5f);
-        DrawFocusRing(id, knob, knobSize * 0.5f);
+        // It grows a little under the pointer, so that it is clear what a click will grab.
+        const ControlFeedback feedback = AnimateFeedback(id, drag.Hovered || drag.Active, drag.Active);
+        const float knobRadius = knobSize * 0.5f + KnobHoverGrowth * feedback.Hover;
+        const Rect knob = Rect::FromCenter(knobCenter, Vec2(knobRadius * 2.0f));
+        context.Draw.AddShadow(knob, context.Style.GetColor(StyleColor::Shadow), knobRadius, 3.0f, Vec2(0.0f, 1.0f),
+                               0.0f);
+        context.Draw.AddCircle(knobCenter, knobRadius,
+                               Blend(context.Style.GetColor(StyleColor::Knob), Color::Black(), 0.08f * feedback.Press));
+        context.Draw.AddCircleStroke(knobCenter, knobRadius, Color::Black().WithAlpha(0.1f), 0.5f);
+        DrawFocusRing(id, knob, knobRadius);
 
         PopDisabled();
         return *value != initial;

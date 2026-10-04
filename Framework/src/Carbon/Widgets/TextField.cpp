@@ -291,8 +291,11 @@ namespace Carbon
         DrawList& drawList = context.Draw;
         const float radius = metrics.CornerRadius;
         drawList.AddSquircle(rect, context.Style.GetColor(StyleColor::ControlBackground), radius);
-        drawList.AddSquircleStroke(rect, context.Style.GetColor(StyleColor::ControlBorder), radius,
-                                   context.Style.GetVar(StyleVar::BorderWidth));
+        // The border gets stronger under the pointer: the field invites a click.
+        const ControlFeedback feedback = AnimateFeedback(id, isHovered, false);
+        const Color border = Blend(context.Style.GetColor(StyleColor::ControlBorder),
+                                   context.Style.GetColor(StyleColor::Label), 0.3f * feedback.Hover);
+        drawList.AddSquircleStroke(rect, border, radius, context.Style.GetVar(StyleVar::BorderWidth));
 
         if (!options.Icon.empty())
         {

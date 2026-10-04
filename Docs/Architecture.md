@@ -662,6 +662,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 44 | The installed package exports bundled FreeType and HarfBuzz as `Carbon::freetype` and `Carbon::harfbuzz` | A static Carbon needs them at link time; installing their archives next to Carbon's keeps `find_package(Carbon)` self-contained without merging archives |
 | 45 | `Tests/Package` is a separate CMake project that consumes the installed package | It is the only way to prove that custom components and the extension sources compile from the installed headers alone |
 | 46 | CI builds Dawn once per platform and caches the install by commit; the Linux jobs share one Dawn built with Clang | Dawn dominates CI time, and at the pinned commit it does not compile with GCC 13. GCC and Clang both use libstdc++, so one static library serves both |
+| 47 | Hover and pressed tints are composited over the fill (`Blend` is source-over), and every interactive control reacts to the pointer | Mixing only the color of the 16 % control fill was measurable but invisible. macOS itself gives few controls a hover state; Carbon's users are on Windows and Linux, where a control that does not react feels dead |
+| 48 | The selection highlight of Sidebar, List and Table survives one frame without a selected row | An application that selects in response to a click changes its selection mid-frame; when the new row precedes the old one, no row is selected in that frame, and the highlight would vanish and then jump |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

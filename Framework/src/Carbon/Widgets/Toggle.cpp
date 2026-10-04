@@ -87,7 +87,7 @@ namespace Carbon
         const Color labelColor = context.Style.GetColor(StyleColor::Label);
         const Color accent = Resolve(options.Tint, StyleColor::Accent);
         const float centerY = rect.GetCenter().Y;
-        const float press = Animate(HashID("##press", id), interaction.Pressed ? 1.0f : 0.0f, CheckSpring);
+        const ControlFeedback feedback = AnimateFeedback(id, interaction.Hovered, interaction.Pressed);
 
         if (isSwitch)
         {
@@ -98,8 +98,7 @@ namespace Carbon
             const float amount = std::clamp(on, 0.0f, 1.0f);
 
             const Color off = Blend(context.Style.GetColor(StyleColor::ControlFill), labelColor, 0.08f);
-            Color trackColor = Lerp(off, accent, amount);
-            trackColor = Blend(trackColor, labelColor, context.Style.GetVar(StyleVar::PressedAmount) * press);
+            const Color trackColor = ApplyFeedback(Lerp(off, accent, amount), labelColor, feedback);
             context.Draw.AddSquircle(track, trackColor, track.Height * 0.5f, 0.0f);
 
             const float knobSize = track.Height - KnobInset * 2.0f;
@@ -121,8 +120,8 @@ namespace Carbon
             const float radius = controlSize.X * 0.26f;
 
             // Off: a bordered well. On: filled with the accent color, with a white mark.
-            Color fill = Lerp(context.Style.GetColor(StyleColor::ControlBackground), accent, on);
-            fill = Blend(fill, labelColor, context.Style.GetVar(StyleVar::PressedAmount) * press);
+            const Color fill = ApplyFeedback(Lerp(context.Style.GetColor(StyleColor::ControlBackground), accent, on),
+                                             labelColor, feedback);
             context.Draw.AddSquircle(box, fill, radius);
             const Color border = context.Style.GetColor(StyleColor::ControlBorder).WithOpacity(1.0f - on);
             context.Draw.AddSquircleStroke(box, border, radius, context.Style.GetVar(StyleVar::BorderWidth));

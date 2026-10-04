@@ -32,6 +32,7 @@ the slider and is not drawn; put a `Text` next to it for a visible title.
   slider.
 - Clicking the track moves the knob to the click.
 - The value updates while dragging, so results can be shown live, as the HIG recommends.
+- The knob grows slightly under the pointer and darkens while it is held.
 
 ## Keyboard
 

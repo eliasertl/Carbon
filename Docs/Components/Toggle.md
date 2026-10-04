@@ -34,7 +34,8 @@ if (Carbon::Toggle("Dark Mode", &dark))
 ## States
 
 The switch knob glides with a slight bounce and the track cross-fades to the accent color; the checkmark fades
-in. With reduced motion the knob jumps and colors cross-fade.
+in. With reduced motion the knob jumps and colors cross-fade. The track and the box darken slightly under the
+pointer and further while pressed.
 
 A mixed checkbox for a group:
 

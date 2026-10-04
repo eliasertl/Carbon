@@ -41,7 +41,8 @@ identifies the field and serves as its placeholder; put a `Text` next to the fie
 | Double click | Select the word |
 | Triple click | Select everything |
 
-The pointer becomes an I-beam over the field (through the host's `SetCursor` callback).
+The pointer becomes an I-beam over the field (through the host's `SetCursor` callback), and the field's border
+gets stronger.
 
 ## Keyboard
 

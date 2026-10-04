@@ -144,6 +144,15 @@ namespace Carbon
             SetCursor(isHorizontal ? Cursor::ResizeHorizontal : Cursor::ResizeVertical);
 
         GetDrawList().AddRect(line, GetStyleColor(StyleColor::Separator));
+        // Under the pointer and while it is dragged the divider shows as a wider bar.
+        const ControlFeedback feedback = AnimateFeedback(id, drag.Hovered, drag.Active);
+        const float emphasis = std::max(feedback.Hover, feedback.Press);
+        if (emphasis > 0.001f)
+        {
+            const Rect bar = isHorizontal ? Rect(line.X - 1.0f, line.Y, line.Width + 2.0f, line.Height)
+                                          : Rect(line.X, line.Y - 1.0f, line.Width, line.Height + 2.0f);
+            GetDrawList().AddRect(bar, GetStyleColor(StyleColor::Label).WithOpacity(0.2f * emphasis));
+        }
         DrawFocusRing(id,
                       isHorizontal ? Rect(line.X - 1.0f, line.Y, line.Width + 2.0f, line.Height)
                                    : Rect(line.X, line.Y - 1.0f, line.Width, line.Height + 2.0f),
