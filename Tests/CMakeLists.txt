@@ -37,7 +37,10 @@ if(CARBON_BUILD_EXTENSIONS)
     target_sources(CarbonTests PRIVATE
         src/Extensions/ContainerTests.cpp
         src/Extensions/ControlTests.cpp
+        src/Extensions/HierarchyTests.cpp
+        src/Extensions/MenuBarTests.cpp
         src/Extensions/MenuTests.cpp
+        src/Extensions/NotificationTests.cpp
     )
     target_link_libraries(CarbonTests PRIVATE Carbon::Extensions)
     target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_EXTENSIONS=1)

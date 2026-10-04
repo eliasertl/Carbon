@@ -6,8 +6,13 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/Alert.h
     src/Carbon/Extensions/Chart.h
     src/Carbon/Extensions/ColorWell.h
+    src/Carbon/Extensions/ColumnView.h
+    src/Carbon/Extensions/ComboBox.h
     src/Carbon/Extensions/List.h
     src/Carbon/Extensions/Menu.h
+    src/Carbon/Extensions/MenuBar.h
+    src/Carbon/Extensions/Notification.h
+    src/Carbon/Extensions/OutlineView.h
     src/Carbon/Extensions/Popover.h
     src/Carbon/Extensions/PopUpButton.h
     src/Carbon/Extensions/ProgressIndicator.h
@@ -25,6 +30,8 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
 
 # Helpers shared by several components; not installed.
 set(CARBON_EXTENSIONS_INTERNAL_HEADERS
+    src/Carbon/Extensions/Internal/ColumnLayout.h
+    src/Carbon/Extensions/Internal/MenuInternal.h
     src/Carbon/Extensions/Internal/SelectionList.h
 )
 
@@ -32,8 +39,13 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Alert.cpp
     src/Carbon/Extensions/Chart.cpp
     src/Carbon/Extensions/ColorWell.cpp
+    src/Carbon/Extensions/ColumnView.cpp
+    src/Carbon/Extensions/ComboBox.cpp
     src/Carbon/Extensions/List.cpp
     src/Carbon/Extensions/Menu.cpp
+    src/Carbon/Extensions/MenuBar.cpp
+    src/Carbon/Extensions/Notification.cpp
+    src/Carbon/Extensions/OutlineView.cpp
     src/Carbon/Extensions/Popover.cpp
     src/Carbon/Extensions/PopUpButton.cpp
     src/Carbon/Extensions/ProgressIndicator.cpp
@@ -47,6 +59,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Table.cpp
     src/Carbon/Extensions/TabView.cpp
     src/Carbon/Extensions/Extensions.cpp
+    src/Carbon/Extensions/Internal/ColumnLayout.cpp
     src/Carbon/Extensions/Internal/SelectionList.cpp
 )
 

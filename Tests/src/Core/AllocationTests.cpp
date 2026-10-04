@@ -142,6 +142,10 @@ namespace Carbon
         static const TableColumn Columns[] = {{.Title = "Name"}, {.Title = "Size", .Width = 80.0f}};
         OpenOverlay(GetID("popover"));
         OpenMenu("menu");
+        PostNotification("Notification", {.Body = "Shown in every frame.",
+                                          .Style = NotificationStyle::Info,
+                                          .PrimaryAction = "Open",
+                                          .Duration = 0.0f});
 
         const size_t allocations = CountAllocationsOfOneFrame(
             [this]
@@ -182,11 +186,43 @@ namespace Carbon
                     MenuItem("Checked", {.IsChecked = true});
                     EndMenu();
                 }
+                BeginMenuBar();
+                if (BeginMenuBarMenu("File"))
+                {
+                    MenuItem("New");
+                    EndMenuBarMenu();
+                }
+                EndMenuBar();
+                ComboBox("Combo", &m_Text, Labels);
+                BeginOutlineView("outline", {.Height = 100.0f, .Columns = Columns});
+                const bool isExpanded = BeginOutlineItem("Folder", true, {.IsInitiallyExpanded = true}).IsExpanded;
+                OutlineCell("--");
+                if (isExpanded)
+                {
+                    BeginOutlineItem("File", false, {.HasChildren = false});
+                    OutlineCell("1 KB");
+                    EndOutlineItem();
+                }
+                EndOutlineItem();
+                EndOutlineView();
+                BeginColumnView("columns", {.Height = 100.0f});
+                BeginColumnViewColumn();
+                ColumnViewItem("Folder", true, {.HasChildren = true});
+                EndColumnViewColumn();
+                BeginColumnViewColumn();
+                ColumnViewItem("File", true);
+                EndColumnViewColumn();
+                BeginColumnViewPreview();
+                Text("Preview");
+                EndColumnViewPreview();
+                EndColumnView();
                 EndVStack();
                 EndHStack();
+                ShowNotifications();
             },
             120);
         EXPECT_EQ(allocations, 0u);
+        EXPECT_TRUE(m_AssertMessages.empty()) << "a misused component would allocate to report it";
     }
 #endif
 } // namespace Carbon
