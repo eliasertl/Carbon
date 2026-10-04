@@ -33,6 +33,11 @@ target_include_directories(CarbonTests PRIVATE src)
 target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME})
 
 if(CARBON_BUILD_EXTENSIONS)
+    target_sources(CarbonTests PRIVATE
+        src/Extensions/ContainerTests.cpp
+        src/Extensions/ControlTests.cpp
+        src/Extensions/MenuTests.cpp
+    )
     target_link_libraries(CarbonTests PRIVATE Carbon::Extensions)
     target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_EXTENSIONS=1)
 endif()

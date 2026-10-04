@@ -1,16 +1,57 @@
 add_library(CarbonExtensions STATIC)
 add_library(Carbon::Extensions ALIAS CarbonExtensions)
 
+# Public headers: one per component, plus the umbrella header.
 set(CARBON_EXTENSIONS_PUBLIC_HEADERS
+    src/Carbon/Extensions/Alert.h
+    src/Carbon/Extensions/Chart.h
+    src/Carbon/Extensions/ColorWell.h
+    src/Carbon/Extensions/List.h
+    src/Carbon/Extensions/Menu.h
+    src/Carbon/Extensions/Popover.h
+    src/Carbon/Extensions/PopUpButton.h
+    src/Carbon/Extensions/ProgressIndicator.h
+    src/Carbon/Extensions/PullDownButton.h
+    src/Carbon/Extensions/SearchField.h
+    src/Carbon/Extensions/SegmentedControl.h
+    src/Carbon/Extensions/Sheet.h
+    src/Carbon/Extensions/Sidebar.h
+    src/Carbon/Extensions/SplitView.h
+    src/Carbon/Extensions/Stepper.h
+    src/Carbon/Extensions/Table.h
+    src/Carbon/Extensions/TabView.h
     src/Carbon/Extensions/Extensions.h
 )
 
+# Helpers shared by several components; not installed.
+set(CARBON_EXTENSIONS_INTERNAL_HEADERS
+    src/Carbon/Extensions/Internal/SelectionList.h
+)
+
 set(CARBON_EXTENSIONS_SOURCES
+    src/Carbon/Extensions/Alert.cpp
+    src/Carbon/Extensions/Chart.cpp
+    src/Carbon/Extensions/ColorWell.cpp
+    src/Carbon/Extensions/List.cpp
+    src/Carbon/Extensions/Menu.cpp
+    src/Carbon/Extensions/Popover.cpp
+    src/Carbon/Extensions/PopUpButton.cpp
+    src/Carbon/Extensions/ProgressIndicator.cpp
+    src/Carbon/Extensions/PullDownButton.cpp
+    src/Carbon/Extensions/SearchField.cpp
+    src/Carbon/Extensions/SegmentedControl.cpp
+    src/Carbon/Extensions/Sheet.cpp
+    src/Carbon/Extensions/Sidebar.cpp
+    src/Carbon/Extensions/SplitView.cpp
+    src/Carbon/Extensions/Stepper.cpp
+    src/Carbon/Extensions/Table.cpp
+    src/Carbon/Extensions/TabView.cpp
     src/Carbon/Extensions/Extensions.cpp
+    src/Carbon/Extensions/Internal/SelectionList.cpp
 )
 
 target_sources(CarbonExtensions
-    PRIVATE ${CARBON_EXTENSIONS_SOURCES}
+    PRIVATE ${CARBON_EXTENSIONS_SOURCES} ${CARBON_EXTENSIONS_INTERNAL_HEADERS}
     PUBLIC FILE_SET HEADERS BASE_DIRS src FILES ${CARBON_EXTENSIONS_PUBLIC_HEADERS}
 )
 
