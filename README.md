@@ -35,11 +35,11 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 
 ![The MinimalIntegration example: Carbon's controls next to a triangle drawn by the host](Docs/Images/MinimalIntegration-Light.png)
 
-> **Status: in development.** The core library and the extension components are in place. Documentation,
-> continuous integration and packaging are being completed; see the roadmap in
-> [Docs/Architecture.md](Docs/Architecture.md#15-milestones).
+> **Status: version 0.1.** Everything described below is implemented, documented and tested on Windows (MSVC)
+> and Linux (GCC, Clang). The API may still change before 1.0. Not in scope: windows and docking, translucency
+> and blur, IME composition, right-to-left text and screen-reader accessibility.
 
-## What works today
+## Features
 
 - **Components**: Text, Icon, Button, Toggle (switch and checkbox), Slider, TextField, Image, Separator,
   Tooltip, stacks, Spacer and ScrollView, each with hover, pressed, focused and disabled states that animate.
@@ -63,7 +63,10 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 - **Keyboard**: Tab navigation, Space/Enter activation, arrow keys inside controls, menus and lists, Escape for
   overlays, and an animated focus ring.
 - **Integration**: a GPU-free draw list and a Dawn renderer that draws into the host's pass; an input queue
-  that never loses fast clicks or keystrokes; one static library with no asset files to ship.
+  that never loses fast clicks or keystrokes; one static library with no asset files to ship; usable through
+  `add_subdirectory` or `find_package`.
+- **Lean**: no heap allocations in a settled frame, and nothing is logged or asserted except through the host's
+  callbacks.
 
 ## Examples
 
