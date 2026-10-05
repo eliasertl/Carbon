@@ -20,6 +20,7 @@ namespace Gallery
         Layout,
 
         Selection,
+        Dates,
         Menus,
         Toolbars,
         Dialogs,
@@ -65,6 +66,10 @@ namespace Gallery
 
         // Selection controls.
         int ViewMode = 1;
+        // Dates.
+        Carbon::DateTime CalendarDate = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
+        Carbon::DateTime SundayDate = {.Year = 2026, .Month = 10, .Day = 5};
+        Carbon::DateTime LimitedDate = {.Year = 2026, .Month = 10, .Day = 12};
         // Toolbars.
         bool ToolbarShowsSidebar = true;
         int ToolbarView = 1;

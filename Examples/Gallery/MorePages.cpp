@@ -291,6 +291,34 @@ namespace Gallery
         EndSection();
     }
 
+    void DatesPage(GalleryState& state)
+    {
+        BeginSection("Calendar",
+                     "The graphical date picker. Click a day, or use the arrow keys while it has focus; Page Up and "
+                     "Page Down change the month, with Shift the year. Today is marked in the accent color.");
+        BeginHStack({.Spacing = 40.0f, .Alignment = VerticalAlignment::Top});
+        BeginVStack({.Spacing = 8.0f});
+        Text("Weeks start on Monday", {.Style = TextStyle::Subheadline, .Secondary = true});
+        DatePickerCalendar("Calendar", &state.CalendarDate);
+        EndVStack();
+        BeginVStack({.Spacing = 8.0f});
+        Text("Weeks start on Sunday", {.Style = TextStyle::Subheadline, .Secondary = true});
+        DatePickerCalendar("Sunday calendar", &state.SundayDate, {.FirstWeekday = Weekday::Sunday});
+        EndVStack();
+        BeginVStack({.Spacing = 8.0f});
+        Text("October 3 to 24 only", {.Style = TextStyle::Subheadline, .Secondary = true});
+        DatePickerCalendar("Limited calendar", &state.LimitedDate,
+                           {.MinDate = DateTime{.Year = 2026, .Month = 10, .Day = 3},
+                            .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 24, .Hour = 23, .Minute = 59}});
+        EndVStack();
+        EndHStack();
+        const DateTime& date = state.CalendarDate;
+        Text(std::format("Selected: {}, {} {}, {}", GetWeekdayName(GetWeekday(date)), GetMonthName(date.Month),
+                         date.Day, date.Year),
+             {.Secondary = true});
+        EndSection();
+    }
+
     void NotificationsPage(GalleryState& state)
     {
         BeginSection("Notifications",

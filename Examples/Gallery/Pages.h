@@ -38,6 +38,7 @@ namespace Gallery
     void NotificationsPage(GalleryState& state);
     void HierarchiesPage(GalleryState& state);
     void ToolbarsPage(GalleryState& state);
+    void DatesPage(GalleryState& state);
     /// Draws the notifications posted from any page and reports what the user did with them.
     void ShowGalleryNotifications(GalleryState& state);
 } // namespace Gallery

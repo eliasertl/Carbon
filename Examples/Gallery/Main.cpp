@@ -35,6 +35,7 @@ namespace Gallery
             {Page::Images, "Images", "images", Icons::Image},
             {Page::Layout, "Layout", "layout", Icons::Layout},
             {Page::Selection, "Selection Controls", "selection", Icons::SquaresFour},
+            {Page::Dates, "Date and Time", "dates", Icons::CalendarBlank},
             {Page::Menus, "Menus and Popovers", "menus", Icons::List},
             {Page::Toolbars, "Toolbars", "toolbars", Icons::Toolbox},
             {Page::Dialogs, "Alerts and Sheets", "dialogs", Icons::AppWindow},
@@ -118,6 +119,9 @@ namespace Gallery
                     break;
                 case Page::Selection:
                     SelectionPage(state);
+                    break;
+                case Page::Dates:
+                    DatesPage(state);
                     break;
                 case Page::Menus:
                     MenusPage(state);
