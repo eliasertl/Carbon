@@ -70,6 +70,31 @@ namespace Gallery
         EndRow();
         EndSection();
 
+        BeginSection("Radio buttons",
+                     "Two to five mutually exclusive choices. The group is one stop for Tab; the arrow keys move "
+                     "the selection.");
+        // A grid with top-aligned rows keeps each label on the line of the group's first button.
+        BeginGrid({.HorizontalSpacing = 12.0f, .VerticalSpacing = 14.0f, .VerticalAlignment = VerticalAlignment::Top});
+        BeginGridRow();
+        Text("Appearance", {.Secondary = true, .Width = LabelColumn});
+        RadioGroup("Appearance", &state.Appearance, {"Light", "Dark", "Automatic"});
+        EndGridRow();
+        BeginGridRow();
+        Text("Icon size", {.Secondary = true, .Width = LabelColumn});
+        RadioGroup("Icon size", &state.IconSize, {"Small", "Medium", "Large"}, {.Orientation = Axis::Horizontal});
+        EndGridRow();
+        BeginGridRow();
+        Text("Nothing selected yet", {.Secondary = true, .Width = LabelColumn});
+        RadioGroup("Start with", &state.StartWith, {"A new window", "The last session"});
+        EndGridRow();
+        BeginGridRow();
+        Text("Disabled", {.Secondary = true, .Width = LabelColumn});
+        RadioGroup("Disabled##radio", &state.IconSize, {"Small", "Medium", "Large"},
+                   {.Orientation = Axis::Horizontal, .Disabled = true});
+        EndGridRow();
+        EndGrid();
+        EndSection();
+
         BeginSection("Pop-up and pull-down buttons",
                      "A pop-up button picks one value from a list and shows it. A pull-down button offers "
                      "commands and keeps its title.");

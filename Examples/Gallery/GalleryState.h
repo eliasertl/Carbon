@@ -64,6 +64,9 @@ namespace Gallery
 
         // Selection controls.
         int ViewMode = 1;
+        int Appearance = 2;
+        int IconSize = 1;
+        int StartWith = -1;
         int Justification = 0;
         int SortOrder = 1;
         int Quality = 2;
