@@ -126,6 +126,8 @@ namespace Carbon
         CB_VERIFY(context.Style.ColorStack.empty() && context.Style.VarStack.empty(),
                   "Unbalanced style stack: {} PushStyleColor and {} PushStyleVar call(s) without a matching pop",
                   context.Style.ColorStack.size(), context.Style.VarStack.size());
+        CB_VERIFY(context.Style.FontStack.empty(), "Unbalanced font stack: {} PushFont call(s) without PopFont",
+                  context.Style.FontStack.size());
         context.Style.ResetWorkingValues();
 
         CB_VERIFY(context.Draw.IsBalanced(),

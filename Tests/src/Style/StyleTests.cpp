@@ -171,6 +171,87 @@ namespace Carbon
         EXPECT_NE(m_AssertMessages[0].find("PopStyleVar"), std::string::npos);
     }
 
+    TEST_F(StyleTests, FontPrecedenceIsPerCallThenPushedThenThemeThenDefault)
+    {
+        Font* mono = GetMonospacedFont();
+        // The theme's font is the italic Public Sans face registered as a font of its own.
+        Font* themed = AddFontFromMemory(GetEmbeddedFont(EmbeddedFont::PublicSansItalic), {.Name = "Themed"});
+        ASSERT_NE(mono, nullptr);
+        ASSERT_NE(themed, nullptr);
+
+        // Embedded default: no theme font, nothing pushed. Null means the default font to the text system.
+        Frame([] { EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, nullptr); });
+
+        Theme theme = Theme::Light();
+        theme.Font = themed;
+        SetTheme(theme, false);
+        Frame(
+            [&]
+            {
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, themed);
+                PushFont(mono);
+                // Pushed over theme, for every style of the ramp.
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, mono);
+                EXPECT_EQ(GetTextSpec(TextStyle::LargeTitle, true).Font, mono);
+                // Per call over pushed: a Text with its own font is as wide as that font measures it.
+                Text("Per call", {.Font = themed});
+                const float perCallWidth = GetLastItemRect().Width;
+                TextSpec spec = GetTextSpec(TextStyle::Body);
+                spec.Font = themed;
+                EXPECT_FLOAT_EQ(perCallWidth, MeasureText("Per call", spec).X);
+                // Without one, the pushed font draws it.
+                Text("Per call");
+                EXPECT_FLOAT_EQ(GetLastItemRect().Width, MeasureText("Per call", GetTextSpec(TextStyle::Body)).X);
+                EXPECT_NE(GetLastItemRect().Width, perCallWidth);
+                PopFont();
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, themed);
+            });
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(StyleTests, PushedFontsNest)
+    {
+        Font* mono = GetMonospacedFont();
+        Font* other = AddFontFromMemory(GetEmbeddedFont(EmbeddedFont::PublicSansItalic), {.Name = "Other"});
+        Frame(
+            [&]
+            {
+                PushFont(mono);
+                PushFont(other);
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, other);
+                PushFont(nullptr); // the theme's font again
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, nullptr);
+                PopFont();
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, other);
+                PopFont();
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, mono);
+                PushFont(other);
+                PopFont(2); // several at once
+                EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, nullptr);
+            });
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(StyleTests, UnbalancedFontPushesAreReportedAndDoNotLeak)
+    {
+        Frame(
+            []
+            {
+                PushFont(GetMonospacedFont());
+                PushFont(GetMonospacedFont());
+            });
+        ASSERT_EQ(m_AssertMessages.size(), 1u);
+        EXPECT_NE(m_AssertMessages[0].find("2 PushFont"), std::string::npos);
+
+        m_AssertMessages.clear();
+        Frame([] { EXPECT_EQ(GetTextSpec(TextStyle::Body).Font, nullptr); });
+        EXPECT_TRUE(m_AssertMessages.empty());
+
+        Frame([] { PopFont(); });
+        ASSERT_EQ(m_AssertMessages.size(), 1u);
+        EXPECT_NE(m_AssertMessages[0].find("PopFont"), std::string::npos);
+    }
+
     TEST_F(StyleTests, StackSitsOnTopOfARunningThemeTransition)
     {
         RunFrame();

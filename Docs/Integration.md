@@ -107,20 +107,32 @@ linear filtering and treated as straight (non-premultiplied) alpha.
 
 ## Fonts
 
-Public Sans (variable weight, upright and italic) and the Phosphor icon fonts are compiled into the library, so
-text works without any files. To add your own fonts:
+Public Sans (variable weight, upright and italic), the monospaced JetBrains Mono (upright and italic) and the
+Phosphor icon fonts are compiled into the library, so text works without any files. `GetDefaultFont()` and
+`GetMonospacedFont()` return the two text fonts. To add your own fonts:
 
 ```cpp
-Carbon::Font* mono = Carbon::AddFontFromFile("Fonts/JetBrainsMono.ttf");
+Carbon::Font* serif = Carbon::AddFontFromFile("Fonts/SourceSerif4.ttf");
 Carbon::Font* brand = Carbon::AddFontFromMemory(bytes, { .Name = "Brand", .ItalicData = italicBytes });
-
-Carbon::TextSpec spec = Carbon::GetTextSpec(Carbon::TextStyle::Body);
-spec.Font = mono;
 ```
 
+A font is used in one of four ways, from strongest to weakest:
+
+```cpp
+Carbon::Text("Quote", { .Font = serif });           // for one piece of text
+Carbon::PushFont(brand);                            // for everything drawn until the pop, every widget included
+Carbon::PopFont();
+theme.Font = brand; Carbon::SetTheme(theme);        // for the whole interface
+// nothing set: Public Sans
+```
+
+`TextSpec::Font` selects the font where you draw or measure text yourself; `GetTextSpec` fills it in with the
+pushed or the theme's font.
+
 Fonts you add are also used as fallbacks, in the order they were added, for characters the requested font lacks.
-The embedded fonts cover Latin text; add a font for other scripts. See [Styling](Styling.md) for the type ramp
-and icons.
+The embedded monospaced font is not a fallback. The embedded fonts cover Latin text; add a font for other
+scripts. See [Styling](Styling.md) for the type ramp and icons. The embedded fonts' licenses are in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ## Forwarding input
 

@@ -14,6 +14,9 @@ Carbon::Text(description, { .Secondary = true, .Width = Carbon::Size::Fill(), .W
 
 // Icons are text:
 Carbon::Text(std::string(Carbon::Icons::Folder) + "  Documents");
+
+// Code, in the embedded monospaced font:
+Carbon::Text("int main() { return 0; }", { .Font = Carbon::GetMonospacedFont() });
 ```
 
 Lines are separated by `'\n'`.
@@ -28,6 +31,7 @@ Lines are separated by `'\n'`.
 | `Color` | `Color` | theme's `Label` | |
 | `Weight` | `FontWeight` | from the style | Any weight on the 100–900 axis |
 | `Italic` | `bool` | `false` | |
+| `Font` | `Font*` | `nullptr` | The font for this text. `nullptr` uses the current font: the innermost `PushFont`, else `Theme::Font`, else Public Sans. `GetMonospacedFont()` returns the embedded JetBrains Mono |
 | `Width` | `Size` | `Fit` | `Fit`: as wide as the text. Fixed or `Fill`: the text is laid out inside that width. |
 | `Wraps` | `bool` | `false` | With a fixed or `Fill` width: `true` wraps between words; `false` keeps one line and ends it with "…" |
 | `Alignment` | `TextAlignment` | `Leading` | Where lines sit inside a fixed or `Fill` width: `Leading`, `Center`, `Trailing` |

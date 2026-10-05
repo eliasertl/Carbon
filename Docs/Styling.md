@@ -4,7 +4,7 @@ Carbon's look is controlled in three layers. From strongest to weakest:
 
 1. **Per-call options** — a field of a component's options struct:
    `Button("Delete", { .Role = ButtonRole::Destructive, .CornerRadius = 12.0f })`.
-2. **The style stack** — `PushStyleColor` / `PushStyleVar`, in effect until the matching pop.
+2. **The style stack** — `PushStyleColor` / `PushStyleVar` / `PushFont`, in effect until the matching pop.
 3. **The theme** — set once with `SetTheme`.
 
 An option given in the call always wins; a pushed value wins over the theme.
@@ -26,6 +26,24 @@ extensions. A push without its pop is reported at the end of the frame and does 
 
 Component authors read values with `GetStyleColor` and `GetStyleVar`, and combine them with a per-call option
 through `Resolve(option, fallback)`, which implements the precedence above.
+
+### Fonts
+
+`PushFont` / `PopFont` change the font of a region the same way:
+
+```cpp
+Carbon::PushFont(Carbon::GetMonospacedFont());
+    Carbon::Text("let answer = 42;");                                       // JetBrains Mono
+    Carbon::Button("Run");                                                  // so is the button's label
+    Carbon::Text("Public Sans", { .Font = Carbon::GetDefaultFont() });      // the call wins
+Carbon::PopFont();
+```
+
+The font of a piece of text is, from strongest to weakest: the font in the call (`TextOptions::Font`), the
+innermost pushed font, `Theme::Font`, and the embedded default (Public Sans). A pushed font reaches every widget,
+core or extension, because they all take their text from `GetTextSpec`. Pushes nest, `PopFont(count)` undoes
+several, `PushFont(nullptr)` returns to the theme's font for a region, and an unbalanced push is reported at the
+end of the frame without leaking into the next one.
 
 ## Themes
 
@@ -87,6 +105,13 @@ float radius = Carbon::GetStyleVar(Carbon::StyleVar::CornerRadius);
 
 Carbon's default typeface is [Public Sans](https://public-sans.digital.gov), embedded as two variable fonts
 (upright and italic) with a continuous weight axis from 100 to 900.
+
+For code, the monospaced [JetBrains Mono](https://www.jetbrains.com/lp/mono/) is embedded too (upright and
+italic, weights 100–800); `GetMonospacedFont()` returns it. Every character has the same advance in every weight
+and in italics, so columns of code and numbers line up. Use it per call (`TextOptions::Font`) or for a region
+(`PushFont`, see [Fonts](#fonts) above). It is not a fallback for other fonts: characters it lacks come from
+Public Sans and the fonts the host added, and Carbon's icons always come from the Phosphor fonts, also where
+JetBrains Mono has glyphs of its own in the Private Use Area.
 
 ### Text styles
 

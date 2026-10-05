@@ -28,6 +28,8 @@ namespace Carbon
         /// Overrides the style's weight.
         std::optional<FontWeight> Weight = {};
         bool Italic = false;
+        /// The font; null uses the current font (the innermost PushFont, else the theme's font).
+        Carbon::Font* Font = nullptr;
         /// Fit: as wide as the text. Fixed or Fill: the text is laid out inside that width.
         Size Width = Size::Fit();
         /// With a Fixed or Fill width: true wraps between words; false keeps one line, ending in an ellipsis.

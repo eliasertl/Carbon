@@ -6,13 +6,14 @@
 #include "Carbon/Style/StyleColor.h"
 #include "Carbon/Style/StyleVar.h"
 #include "Carbon/Style/Theme.h"
+#include "Carbon/Text/Font.h"
 
 namespace Carbon
 {
     /// Styling has three layers. From strongest to weakest:
     ///
     ///  1. the per-call option of a widget, e.g. `Button("Delete", { .CornerRadius = 12.0f })`;
-    ///  2. the style stack: PushStyleColor / PushStyleVar, in effect until the matching pop;
+    ///  2. the style stack: PushStyleColor / PushStyleVar / PushFont, in effect until the matching pop;
     ///  3. the theme.
     ///
     /// GetStyleColor and GetStyleVar return layers 2 and 3 combined; Resolve adds layer 1.
@@ -42,6 +43,12 @@ namespace Carbon
     void PushStyleVar(StyleVar var, float value);
     /// Undoes the last `count` PushStyleVar calls.
     void PopStyleVar(int count = 1);
+
+    /// Makes `font` the font of all text drawn by any widget until the matching PopFont. Pushes nest. A font given
+    /// in a widget's options (TextOptions::Font) still wins; null pushes the theme's font back.
+    void PushFont(Font* font);
+    /// Undoes the last `count` PushFont calls.
+    void PopFont(int count = 1);
 
     /// The value of a semantic color: the innermost pushed override, or the theme's color.
     Color GetStyleColor(StyleColor color);

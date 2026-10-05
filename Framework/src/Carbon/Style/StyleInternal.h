@@ -34,6 +34,8 @@ namespace Carbon::Internal
         bool PopColors(int count);
         void PushVar(StyleVar var, float value);
         bool PopVars(int count);
+        void PushFont(Carbon::Font* font);
+        bool PopFonts(int count);
 
         Theme Current = Theme::Light();
         Theme Source = Theme::Light();
@@ -42,6 +44,8 @@ namespace Carbon::Internal
 
         std::array<Color, static_cast<size_t>(StyleColor::Count)> Colors = Current.Colors;
         std::array<float, static_cast<size_t>(StyleVar::Count)> Vars = Current.Vars;
+        /// The font of text: the innermost pushed font, else the theme's. Null means the embedded default.
+        Carbon::Font* Font = nullptr;
 
         struct ColorEntry
         {
@@ -55,5 +59,7 @@ namespace Carbon::Internal
         };
         std::vector<ColorEntry> ColorStack;
         std::vector<VarEntry> VarStack;
+        /// The font each PushFont replaced.
+        std::vector<Carbon::Font*> FontStack;
     };
 } // namespace Carbon::Internal

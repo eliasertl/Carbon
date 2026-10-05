@@ -31,6 +31,8 @@ namespace Carbon
             spec.Weight = *options.Weight;
         spec.Italic = options.Italic;
         spec.Icons = options.Icons;
+        if (options.Font != nullptr)
+            spec.Font = options.Font;
 
         ItemOptions item;
         item.Width = options.Width;
@@ -56,7 +58,7 @@ namespace Carbon
         Context& context = Internal::GetFrameContext();
 
         TextSpec spec;
-        spec.Font = context.Style.Current.Font;
+        spec.Font = context.Style.Font;
         spec.Size = options.Size / IconFontScale;
         spec.LineHeight = options.Size;
         spec.Icons = options.Variant;
@@ -69,7 +71,7 @@ namespace Carbon
     void DrawIcon(DrawList& drawList, Vec2 center, std::string_view icon, float size, Color color, IconVariant variant)
     {
         TextSpec spec;
-        spec.Font = GetTheme().Font;
+        spec.Font = Internal::GetContext().Style.Font;
         spec.Size = size / IconFontScale;
         spec.LineHeight = size;
         spec.Icons = variant;

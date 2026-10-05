@@ -48,8 +48,10 @@ namespace Carbon
         {
             Colors = Current.Colors;
             Vars = Current.Vars;
+            Font = Current.Font;
             ColorStack.clear();
             VarStack.clear();
+            FontStack.clear();
         }
 
         void StyleState::PushColor(StyleColor color, Color value)
@@ -94,6 +96,28 @@ namespace Carbon
                 }
                 Vars[static_cast<size_t>(VarStack.back().Index)] = VarStack.back().Previous;
                 VarStack.pop_back();
+            }
+            return isBalanced;
+        }
+
+        void StyleState::PushFont(Carbon::Font* font)
+        {
+            FontStack.push_back(Font);
+            Font = font != nullptr ? font : Current.Font;
+        }
+
+        bool StyleState::PopFonts(int count)
+        {
+            bool isBalanced = true;
+            for (int i = 0; i < count; i++)
+            {
+                if (FontStack.empty())
+                {
+                    isBalanced = false;
+                    break;
+                }
+                Font = FontStack.back();
+                FontStack.pop_back();
             }
             return isBalanced;
         }
@@ -146,6 +170,17 @@ namespace Carbon
         CB_VERIFY(isBalanced, "PopStyleVar called without a matching PushStyleVar");
     }
 
+    void PushFont(Font* font)
+    {
+        Internal::GetContext().Style.PushFont(font);
+    }
+
+    void PopFont(int count)
+    {
+        const bool isBalanced = Internal::GetContext().Style.PopFonts(count);
+        CB_VERIFY(isBalanced, "PopFont called without a matching PushFont");
+    }
+
     Color GetStyleColor(StyleColor color)
     {
         return Internal::GetContext().Style.GetColor(color);
@@ -184,10 +219,11 @@ namespace Carbon
     // Declared in Text/TextStyle.h; implemented here because the type ramp belongs to the theme.
     TextSpec GetTextSpec(TextStyle style, bool emphasized)
     {
-        const Theme& theme = Internal::GetContext().Style.Current;
-        const TextStyleSpec& entry = theme.GetTextStyle(style < TextStyle::Count ? style : TextStyle::Body);
+        const Internal::StyleState& state = Internal::GetContext().Style;
+        const TextStyleSpec& entry = state.Current.GetTextStyle(style < TextStyle::Count ? style : TextStyle::Body);
         TextSpec spec;
-        spec.Font = theme.Font;
+        // The pushed font, else the theme's; a widget's own font option is applied by the widget.
+        spec.Font = state.Font;
         spec.Size = entry.Size;
         spec.LineHeight = entry.LineHeight;
         spec.Weight = emphasized ? entry.EmphasizedWeight : entry.Weight;
