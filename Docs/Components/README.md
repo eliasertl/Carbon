@@ -53,6 +53,7 @@ These components are built only on Carbon's public extension API; see
 | [Notifications](Notification.md) | Banners that tell about something that happened |
 | [RadioGroup](RadioGroup.md) | A few mutually exclusive choices as radio buttons |
 | [PathControl](PathControl.md) | The path to an item, from its root; each part can be clicked |
+| [Toolbar](Toolbar.md) | Frequently used commands and controls along the top of a window |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 
@@ -77,7 +78,7 @@ Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 - **After the call.** `IsItemHovered()`, `IsItemFocused()`, `IsItemActive()`, `GetItemRect()` and `Tooltip()`
   refer to the component submitted last.
 - **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginGrid`, `BeginGridRow`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
-  `BeginTable`, `BeginTabView` and `BeginSplitView` always need their `End`. Pairs that can be closed return a
+  `BeginTable`, `BeginTabView`, `BeginSplitView` and `BeginToolbar` always need their `End`. Pairs that can be closed return a
   `bool` from `Begin` (`BeginPopover`, `BeginMenu`, `BeginSubmenu`, `BeginContextMenu`, `BeginPullDownButton`,
   `BeginSheet`, `BeginOverlay`): call `End` only when it returned `true`.
 - **Open at the same ID scope.** `OpenPopover("name")`, `OpenMenu`, `OpenAlert` and `OpenSheet` find their

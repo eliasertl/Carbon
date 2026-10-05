@@ -51,8 +51,8 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 ```
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
-SegmentedControl, Chart, Popover, Menu, MenuBar, PopUpButton, PullDownButton, ComboBox, RadioGroup, Stepper,
-ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, PathControl, SplitView, Alert, Sheet,
+SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, RadioGroup,
+Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, PathControl, SplitView, Alert, Sheet,
 ColorWell, Notification) and, in `Internal/`, what several of them share: `SelectionList` (Sidebar, List, Table,
 OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu, MenuBar).
 
@@ -678,6 +678,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 59 | A radio group is one Tab stop whose arrow keys change the selection directly; -1 means no button is selected | This is AppKit's behaviour with Full Keyboard Access; a group that starts without a choice is a legitimate state for radio buttons, unlike segmented controls |
 | 60 | `PathControl` returns the index of the activated component (-1 for none) instead of a `bool` with a value it edits | The application owns the path (decision 51); what the control reports is an action on one of its components, not a new value |
 | 61 | A path that does not fit hides the middle names first, from the root's side, then truncates the root's name and last the selected item's; a hovered or highlighted component always shows its name. The pop-up style's menu lists the path from the selected item down, without check marks | The HIG names only the first step; keeping the selected item readable longest matches Finder's path bar. The menu has one leading column, which a check mark would take from the icons |
+| 62 | A toolbar decides which items fit from the widths of the previous frame and moves the rest, from its trailing end, into an overflow menu; an item chosen there reports it in the next frame | Whether an item fits is known only after every item has been submitted. Items are copied into fixed buffers so the menu can be built at the end, as with notifications (decision 54); the one frame of latency is that of decision 38 |
+| 63 | A control in the overflow menu opens in a popover below the chevron and gets the keyboard; with labels shown, controls get their label below them | A menu cannot hold a search field. macOS shows the labels of all toolbar items, controls included, in the icon-and-label mode |
+| 64 | `ToolbarOptions::Height` is optional (52 points with labels, 38 without) where `MenuBarOptions::Height` is a fixed default | The right height depends on the display mode, which the options also choose |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
