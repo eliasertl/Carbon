@@ -3,7 +3,6 @@ add_executable(Gallery
     ExtensionPages.cpp
     GalleryState.h
     Main.cpp
-    MorePages.cpp
     Pages.h
 )
 target_link_libraries(Gallery PRIVATE CarbonExampleCommon Carbon::Extensions)

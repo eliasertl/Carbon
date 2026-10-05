@@ -37,16 +37,16 @@ namespace Gallery
 
     // Components of CarbonExtensions (ExtensionPages.cpp).
     void SelectionPage(GalleryState& state);
+    void DatesPage(GalleryState& state);
     void MenusPage(GalleryState& state);
+    void ToolbarsPage(GalleryState& state);
     void DialogsPage(GalleryState& state);
+    void NotificationsPage(GalleryState& state);
     void ProgressPage(GalleryState& state);
     void ListsPage(GalleryState& state);
+    void HierarchiesPage(GalleryState& state);
     void NavigationPage(GalleryState& state);
     void ChartsPage(GalleryState& state);
-    void NotificationsPage(GalleryState& state);
-    void HierarchiesPage(GalleryState& state);
-    void ToolbarsPage(GalleryState& state);
-    void DatesPage(GalleryState& state);
     /// Draws the notifications posted from any page and reports what the user did with them.
     void ShowGalleryNotifications(GalleryState& state);
 } // namespace Gallery
