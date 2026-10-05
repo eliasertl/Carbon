@@ -30,6 +30,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/Stepper.h
     src/Carbon/Extensions/Table.h
     src/Carbon/Extensions/TabView.h
+    src/Carbon/Extensions/TokenField.h
     src/Carbon/Extensions/Toolbar.h
     src/Carbon/Extensions/Extensions.h
 )
@@ -69,6 +70,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Stepper.cpp
     src/Carbon/Extensions/Table.cpp
     src/Carbon/Extensions/TabView.cpp
+    src/Carbon/Extensions/TokenField.cpp
     src/Carbon/Extensions/Toolbar.cpp
     src/Carbon/Extensions/Extensions.cpp
     src/Carbon/Extensions/Internal/ColumnLayout.cpp

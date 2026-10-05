@@ -43,6 +43,7 @@ if(CARBON_BUILD_EXTENSIONS)
         src/Extensions/MenuBarTests.cpp
         src/Extensions/MenuTests.cpp
         src/Extensions/NotificationTests.cpp
+        src/Extensions/TokenFieldTests.cpp
         src/Extensions/ToolbarTests.cpp
     )
     target_link_libraries(CarbonTests PRIVATE Carbon::Extensions)

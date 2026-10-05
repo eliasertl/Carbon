@@ -82,6 +82,7 @@ namespace Carbon
         int m_Selected = 1;
 #if defined(CARBON_TESTS_HAVE_EXTENSIONS)
         DateTime m_Date = {.Year = 2026, .Month = 10, .Day = 5};
+        std::vector<std::string> m_Tokens = {"Ada", "Grace", "Alan"};
 #endif
     };
 
@@ -150,6 +151,26 @@ namespace Carbon
         EXPECT_EQ(m_Date.Month, 12);
         EXPECT_EQ(m_Date.Day, 6);
     }
+
+    TEST_F(AllocationTests, TypingIntoATokenFieldDoesNotAllocateInSteadyState)
+    {
+        const auto build = [this]
+        {
+            BeginVStack({.Padding = 20.0f});
+            TokenField("Tokens", &m_Tokens);
+            EndVStack();
+        };
+        // Focus the field, type some text and select a token. New tokens allocate; text that stays text and
+        // selection do not, once the text has been shaped during the warm-up.
+        CountAllocationsOfOneFrame(build, 5);
+        GetIO().AddKeyEvent(Key::Tab, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Tab, false);
+        GetIO().AddInputCharactersUTF8("Barbara");
+        CountAllocationsOfOneFrame(build, 10);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        EXPECT_EQ(m_Tokens.size(), 3u);
+    }
 #endif
 
     TEST_F(AllocationTests, HoverFocusAndTypingDoNotAllocateInSteadyState)
@@ -210,6 +231,8 @@ namespace Carbon
                 PathControl("Path", Path, {.Width = 100.0f});
                 PathControl("Pop-up path", Path, {.Style = PathControlStyle::PopUp});
                 DatePickerCalendar("Calendar", &m_Date, {.Today = m_Date});
+                TokenField("Tokens", &m_Tokens);
+                TokenField("Tokens on one line", &m_Tokens, {.Layout = TokenFieldLayout::SingleLine});
                 DatePicker("Date picker", &m_Date,
                            {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .Today = m_Date});
                 BeginToolbar("Toolbar", {.Width = 200.0f});
