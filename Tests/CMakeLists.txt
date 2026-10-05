@@ -54,6 +54,7 @@ if(TARGET CarbonReflection)
     target_sources(CarbonTests PRIVATE
         src/Reflection/DisplayNameTests.cpp
         src/Reflection/EnumTests.cpp
+        src/Reflection/ReflectTests.cpp
         src/Reflection/StructTests.cpp
     )
     target_link_libraries(CarbonTests PRIVATE Carbon::Reflection)

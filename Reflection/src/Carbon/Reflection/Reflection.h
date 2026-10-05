@@ -4,6 +4,8 @@
 
 #include "Carbon/Reflection/Enum.h"
 #include "Carbon/Reflection/Macros.h"
+#include "Carbon/Reflection/Reflect.h"
 #include "Carbon/Reflection/ReflectEnumOptions.h"
 #include "Carbon/Reflection/ReflectFieldOptions.h"
+#include "Carbon/Reflection/ReflectOptions.h"
 #include "Carbon/Reflection/Struct.h"

@@ -7,19 +7,23 @@ add_library(Carbon::Reflection ALIAS CarbonReflection)
 set(CARBON_REFLECTION_PUBLIC_HEADERS
     src/Carbon/Reflection/Enum.h
     src/Carbon/Reflection/Macros.h
+    src/Carbon/Reflection/Reflect.h
     src/Carbon/Reflection/ReflectEnumOptions.h
     src/Carbon/Reflection/ReflectFieldOptions.h
+    src/Carbon/Reflection/ReflectOptions.h
     src/Carbon/Reflection/Reflection.h
     src/Carbon/Reflection/Struct.h
     src/Carbon/Reflection/Detail/Description.h
     src/Carbon/Reflection/Detail/DisplayName.h
     src/Carbon/Reflection/Detail/EnumModel.h
     src/Carbon/Reflection/Detail/FieldTie.h
+    src/Carbon/Reflection/Detail/ReflectWidgets.h
     src/Carbon/Reflection/Detail/Signature.h
     src/Carbon/Reflection/Detail/StructModel.h
 )
 
 set(CARBON_REFLECTION_SOURCES
+    src/Carbon/Reflection/Reflect.cpp
     src/Carbon/Reflection/Detail/DisplayName.cpp
 )
 

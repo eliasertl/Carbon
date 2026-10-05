@@ -7,6 +7,44 @@
 #if defined(CARBON_TESTS_HAVE_EXTENSIONS)
 #include <Carbon/Extensions/Extensions.h>
 #endif
+#if defined(CARBON_TESTS_HAVE_REFLECTION)
+#include <Carbon/Reflection/Reflection.h>
+
+namespace AllocationTestTypes
+{
+    enum class Quality
+    {
+        Low,
+        High,
+        VeryHigh
+    };
+
+    struct Audio
+    {
+        float Volume = 0.5f;
+        int Bitrate = 128;
+        bool Muted = false;
+    };
+    CB_REFLECT_STRUCT(Audio, CB_FIELD(Volume, {.Min = 0.0, .Max = 1.0, .Tooltip = "Output level"}),
+                      CB_FIELD(Bitrate,
+                               {.Min = 64, .Max = 320, .Step = 32, .Control = Carbon::ReflectControl::Stepper}),
+                      CB_FIELD(Muted, {.Control = Carbon::ReflectControl::Checkbox}));
+
+    struct Everything
+    {
+        Quality TextureQuality = Quality::High;
+        bool VSync = true;
+        double Gamma = 2.2;
+        int Count = 3;
+        std::string Name = "Settings";
+        Carbon::Color Tint = Carbon::Color::FromHex(0x0A84FF);
+        Carbon::DateTime Date = {.Year = 2026, .Month = 10, .Day = 5};
+        Audio Sound = {};
+        int Secret = 0;
+    };
+    CB_REFLECT_STRUCT(Everything, CB_FIELD(Gamma, {.ReadOnly = true}), CB_FIELD(Secret, {.Hidden = true}));
+} // namespace AllocationTestTypes
+#endif
 
 // Counts every heap allocation of the test binary, so that a test can assert that a steady-state frame makes
 // none. Replacing the global operators is the only portable way to see allocations made inside the library.
@@ -121,6 +159,27 @@ namespace Carbon
             });
         EXPECT_EQ(allocations, 0u);
     }
+
+#if defined(CARBON_TESTS_HAVE_REFLECTION)
+    TEST_F(AllocationTests, ReflectDoesNotAllocateInSteadyState)
+    {
+        AllocationTestTypes::Everything everything;
+        AllocationTestTypes::Quality quality = AllocationTestTypes::Quality::Low;
+        const auto build = [&]
+        {
+            BeginVStack({.Spacing = 12.0f, .Padding = 20.0f});
+            Reflect("everything", &everything);
+            Reflect("above", &everything,
+                    {.EnumStyle = ReflectEnumStyle::RadioGroup, .Layout = ReflectLayout::LabelAbove});
+            Reflect("quality", &quality, {.EnumStyle = ReflectEnumStyle::SegmentedControl});
+            EndVStack();
+        };
+        // Hover a row with a tooltip, then measure a settled frame.
+        GetIO().AddMousePosEvent(40.0f, 40.0f);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 120), 0u);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+#endif
 
 #if defined(CARBON_TESTS_HAVE_EXTENSIONS)
     TEST_F(AllocationTests, EditingADateDoesNotAllocateInSteadyState)
