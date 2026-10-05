@@ -66,6 +66,9 @@ namespace Gallery
 
         // Selection controls.
         int ViewMode = 1;
+        std::vector<std::string> Recipients = {"Ada Lovelace", "Grace Hopper", "Alan Kay"};
+        std::vector<std::string> Tags = {"design", "macOS", "immediate mode", "WebGPU"};
+        std::string TokenAction = "None yet";
         // Dates.
         Carbon::DateTime CalendarDate = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
         Carbon::DateTime SundayDate = {.Year = 2026, .Month = 10, .Day = 5};

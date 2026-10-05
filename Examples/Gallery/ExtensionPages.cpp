@@ -137,6 +137,33 @@ namespace Gallery
         EndRow();
         EndSection();
 
+        BeginSection("Token field",
+                     "Text that turns into tokens at a comma or Return, as for the recipients of a mail. Click a "
+                     "token to select it, or press Backspace at the start of the text; Backspace again deletes it. "
+                     "Right-click a token for its menu.");
+        BeginRow("To:");
+        TokenField("To", &state.Recipients, {.Placeholder = "Add recipients", .Width = 340.0f});
+        int token = 0;
+        if (BeginTokenFieldMenu("To", &token))
+        {
+            if (MenuItem("Copy Name", {.Icon = Icons::Copy}))
+                state.TokenAction = std::format("Copied \"{}\"", state.Recipients[static_cast<size_t>(token)]);
+            MenuSeparator();
+            if (MenuItem("Remove", {.Icon = Icons::Trash, .IsDestructive = true}))
+                state.Recipients.erase(state.Recipients.begin() + token);
+            EndTokenFieldMenu();
+        }
+        EndRow();
+        BeginRow("Tags, one line");
+        TokenField("Tags", &state.Tags,
+                   {.Placeholder = "Add tags", .Layout = TokenFieldLayout::SingleLine, .Width = 340.0f});
+        EndRow();
+        BeginRow("Disabled");
+        TokenField("Disabled tags", &state.Tags, {.Width = 340.0f, .Disabled = true});
+        EndRow();
+        Text(std::format("Last action: {}", state.TokenAction), {.Secondary = true});
+        EndSection();
+
         BeginSection("Stepper", "Small steps on a value that is shown next to it. Hold a button to repeat.");
         BeginRow("Copies");
         Text(std::format("{}", state.Copies), {.Width = 24.0f, .Alignment = TextAlignment::Trailing});
