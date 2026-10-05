@@ -24,6 +24,7 @@ Dawn is not bundled. The host application provides it and is responsible for its
 | Component | Version | License | License file |
 | --- | --- | --- | --- |
 | [Public Sans](https://github.com/uswds/public-sans) (variable, roman and italic) | 2.001 | SIL Open Font License 1.1 | `ThirdParty/PublicSans/OFL.txt` |
+| [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) (variable, upright and italic) | 2.304 | SIL Open Font License 1.1 | `ThirdParty/JetBrainsMono/OFL.txt` |
 | [Phosphor Icons](https://phosphoricons.com) (regular, bold and fill fonts) | 2.1.2 | MIT | `ThirdParty/Phosphor/LICENSE` |
 
 Public Sans — Copyright 2015 The Public Sans Project Authors (https://github.com/uswds/public-sans). The font
@@ -31,6 +32,10 @@ files are embedded unmodified and under their original name. The SIL Open Font L
 embedding the fonts with software provided the copyright notice and license accompany the distribution: if you
 ship a product built with Carbon, include this notice and the text of `OFL.txt`. The fonts themselves remain
 under the OFL and are not relicensed under Carbon's MIT License.
+
+JetBrains Mono — Copyright 2020 The JetBrains Mono Project Authors (https://github.com/JetBrains/JetBrainsMono).
+It is embedded unmodified, under its original name and under the same terms as Public Sans: if you ship a product
+built with Carbon, include this notice and the text of its `OFL.txt` (installed as `JetBrainsMono-OFL.txt`).
 
 Phosphor Icons — Copyright (c) 2020-2021 Phosphor Icons. The MIT license requires the copyright and permission
 notice to be included with copies of the fonts; include `ThirdParty/Phosphor/LICENSE` when you redistribute.

@@ -19,6 +19,10 @@ namespace Carbon
         PhosphorBold,
         /// Phosphor icons, filled.
         PhosphorFill,
+        /// JetBrains Mono, variable weight (100-800), upright. The monospaced font.
+        JetBrainsMonoRoman,
+        /// JetBrains Mono, variable weight (100-800), italic.
+        JetBrainsMonoItalic,
 
         Count
     };

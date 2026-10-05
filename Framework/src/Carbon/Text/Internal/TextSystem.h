@@ -73,6 +73,7 @@ namespace Carbon::Internal
         Font* AddFont(std::span<const uint8_t> data, std::span<const uint8_t> italicData, std::string_view name,
                       bool copyData);
         Font* GetDefaultFont() { return m_Fonts.empty() ? nullptr : m_Fonts.front().get(); }
+        Font* GetMonospacedFont() { return m_MonospacedFont.get(); }
 
         /// Called by NewFrame: evicts stale cache entries and resets the atlas when it overflowed or the content
         /// scale changed.
@@ -128,6 +129,8 @@ namespace Carbon::Internal
         };
 
         uint16_t AddFace(std::span<const uint8_t> data, bool copyData);
+        std::unique_ptr<Font> LoadFont(std::span<const uint8_t> data, std::span<const uint8_t> italicData,
+                                       std::string_view name, bool copyData);
         uint16_t GetPrimaryFace(const TextSpec& spec) const;
         uint16_t GetIconFace(const TextSpec& spec) const;
         uint16_t ResolveFace(char32_t codepoint, uint16_t primaryFace, uint16_t currentFace,
@@ -149,7 +152,10 @@ namespace Carbon::Internal
         FT_Library m_Library = nullptr;
         hb_buffer_t* m_Buffer = nullptr;
         std::vector<std::unique_ptr<FontFace>> m_Faces;
+        /// The default font first, then the fonts the host added: the fallback order.
         std::vector<std::unique_ptr<Font>> m_Fonts;
+        /// The embedded monospaced font. Kept out of m_Fonts so it is never a fallback for other fonts.
+        std::unique_ptr<Font> m_MonospacedFont;
         uint16_t m_IconRegular = 0;
         uint16_t m_IconBold = 0;
         uint16_t m_IconFill = 0;

@@ -45,4 +45,8 @@ namespace Carbon
 
     /// The embedded default font, Public Sans.
     Font* GetDefaultFont();
+
+    /// The embedded monospaced font, JetBrains Mono (variable weight 100-800, upright and italic). Use it for code
+    /// and for numbers that must line up, through TextOptions::Font or PushFont.
+    Font* GetMonospacedFont();
 } // namespace Carbon

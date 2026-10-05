@@ -19,3 +19,6 @@
 [submodule "ThirdParty/Phosphor"]
 	path = ThirdParty/Phosphor
 	url = https://github.com/phosphor-icons/web.git
+[submodule "ThirdParty/JetBrainsMono"]
+	path = ThirdParty/JetBrainsMono
+	url = https://github.com/JetBrains/JetBrainsMono

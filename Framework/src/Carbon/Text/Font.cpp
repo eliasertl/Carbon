@@ -43,4 +43,9 @@ namespace Carbon
     {
         return Internal::GetContext().Text->GetDefaultFont();
     }
+
+    Font* GetMonospacedFont()
+    {
+        return Internal::GetContext().Text->GetMonospacedFont();
+    }
 } // namespace Carbon

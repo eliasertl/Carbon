@@ -108,7 +108,7 @@ Rules:
 - Bundled FreeType is built without HarfBuzz, PNG, zlib, bzip2 and Brotli, and bundled HarfBuzz is built against
   that FreeType target. Dependencies are built statically with their tests, examples, docs and install rules
   disabled.
-- Public Sans and Phosphor are assets, not libraries, and have no switches.
+- Public Sans, JetBrains Mono and Phosphor are assets, not libraries, and have no switches.
 
 Example — use system FreeType and HarfBuzz:
 

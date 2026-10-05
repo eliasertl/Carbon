@@ -337,6 +337,54 @@ namespace Carbon
         EXPECT_EQ(AddFontFromFile("this/file/does/not/exist.ttf"), nullptr);
     }
 
+    TEST_F(TextTests, MonospacedFontMeasuresEveryCharacterAlike)
+    {
+        Font* mono = GetMonospacedFont();
+        ASSERT_NE(mono, nullptr);
+        EXPECT_NE(mono, GetDefaultFont());
+
+        TextSpec spec;
+        spec.Font = mono;
+        const float advance = GetWidth("i", spec);
+        EXPECT_GT(advance, 0.0f);
+        for (const std::string_view text : {"m", "W", "0", ".", "_"})
+            EXPECT_NEAR(GetWidth(text, spec), advance, 1e-3f) << text;
+        EXPECT_NEAR(GetWidth("iiiiiiii", spec), GetWidth("MMMMMMMM", spec), 1e-3f);
+        EXPECT_NEAR(GetWidth("return value;", spec), advance * 13.0f, 1e-3f);
+        // The proportional default font is not.
+        EXPECT_LT(GetWidth("iiiiiiii"), GetWidth("MMMMMMMM") * 0.6f);
+
+        // Weights and italics keep the grid: every weight instance and the italic face have the same advance.
+        spec.Weight = FontWeight::Bold;
+        EXPECT_NEAR(GetWidth("mono", spec), advance * 4.0f, 1e-3f);
+        spec.Italic = true;
+        EXPECT_NEAR(GetWidth("mono", spec), advance * 4.0f, 1e-3f);
+    }
+
+    TEST_F(TextTests, MonospacedTextUsesItsOwnFacesAndKeepsIconsAndFallbacks)
+    {
+        TextSpec spec;
+        spec.Font = GetMonospacedFont();
+        const Internal::ShapedLine& plain = GetTextSystem().Shape("Code", spec);
+        ASSERT_EQ(plain.Glyphs.size(), 4u);
+        const uint16_t romanFace = plain.Glyphs[0].Face;
+        EXPECT_NE(romanFace, GetTextSystem().Shape("Code", TextSpec()).Glyphs[0].Face);
+
+        spec.Italic = true;
+        EXPECT_NE(GetTextSystem().Shape("Code", spec).Glyphs[0].Face, romanFace);
+        spec.Italic = false;
+
+        // An icon inside monospaced text comes from the icon font, even where the monospaced font has a glyph of
+        // its own at that code point.
+        const std::string withIcon = std::string("a") + Icons::Gear;
+        const Internal::ShapedLine& iconLine = GetTextSystem().Shape(withIcon, spec);
+        ASSERT_EQ(iconLine.Glyphs.size(), 2u);
+        EXPECT_NE(iconLine.Glyphs[1].Face, romanFace);
+        EXPECT_EQ(iconLine.Glyphs[1].Face, GetTextSystem().Shape(Icons::Gear, TextSpec()).Glyphs[0].Face);
+        const std::string_view sharedCodePoint = "\xEE\x82\xA0"; // U+E0A0: a powerline glyph and a Phosphor icon
+        EXPECT_NE(GetTextSystem().Shape(sharedCodePoint, spec).Glyphs[0].Face, romanFace);
+    }
+
     TEST_F(TextTests, WrapsBetweenWords)
     {
         TextSpec spec = GetTextSpec(TextStyle::Body);

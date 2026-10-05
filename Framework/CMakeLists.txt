@@ -156,6 +156,8 @@ target_sources(Carbon
 # Embedded assets: fonts and the shader become byte arrays in generated .cpp files.
 carbon_embed_asset(Carbon PublicSansRoman "${PROJECT_SOURCE_DIR}/ThirdParty/PublicSans/fonts/variable/PublicSans[wght].ttf")
 carbon_embed_asset(Carbon PublicSansItalic "${PROJECT_SOURCE_DIR}/ThirdParty/PublicSans/fonts/variable/PublicSans-Italic[wght].ttf")
+carbon_embed_asset(Carbon JetBrainsMonoRoman "${PROJECT_SOURCE_DIR}/ThirdParty/JetBrainsMono/fonts/variable/JetBrainsMono[wght].ttf")
+carbon_embed_asset(Carbon JetBrainsMonoItalic "${PROJECT_SOURCE_DIR}/ThirdParty/JetBrainsMono/fonts/variable/JetBrainsMono-Italic[wght].ttf")
 carbon_embed_asset(Carbon PhosphorRegular "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/Phosphor.ttf")
 carbon_embed_asset(Carbon PhosphorBold "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/bold/Phosphor-Bold.ttf")
 carbon_embed_asset(Carbon PhosphorFill "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/fill/Phosphor-Fill.ttf")
@@ -233,6 +235,7 @@ if(CARBON_INSTALL)
     # The fonts' licenses require their text to accompany every distribution.
     set(carbon_license_files
         "PublicSans/OFL.txt|PublicSans-OFL.txt"
+        "JetBrainsMono/OFL.txt|JetBrainsMono-OFL.txt"
         "Phosphor/LICENSE|Phosphor-LICENSE.txt"
         "FreeType/docs/FTL.TXT|FreeType-FTL.txt"
         "HarfBuzz/COPYING|HarfBuzz-COPYING.txt"

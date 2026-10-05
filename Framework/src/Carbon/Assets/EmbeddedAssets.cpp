@@ -9,6 +9,10 @@ namespace Carbon::Internal
     extern const unsigned long long g_PublicSansRomanSize;
     extern const unsigned char g_PublicSansItalicData[];
     extern const unsigned long long g_PublicSansItalicSize;
+    extern const unsigned char g_JetBrainsMonoRomanData[];
+    extern const unsigned long long g_JetBrainsMonoRomanSize;
+    extern const unsigned char g_JetBrainsMonoItalicData[];
+    extern const unsigned long long g_JetBrainsMonoItalicSize;
     extern const unsigned char g_PhosphorRegularData[];
     extern const unsigned long long g_PhosphorRegularSize;
     extern const unsigned char g_PhosphorBoldData[];
@@ -29,6 +33,10 @@ namespace Carbon
                 return {Internal::g_PublicSansRomanData, static_cast<size_t>(Internal::g_PublicSansRomanSize)};
             case EmbeddedFont::PublicSansItalic:
                 return {Internal::g_PublicSansItalicData, static_cast<size_t>(Internal::g_PublicSansItalicSize)};
+            case EmbeddedFont::JetBrainsMonoRoman:
+                return {Internal::g_JetBrainsMonoRomanData, static_cast<size_t>(Internal::g_JetBrainsMonoRomanSize)};
+            case EmbeddedFont::JetBrainsMonoItalic:
+                return {Internal::g_JetBrainsMonoItalicData, static_cast<size_t>(Internal::g_JetBrainsMonoItalicSize)};
             case EmbeddedFont::PhosphorRegular:
                 return {Internal::g_PhosphorRegularData, static_cast<size_t>(Internal::g_PhosphorRegularSize)};
             case EmbeddedFont::PhosphorBold:

@@ -58,11 +58,14 @@ namespace Carbon::Internal
         m_IconRegular = AddFace(GetEmbeddedFont(EmbeddedFont::PhosphorRegular), false);
         m_IconBold = AddFace(GetEmbeddedFont(EmbeddedFont::PhosphorBold), false);
         m_IconFill = AddFace(GetEmbeddedFont(EmbeddedFont::PhosphorFill), false);
+        m_MonospacedFont = LoadFont(GetEmbeddedFont(EmbeddedFont::JetBrainsMonoRoman),
+                                    GetEmbeddedFont(EmbeddedFont::JetBrainsMonoItalic), "JetBrains Mono", false);
     }
 
     TextSystem::~TextSystem()
     {
         m_Fonts.clear();
+        m_MonospacedFont.reset();
         m_Faces.clear();
         if (m_Buffer != nullptr)
             hb_buffer_destroy(m_Buffer);
@@ -72,6 +75,18 @@ namespace Carbon::Internal
 
     Font* TextSystem::AddFont(std::span<const uint8_t> data, std::span<const uint8_t> italicData, std::string_view name,
                               bool copyData)
+    {
+        std::unique_ptr<Font> font = LoadFont(data, italicData, name, copyData);
+        if (font == nullptr)
+            return nullptr;
+        m_Fonts.push_back(std::move(font));
+        // Fallback resolution depends on the set of fonts, so cached lines are stale now.
+        m_ShapedLines.clear();
+        return m_Fonts.back().get();
+    }
+
+    std::unique_ptr<Font> TextSystem::LoadFont(std::span<const uint8_t> data, std::span<const uint8_t> italicData,
+                                               std::string_view name, bool copyData)
     {
         const uint16_t roman = AddFace(data, copyData);
         if (roman == InvalidFace)
@@ -95,10 +110,7 @@ namespace Carbon::Internal
         font->Name = std::string(name);
         font->Roman = roman;
         font->Italic = italic;
-        m_Fonts.push_back(std::move(font));
-        // Fallback resolution depends on the set of fonts, so cached lines are stale now.
-        m_ShapedLines.clear();
-        return m_Fonts.back().get();
+        return font;
     }
 
     void TextSystem::BeginFrame(uint64_t frameCount, float contentScale)
@@ -386,15 +398,18 @@ namespace Carbon::Internal
     uint16_t TextSystem::ResolveFace(char32_t codepoint, uint16_t primaryFace, uint16_t currentFace,
                                      const TextSpec& spec) const
     {
-        if (m_Faces[primaryFace]->GetGlyphIndex(codepoint) != 0)
-            return primaryFace;
-
+        // Carbon::Icons live in the Private Use Area, where some fonts have glyphs of their own (JetBrains Mono's
+        // powerline symbols share code points with Phosphor). An icon must look the same in every font, so the
+        // icon font comes first there.
         if (IsPrivateUse(codepoint))
         {
             const uint16_t iconFace = GetIconFace(spec);
             if (iconFace != InvalidFace && m_Faces[iconFace]->GetGlyphIndex(codepoint) != 0)
                 return iconFace;
         }
+
+        if (m_Faces[primaryFace]->GetGlyphIndex(codepoint) != 0)
+            return primaryFace;
 
         for (const std::unique_ptr<Font>& font : m_Fonts)
         {
