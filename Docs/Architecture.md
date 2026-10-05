@@ -31,7 +31,7 @@ Framework/src/Carbon/
 ├── Input/                IO, Input (queries), Key, MouseButton, InputEvent, Cursor
 ├── Draw/                 DrawList, DrawTypes (vertex, primitive, command, draw data), Squircle (CPU shape function)
 ├── Text/                 FontLibrary, Font, TextShaper, GlyphAtlas, TextLayout, Icons (generated)
-├── Layout/               Stack, Spacer, Size, ScrollView, layout cursor
+├── Layout/               Stack, Spacer, Grid, Size, ScrollView, layout cursor
 ├── Animation/            Spring, Easing, AnimationSpec, Animator (per-ID state)
 ├── Style/                Theme, StyleColor, StyleVar, style stacks, TextStyle ramp
 ├── Interaction/          hit testing, ButtonBehavior, DragBehavior, focus and keyboard navigation
@@ -672,6 +672,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 53 | ComboBox filters its list while typing, instead of completing inline | Inline completion needs the text field to select the completed part, which would add API for one component; a filtered list serves the same purpose and is common on the target platforms. TextField gained `TrailingInset`, `VerticalArrowsMoveCaret` and `ReloadTextField`, and the interaction API `SetItemSubmitted` |
 | 54 | Notifications are posted from anywhere and drawn by one `ShowNotifications` call per frame; their text is copied into fixed buffers | Posting must work from code that has no part in building the interface (a finished job). Fixed buffers keep the state trivially copyable and make showing them allocation-free |
 | 55 | Notifications draw in the top overlay sub-layer and take clicks there, but never the keyboard | They must stay visible over sheets and popovers, and must not interrupt typing |
+| 56 | `Grid` and `GridRow` are container kinds of the stack layout: a row places its items into cells inside the same three placement steps that every widget and nested stack already goes through | Widgets, stacks and nested grids work in cells without any change of their own, and grids inherit call-site identity, the first-frame settle and `IsAnimating()` from the stacks |
+| 57 | Column widths are measured in one frame and used in the next, kept in a fixed 32-column record; span and alignment of a cell are set with `SetNextGridCell` rather than new `ItemOptions` fields | The same one frame of latency as a fitting stack; per-ID state must be trivially copyable; every widget would otherwise have to forward cell options |
+| 58 | A `Fill` cell takes its column's width, but its column measures the cell's content | A column of only `Fill` cells (equal-width chips) would otherwise have no width at all, and a cell that measured its stretched width would keep its column from ever shrinking |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

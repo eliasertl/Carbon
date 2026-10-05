@@ -17,6 +17,7 @@ its options and its keyboard behaviour.
 | [Separator](Separator.md) | A thin line between items |
 | [Tooltip](Tooltip.md) | Explains the control under the pointer |
 | [Stacks and Spacer](Stack.md) | Lay items out vertically or horizontally |
+| [Grid](Grid.md) | Rows of cells whose columns line up |
 | [ScrollView](ScrollView.md) | A clipped, scrollable area |
 
 ## Extensions (`CarbonExtensions`)
@@ -73,7 +74,7 @@ Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
   dims them and makes them ignore input and Tab.
 - **After the call.** `IsItemHovered()`, `IsItemFocused()`, `IsItemActive()`, `GetItemRect()` and `Tooltip()`
   refer to the component submitted last.
-- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
+- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginGrid`, `BeginGridRow`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
   `BeginTable`, `BeginTabView` and `BeginSplitView` always need their `End`. Pairs that can be closed return a
   `bool` from `Begin` (`BeginPopover`, `BeginMenu`, `BeginSubmenu`, `BeginContextMenu`, `BeginPullDownButton`,
   `BeginSheet`, `BeginOverlay`): call `End` only when it returned `true`.
