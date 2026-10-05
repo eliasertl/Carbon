@@ -47,6 +47,11 @@ namespace Gallery
     void HierarchiesPage(GalleryState& state);
     void NavigationPage(GalleryState& state);
     void ChartsPage(GalleryState& state);
+#if defined(CARBON_GALLERY_HAVE_REFLECTION)
+    // CarbonReflection (ReflectionPage.cpp).
+    void ReflectionPage();
+#endif
+
     /// Draws the notifications posted from any page and reports what the user did with them.
     void ShowGalleryNotifications(GalleryState& state);
 } // namespace Gallery

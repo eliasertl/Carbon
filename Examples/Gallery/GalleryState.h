@@ -31,6 +31,9 @@ namespace Gallery
         Hierarchies,
         Navigation,
         Charts,
+#if defined(CARBON_GALLERY_HAVE_REFLECTION)
+        Reflection,
+#endif
 
         Count
     };

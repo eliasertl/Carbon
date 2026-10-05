@@ -45,6 +45,9 @@ namespace Gallery
             {Page::Hierarchies, "Outlines and Columns", "hierarchies", Icons::TreeStructure},
             {Page::Navigation, "Tabs and Split Views", "navigation", Icons::Columns},
             {Page::Charts, "Charts", "charts", Icons::ChartBar},
+#if defined(CARBON_GALLERY_HAVE_REFLECTION)
+            {Page::Reflection, "Reflection", "reflection", Icons::BracketsCurly},
+#endif
         };
 
         // The first page of the components that live in CarbonExtensions.
@@ -157,6 +160,11 @@ namespace Gallery
                 case Page::Charts:
                     ChartsPage(state);
                     break;
+#if defined(CARBON_GALLERY_HAVE_REFLECTION)
+                case Page::Reflection:
+                    ReflectionPage();
+                    break;
+#endif
                 case Page::Count:
                     break;
             }
