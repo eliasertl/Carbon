@@ -4,6 +4,8 @@ A transient view that appears next to the control it belongs to.
 HIG: [Popovers](https://developer.apple.com/design/human-interface-guidelines/popovers)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Popover.h>`
 
+![A popover with a slider and a switch, below the button that opened it](../Images/Components/Popover.png)
+
 ```cpp
 if (Carbon::Button("Sound"))
     Carbon::OpenPopover("sound");

@@ -4,6 +4,8 @@ A menu of commands for the item under the pointer, opened with a right click.
 HIG: [Context menus](https://developer.apple.com/design/human-interface-guidelines/context-menus)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Menu.h>`
 
+![A context menu opened with a right click](../Images/Components/ContextMenu.png)
+
 ```cpp
 Carbon::Text("report.pdf");
 if (Carbon::BeginContextMenu("file"))

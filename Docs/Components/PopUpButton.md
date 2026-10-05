@@ -4,6 +4,8 @@ Shows one of several mutually exclusive values and opens a menu to pick another.
 HIG: [Pop-up buttons](https://developer.apple.com/design/human-interface-guidelines/pop-up-buttons)
 Library: CarbonExtensions, `#include <Carbon/Extensions/PopUpButton.h>`
 
+![A pop-up button with its menu open over it](../Images/Components/PopUpButton.png)
+
 ```cpp
 int sortOrder = 0;
 if (Carbon::PopUpButton("Sort", &sortOrder, { "Name", "Date Modified", "Size", "Kind" }))

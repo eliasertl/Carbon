@@ -4,6 +4,8 @@ A set of radio buttons for a few mutually exclusive choices.
 HIG: [Toggles](https://developer.apple.com/design/human-interface-guidelines/toggles) (radio buttons)
 Library: CarbonExtensions, `#include <Carbon/Extensions/RadioGroup.h>`
 
+![Vertical and horizontal radio groups, one without a selection and one disabled](../Images/Components/RadioGroup.png)
+
 ```cpp
 int appearance = 2;
 if (Carbon::RadioGroup("Appearance", &appearance, { "Light", "Dark", "Automatic" }))

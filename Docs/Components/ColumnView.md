@@ -4,6 +4,8 @@ A hierarchy shown as columns, one per level, like the column view of a file brow
 HIG: [Column views](https://developer.apple.com/design/human-interface-guidelines/column-views)
 Library: CarbonExtensions, `#include <Carbon/Extensions/ColumnView.h>`
 
+![A column view browsing folders, with a preview of the selected file](../Images/Components/ColumnView.png)
+
 ```cpp
 std::vector<int> path = { 0 };          // the selected index in each column
 

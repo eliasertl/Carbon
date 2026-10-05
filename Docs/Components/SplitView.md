@@ -4,6 +4,8 @@ Two panes separated by a divider that the user can move.
 HIG: [Split views](https://developer.apple.com/design/human-interface-guidelines/split-views)
 Library: CarbonExtensions, `#include <Carbon/Extensions/SplitView.h>`
 
+![A split view with a sidebar and a detail pane](../Images/Components/SplitView.png)
+
 ```cpp
 Carbon::BeginSplitView("main", { .InitialSize = 240.0f });
     BuildMessageList();                 // first pane

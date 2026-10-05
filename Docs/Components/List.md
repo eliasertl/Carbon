@@ -4,7 +4,7 @@ A scrolling column of rows with a selection.
 HIG: [Lists and tables](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables)
 Library: CarbonExtensions, `#include <Carbon/Extensions/List.h>`
 
-![A list and a table](../Images/Gallery-Lists-Light.png)
+![A list of files with their sizes and a selected row](../Images/Components/List.png)
 
 ```cpp
 Carbon::BeginList("files", { .Height = 200.0f });

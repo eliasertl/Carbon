@@ -5,6 +5,8 @@ back to any part of it.
 HIG: [Path controls](https://developer.apple.com/design/human-interface-guidelines/path-controls)
 Library: CarbonExtensions, `#include <Carbon/Extensions/PathControl.h>`
 
+![Path controls: the full path, a narrow one with hidden names, and the pop-up style](../Images/Components/PathControl.png)
+
 ```cpp
 const Carbon::PathControlItem path[] = {
     { .Label = "Macintosh HD", .Icon = Carbon::Icons::HardDrives },

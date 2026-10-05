@@ -4,7 +4,7 @@ Banners at an edge of the window that tell about something that happened, and go
 HIG: [Notifications](https://developer.apple.com/design/human-interface-guidelines/notifications)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Notification.h>`
 
-![A notification for a failed upload, with the close button under the pointer](../Images/Gallery-Notification-Light.png)
+![A notification about a failed upload, with its close button under the pointer](../Images/Components/Notification.png)
 
 ```cpp
 // Anywhere, also outside a frame (a background job finishing):

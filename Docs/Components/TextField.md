@@ -3,6 +3,8 @@
 Edits a single line of text.
 HIG: [Text fields](https://developer.apple.com/design/human-interface-guidelines/text-fields)
 
+![Text fields: plain, with a placeholder, secure and a search field](../Images/Components/TextField.png)
+
 ```cpp
 std::string name;
 Carbon::TextField("Name", &name);                                   // "Name" is shown as the placeholder

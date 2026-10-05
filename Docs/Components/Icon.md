@@ -3,6 +3,8 @@
 Displays one icon from the embedded [Phosphor](https://phosphoricons.com) set.
 HIG: [Icons](https://developer.apple.com/design/human-interface-guidelines/icons)
 
+![Phosphor icons in regular, bold and fill weights](../Images/Components/Icon.png)
+
 ```cpp
 Carbon::Icon(Carbon::Icons::Gear);
 Carbon::Icon(Carbon::Icons::Heart, { .Size = 24.0f,

@@ -4,6 +4,8 @@ The menus of a window, in a row at its top.
 HIG: [The menu bar](https://developer.apple.com/design/human-interface-guidelines/the-menu-bar)
 Library: CarbonExtensions, `#include <Carbon/Extensions/MenuBar.h>`
 
+![A menu bar with its File menu open](../Images/Components/MenuBar.png)
+
 macOS has one menu bar for the whole screen; Windows and Linux applications put it in their windows. Carbon's
 menu bar is the in-window kind, drawn in Carbon's style.
 

@@ -3,6 +3,8 @@
 Lay items out in a column or a row.
 HIG: [Layout](https://developer.apple.com/design/human-interface-guidelines/layout)
 
+![Stacks with a spacer, fill sizes and centered content](../Images/Components/Stack.png)
+
 ```cpp
 Carbon::BeginVStack({ .Spacing = 12.0f, .Padding = 20.0f });
     Carbon::Text("Settings", { .Style = Carbon::TextStyle::LargeTitle });

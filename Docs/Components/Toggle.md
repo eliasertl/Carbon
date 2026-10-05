@@ -3,6 +3,8 @@
 A switch or checkbox bound to a `bool`.
 HIG: [Toggles](https://developer.apple.com/design/human-interface-guidelines/toggles)
 
+![Switches and checkboxes in their states](../Images/Components/Toggle.png)
+
 ```cpp
 Carbon::Toggle("Wi-Fi", &wifi, { .Width = Carbon::Size::Fill() });                 // a settings row
 Carbon::Toggle("Show hidden files", &showHidden, { .Kind = Carbon::ToggleKind::Checkbox });

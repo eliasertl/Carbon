@@ -4,6 +4,8 @@ Rows of cells whose columns line up, like SwiftUI's `Grid` and `GridRow`. Use it
 controls in the next) and for small tables of values.
 HIG: [Layout](https://developer.apple.com/design/human-interface-guidelines/layout)
 
+![A form laid out with a grid, and a table of values with a spanning cell](../Images/Components/Grid.png)
+
 ```cpp
 static constexpr Carbon::Alignment FormColumns[] = { Carbon::Alignment::Trailing, Carbon::Alignment::Leading };
 

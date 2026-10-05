@@ -4,7 +4,7 @@ Hierarchical data in rows, with disclosure triangles: a file browser, the outlin
 HIG: [Outline views](https://developer.apple.com/design/human-interface-guidelines/outline-views)
 Library: CarbonExtensions, `#include <Carbon/Extensions/OutlineView.h>`
 
-![An outline view of files with Name, Size and Kind columns](../Images/Gallery-Hierarchies-Light.png)
+![An outline view of files with Name, Size and Kind columns](../Images/Components/OutlineView.png)
 
 ```cpp
 void BuildNode(const FileNode& node)

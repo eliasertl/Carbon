@@ -4,6 +4,8 @@ Shows a color and lets the user change it.
 HIG: [Color wells](https://developer.apple.com/design/human-interface-guidelines/color-wells)
 Library: CarbonExtensions, `#include <Carbon/Extensions/ColorWell.h>`
 
+![A color well with its popover open](../Images/Components/ColorWell.png)
+
 ```cpp
 Carbon::Color tint = Carbon::Color::FromHex(0x34C759);
 if (Carbon::ColorWell("Tint", &tint))

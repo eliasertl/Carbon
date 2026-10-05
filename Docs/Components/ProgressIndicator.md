@@ -4,6 +4,8 @@ Shows that a task is running and, when known, how far it has come.
 HIG: [Progress indicators](https://developer.apple.com/design/human-interface-guidelines/progress-indicators)
 Library: CarbonExtensions, `#include <Carbon/Extensions/ProgressIndicator.h>`
 
+![Progress bars and spinners](../Images/Components/ProgressIndicator.png)
+
 ```cpp
 Carbon::ProgressIndicator(download.Fraction);                                  // a bar, 0 to 1
 Carbon::ProgressIndicator(0.0f, { .IsIndeterminate = true });                  // a bar that shows activity

@@ -3,6 +3,8 @@
 A short description that appears when the pointer rests on a control.
 HIG: [Offering help](https://developer.apple.com/design/human-interface-guidelines/offering-help)
 
+![A tooltip below the button under the pointer](../Images/Components/Tooltip.png)
+
 ```cpp
 Carbon::Button("##restore", { .Icon = Carbon::Icons::ArrowCounterClockwise });
 Carbon::Tooltip("Restore default settings");

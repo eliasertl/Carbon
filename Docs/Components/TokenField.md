@@ -5,6 +5,8 @@ mail or the tags of a document.
 HIG: [Token fields](https://developer.apple.com/design/human-interface-guidelines/token-fields)
 Library: CarbonExtensions, `#include <Carbon/Extensions/TokenField.h>`
 
+![Token fields: one that wraps, one on a single line and a disabled one](../Images/Components/TokenField.png)
+
 ```cpp
 std::vector<std::string> recipients = { "Ada Lovelace" };
 if (Carbon::TokenField("To", &recipients, { .Placeholder = "Add recipients", .Width = 340.0f }))

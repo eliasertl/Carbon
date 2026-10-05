@@ -4,6 +4,8 @@ A button that opens a menu of commands.
 HIG: [Pull-down buttons](https://developer.apple.com/design/human-interface-guidelines/pull-down-buttons)
 Library: CarbonExtensions, `#include <Carbon/Extensions/PullDownButton.h>`
 
+![A pull-down button with its menu of commands open](../Images/Components/PullDownButton.png)
+
 ```cpp
 if (Carbon::BeginPullDownButton("Add", { .Icon = Carbon::Icons::Plus }))
 {

@@ -4,6 +4,8 @@ A text field for search terms.
 HIG: [Search fields](https://developer.apple.com/design/human-interface-guidelines/search-fields)
 Library: CarbonExtensions, `#include <Carbon/Extensions/SearchField.h>`
 
+![A search field](../Images/Components/SearchField.png)
+
 ```cpp
 std::string query;
 if (Carbon::SearchField("Search", &query))

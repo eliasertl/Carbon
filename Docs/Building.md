@@ -134,6 +134,37 @@ Build/Examples/MinimalIntegration/MinimalIntegration --theme dark
 Build/Examples/MinimalIntegration/MinimalIntegration --screenshot shot.png --scale 2
 ```
 
+For screenshots of states that need input, and of parts of a window, there are more options:
+
+| Option | Meaning |
+| --- | --- |
+| `--page <name>` | The Gallery page to start on, by its key (`selection`, `menus`, `dates`, ...) |
+| `--show <name>` | Something the Gallery opens at startup: `menu`, `popover`, `alert`, `sheet`, `notification`, `datepicker`, `pathmenu`, `toolbaroverflow` |
+| `--pointer`, `--click`, `--right-click <x>x<y>` | Put the pointer there, and click, before the screenshot is taken |
+| `--crop <x>,<y>,<width>,<height>` | Save only this area of the window, in points |
+| `--section <key>[,<key>...]` | Gallery: scroll to these sections and save only their boxes. A key is a section's title in lower case without spaces or punctuation. Pointer positions are then relative to the box |
+| `--extend <left>,<top>,<right>,<bottom>` | Grow the saved area, for a menu or popover that reaches out of a section |
+
+In screenshot mode the Gallery shows a fixed day (October 5, 2026) as today, so that screenshots are the same on
+every day.
+
+## Documentation screenshots
+
+The images in `Docs/Images` are rendered by the examples, never edited by hand.
+[Docs/Images/Screenshots.txt](Images/Screenshots.txt) lists each image with the example and the options that
+produce it, and `Scripts/Screenshots.py` renders them all:
+
+```sh
+python Scripts/Screenshots.py                    # all images, from Build/Release (or Build)
+python Scripts/Screenshots.py --only Toolbar     # the images whose path contains a word
+python Scripts/Screenshots.py --check            # fail if an image is out of date, change nothing
+```
+
+An image is replaced only when it looks different: renderings on different GPUs differ by a level or two in
+antialiased edges, which the script ignores (it compares pixels with Pillow, `pip install pillow`). After every
+push to `main`, CI renders the screenshots on Windows and commits the images that changed, so the documentation
+follows the code. To add a screenshot, add a line to the list and reference the image from the page.
+
 `ctest` runs headless. Most tests need no GPU at all. The renderer tests create a real device and compare
 rendered pixels; on a machine without a WebGPU adapter they report as skipped.
 
@@ -197,6 +228,8 @@ platform.
 - **Windows MSVC (Release)**, **Linux GCC (Debug)** and **Linux Clang (Release)** configure with warnings as
   errors, build everything, run the tests, render screenshots of the examples (uploaded as artifacts), install
   Carbon and build `Tests/Package` against the installed package.
+- After a push to `main`, the Windows job also renders the documentation screenshots and commits the ones that
+  changed (see [Documentation screenshots](#documentation-screenshots)).
 
 ## Formatting
 

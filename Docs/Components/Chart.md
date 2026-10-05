@@ -4,7 +4,7 @@ Line and bar charts.
 HIG: [Charting data](https://developer.apple.com/design/human-interface-guidelines/charting-data)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Chart.h>`
 
-![A line chart with a callout and a bar chart](../Images/Gallery-Charts-Dark.png)
+![A line chart and a bar chart, in the dark appearance](../Images/Components/Chart.png)
 
 ```cpp
 const float revenue[] = { 12.0f, 14.5f, 13.2f, 17.8f, 21.0f, 19.4f };
