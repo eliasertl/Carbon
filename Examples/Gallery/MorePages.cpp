@@ -306,29 +306,33 @@ namespace Gallery
             OpenOverlay(HashID("##popover", GetID("ISO date")));
             SetFocus(GetID("ISO date"));
         }
-        DatePicker("ISO date", &state.Appointment);
+        DatePicker("ISO date", &state.Appointment, {.Today = state.Today});
         EndGridRow();
         BeginGridRow();
         Text("German, with time", {.Secondary = true, .Width = LabelColumn});
         DatePicker("German date", &state.Appointment,
-                   {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::German()});
+                   {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::German(), .Today = state.Today});
         EndGridRow();
         BeginGridRow();
         Text("US, with time", {.Secondary = true, .Width = LabelColumn});
-        DatePicker(
-            "US date", &state.Appointment,
-            {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .FirstWeekday = Weekday::Sunday});
+        DatePicker("US date", &state.Appointment,
+                   {.Elements = DatePickerElements::DateAndTime,
+                    .Format = DateFormat::US(),
+                    .FirstWeekday = Weekday::Sunday,
+                    .Today = state.Today});
         EndGridRow();
         BeginGridRow();
         Text("Time, quarter hours", {.Secondary = true, .Width = LabelColumn});
-        DatePicker("Alarm", &state.Alarm, {.Elements = DatePickerElements::Time, .MinuteInterval = 15});
+        DatePicker("Alarm", &state.Alarm,
+                   {.Elements = DatePickerElements::Time, .MinuteInterval = 15, .Today = state.Today});
         EndGridRow();
         BeginGridRow();
         Text("Within October", {.Secondary = true, .Width = LabelColumn});
         DatePicker("Deadline", &state.Deadline,
                    {.Elements = DatePickerElements::DateAndTime,
                     .MinDate = DateTime{.Year = 2026, .Month = 10, .Day = 1},
-                    .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 31, .Hour = 23, .Minute = 59}});
+                    .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 31, .Hour = 23, .Minute = 59},
+                    .Today = state.Today});
         EndGridRow();
         EndGrid();
         EndSection();
@@ -339,17 +343,19 @@ namespace Gallery
         BeginHStack({.Spacing = 40.0f, .Alignment = VerticalAlignment::Top});
         BeginVStack({.Spacing = 8.0f});
         Text("Weeks start on Monday", {.Style = TextStyle::Subheadline, .Secondary = true});
-        DatePickerCalendar("Calendar", &state.CalendarDate);
+        DatePickerCalendar("Calendar", &state.CalendarDate, {.Today = state.Today});
         EndVStack();
         BeginVStack({.Spacing = 8.0f});
         Text("Weeks start on Sunday", {.Style = TextStyle::Subheadline, .Secondary = true});
-        DatePickerCalendar("Sunday calendar", &state.SundayDate, {.FirstWeekday = Weekday::Sunday});
+        DatePickerCalendar("Sunday calendar", &state.SundayDate,
+                           {.FirstWeekday = Weekday::Sunday, .Today = state.Today});
         EndVStack();
         BeginVStack({.Spacing = 8.0f});
         Text("October 3 to 24 only", {.Style = TextStyle::Subheadline, .Secondary = true});
         DatePickerCalendar("Limited calendar", &state.LimitedDate,
                            {.MinDate = DateTime{.Year = 2026, .Month = 10, .Day = 3},
-                            .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 24, .Hour = 23, .Minute = 59}});
+                            .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 24, .Hour = 23, .Minute = 59},
+                            .Today = state.Today});
         EndVStack();
         EndHStack();
         const DateTime& date = state.CalendarDate;

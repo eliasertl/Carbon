@@ -28,11 +28,20 @@ namespace Example
         /// --show <name>: something the example opens at startup, such as a menu or a sheet.
         std::string Show;
         /// --pointer <x>x<y>, --click <x>x<y>, --right-click <x>x<y>: in screenshot mode, puts the pointer at a
-        /// position in points and optionally clicks there, so that hover states and menus can be captured.
+        /// position in points and optionally clicks there, so that hover states and menus can be captured. The
+        /// position is relative to the window, or to the cropped area's anchor when the example crops (--section).
         float PointerX = -1.0f;
         float PointerY = -1.0f;
         /// 0 for the left button, 1 for the right one, -1 for no click.
         int ClickButton = -1;
+        /// --crop <x>,<y>,<width>,<height>: in screenshot mode, saves only this area of the window, in points.
+        float Crop[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        /// --section <key>[,<key>...]: in screenshot mode, an example with sections (the Gallery) scrolls to them
+        /// and saves only their area. Keys are section titles in lower case without spaces or punctuation.
+        std::string Section;
+        /// --extend <left>,<top>,<right>,<bottom>: points added to the saved area on each side, for menus and
+        /// popovers that reach out of a section.
+        float Extend[4] = {0.0f, 0.0f, 0.0f, 0.0f};
     };
 
     /// Parses the options above. Unknown options are reported on stderr and ignored.
@@ -85,6 +94,13 @@ namespace Example
         /// Presents the frame. In screenshot mode, saves the image after a few warm-up frames.
         void EndFrame();
 
+        /// In screenshot mode, saves only `area` (in points) of the window, grown by --extend. Scripted pointer
+        /// positions become relative to `anchor`. Examples call it every frame while what they crop to may move.
+        void SetScreenshotArea(float x, float y, float width, float height, float anchorX, float anchorY);
+        /// Where scripted pointer positions are measured from: the window's corner, or the anchor set above.
+        float GetPointerOriginX() const { return m_PointerOriginX; }
+        float GetPointerOriginY() const { return m_PointerOriginY; }
+
     private:
         bool CreateDevice();
         void ConfigureSurface();
@@ -109,6 +125,10 @@ namespace Example
         float m_DeltaTime = 1.0f / 60.0f;
         double m_LastTime = 0.0;
         int m_FrameIndex = 0;
+        /// The area of the window a screenshot keeps, in points; empty for all of it.
+        float m_Area[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        float m_PointerOriginX = 0.0f;
+        float m_PointerOriginY = 0.0f;
         bool m_IsReady = false;
         bool m_IsGlfwInitialized = false;
     };

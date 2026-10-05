@@ -9,8 +9,62 @@ namespace Gallery
 {
     using namespace Carbon;
 
+    namespace
+    {
+        std::string s_CapturedSections;
+        Rect s_CapturedArea;
+        bool s_IsCapturing = false;
+
+        // Whether `title` matches one of the comma-separated keys: compared in lower case, letters and digits only.
+        bool IsCaptured(std::string_view title)
+        {
+            const auto isKeyCharacter = [](char c) { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'); };
+            const auto toLower = [](char c) { return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c; };
+            std::string_view keys = s_CapturedSections;
+            while (!keys.empty())
+            {
+                const size_t comma = keys.find(',');
+                const std::string_view key = keys.substr(0, comma);
+                keys = comma == std::string_view::npos ? std::string_view() : keys.substr(comma + 1);
+                size_t k = 0;
+                bool matches = true;
+                for (const char c : title)
+                {
+                    const char lower = toLower(c);
+                    if (!isKeyCharacter(lower))
+                        continue;
+                    if (k >= key.size() || key[k] != lower)
+                    {
+                        matches = false;
+                        break;
+                    }
+                    k++;
+                }
+                if (matches && k == key.size() && !key.empty())
+                    return true;
+            }
+            return false;
+        }
+    } // namespace
+
+    void SetCapturedSections(std::string_view keys)
+    {
+        s_CapturedSections = keys;
+    }
+
+    Rect GetCapturedArea()
+    {
+        return s_CapturedArea;
+    }
+
+    void ResetCapturedArea()
+    {
+        s_CapturedArea = Rect();
+    }
+
     void BeginSection(std::string_view title, std::string_view description)
     {
+        s_IsCapturing = !s_CapturedSections.empty() && IsCaptured(title);
         BeginVStack({.Spacing = 6.0f, .Width = Size::Fill()});
         Text(title, {.Style = TextStyle::Headline});
         if (!description.empty())
@@ -26,6 +80,12 @@ namespace Gallery
     void EndSection()
     {
         EndVStack();
+        if (s_IsCapturing)
+        {
+            const Rect box = GetLastItemRect();
+            s_CapturedArea = s_CapturedArea.Width > 0.0f ? s_CapturedArea.GetUnion(box) : box;
+            s_IsCapturing = false;
+        }
         EndVStack();
     }
 
@@ -355,6 +415,27 @@ namespace Gallery
         chip("A cell can span several columns", Size::Fill());
         EndGridRow();
         EndGrid();
+        EndSection();
+
+        BeginSection("Scroll view",
+                     "A clipped area whose content scrolls with the wheel. The overlay indicator appears while "
+                     "scrolling.");
+        BeginRow("Messages");
+        BeginScrollView("Messages", {.Width = 320.0f, .Height = 132.0f, .Spacing = 0.0f});
+        static const std::string_view Senders[] = {"Ada", "Grace", "Alan", "Edsger", "Barbara", "Ken", "Margaret"};
+        for (int i = 0; i < 14; i++)
+        {
+            PushID(i);
+            BeginHStack({.Spacing = 8.0f, .Padding = EdgeInsets(8.0f, 6.0f), .Width = Size::Fill()});
+            Icon(Icons::EnvelopeSimple, {.Color = GetStyleColor(StyleColor::Accent)});
+            Text(Senders[i % 7], {.Emphasized = true});
+            Text(std::format("Message {}", i + 1), {.Secondary = true});
+            EndHStack();
+            Separator();
+            PopID();
+        }
+        EndScrollView();
+        EndRow();
         EndSection();
     }
 } // namespace Gallery
