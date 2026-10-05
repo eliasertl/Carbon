@@ -334,4 +334,202 @@ namespace Carbon
         // Two columns of 201 points in a view of 300: scrolled to the end.
         EXPECT_NEAR(offset, 402.0f - 300.0f, 1.0f);
     }
+
+    // ---- PathControl --------------------------------------------------------------------------------------------
+
+    class PathControlTests : public WidgetTest
+    {
+    protected:
+        static constexpr float FieldInset = 3.0f;
+        static constexpr float Padding = 5.0f;
+        static constexpr float IconSize = 16.0f;
+        static constexpr float IconGap = 4.0f;
+        static constexpr float Chevron = 12.0f;
+        static constexpr float Collapsed = Padding * 2.0f + IconSize;
+
+        Builder Interface()
+        {
+            return [this]
+            {
+                // Away from the top edge, so that the pop-up style's menu can open over the button.
+                BeginVStack({.Padding = EdgeInsets(20.0f, 100.0f)});
+                const int activated =
+                    PathControl("path", std::span<const PathControlItem>(m_Path.data(), m_Path.size()), m_Options);
+                m_Rect = GetItemRect();
+                m_Id = GetItemID();
+                EndVStack();
+                if (activated >= 0)
+                {
+                    m_Activated = activated;
+                    m_Activations++;
+                }
+            };
+        }
+
+        float GetFullWidth(size_t index) const
+        {
+            const PathControlItem& item = m_Path[index];
+            const float label = MeasureText(item.Label, GetTextSpec(TextStyle::Body)).X;
+            return Padding * 2.0f + (item.Icon.empty() ? 0.0f : IconSize + IconGap) + label;
+        }
+
+        // The left edge of a component, given the widths of the ones before it.
+        float GetStart(std::initializer_list<float> widthsBefore) const
+        {
+            float x = m_Rect.X + FieldInset;
+            for (const float width : widthsBefore)
+                x += width + Chevron;
+            return x;
+        }
+
+        // Just wide enough for the first and last name with the two middle components as icons.
+        float GetNarrowWidth() const
+        {
+            return FieldInset * 2.0f + Chevron * 3.0f + GetFullWidth(0) + Collapsed * 2.0f + GetFullWidth(3);
+        }
+
+        void MoveAway()
+        {
+            MoveMouse(Vec2(0.0f, 500.0f), Interface());
+            Settle(Interface());
+        }
+
+        std::vector<PathControlItem> m_Path = {
+            {.Label = "Macintosh HD", .Icon = Icons::HardDrives},
+            {.Label = "Documents", .Icon = Icons::Folder},
+            {.Label = "Projects", .Icon = Icons::Folder},
+            {.Label = "Report.pdf", .Icon = Icons::FilePdf},
+        };
+        PathControlOptions m_Options;
+        int m_Activated = -1;
+        int m_Activations = 0;
+        Rect m_Rect;
+        ID m_Id;
+    };
+
+    TEST_F(PathControlTests, ClickingAComponentReportsItsIndex)
+    {
+        Settle(Interface());
+        for (size_t i = 0; i < m_Path.size(); i++)
+        {
+            float x = m_Rect.X + FieldInset;
+            for (size_t j = 0; j < i; j++)
+                x += GetFullWidth(j) + Chevron;
+            Click(Vec2(x + GetFullWidth(i) * 0.5f, m_Rect.GetCenter().Y), Interface());
+            EXPECT_EQ(m_Activated, int(i));
+        }
+        EXPECT_EQ(m_Activations, 4);
+        // A click on a chevron activates nothing.
+        Click(Vec2(GetStart({GetFullWidth(0)}) - Chevron * 0.5f, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activations, 4);
+    }
+
+    TEST_F(PathControlTests, KeyboardMovesAHighlightAndActivatesIt)
+    {
+        Settle(Interface());
+        TapKey(Key::Tab, Interface());
+        ASSERT_EQ(GetFocusedID(), m_Id);
+        TapKey(Key::Enter, Interface());
+        EXPECT_EQ(m_Activated, 3) << "the highlight starts at the selected item";
+        TapKey(Key::LeftArrow, Interface());
+        TapKey(Key::LeftArrow, Interface());
+        TapKey(Key::Space, Interface());
+        EXPECT_EQ(m_Activated, 1);
+        TapKey(Key::Home, Interface());
+        TapKey(Key::Enter, Interface());
+        EXPECT_EQ(m_Activated, 0);
+        TapKey(Key::LeftArrow, Interface());
+        TapKey(Key::Enter, Interface());
+        EXPECT_EQ(m_Activated, 0) << "the highlight stops at the root";
+        TapKey(Key::End, Interface());
+        TapKey(Key::Enter, Interface());
+        EXPECT_EQ(m_Activated, 3);
+        EXPECT_EQ(m_Activations, 5);
+    }
+
+    TEST_F(PathControlTests, WhenNarrowTheMiddleNamesGiveWayFirst)
+    {
+        Settle(Interface());
+        m_Options.Width = GetNarrowWidth();
+        Settle(Interface());
+
+        const float first = GetFullWidth(0);
+        Click(Vec2(GetStart({first}) + Collapsed * 0.5f, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 1);
+        MoveAway();
+        Click(Vec2(GetStart({first, Collapsed}) + Collapsed * 0.5f, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 2);
+        MoveAway();
+        // The last name keeps its full width: the far end of the field is part of it.
+        Click(Vec2(m_Rect.GetRight() - FieldInset - Padding, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 3);
+    }
+
+    TEST_F(PathControlTests, AHoveredComponentShowsItsName)
+    {
+        // Room for one of the two middle names. "Documents" is the longer one, so it gives way first.
+        Settle(Interface());
+        const float first = GetFullWidth(0);
+        m_Options.Width = GetNarrowWidth() + GetFullWidth(1) - Collapsed + 1.0f;
+        Settle(Interface());
+        Click(Vec2(GetStart({first, Collapsed}) + GetFullWidth(2) - Padding, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 2);
+        MoveAway();
+
+        // Under the pointer, "Documents" shows its name and "Projects" makes room for it.
+        MoveMouse(Vec2(GetStart({first}) + 4.0f, m_Rect.GetCenter().Y), Interface());
+        Settle(Interface());
+        Click(Vec2(GetStart({first}) + GetFullWidth(1) - Padding, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 1);
+    }
+
+    TEST_F(PathControlTests, VeryNarrowKeepsTheEndsReachable)
+    {
+        // Room for every component as an icon only.
+        m_Options.Width = FieldInset * 2.0f + Chevron * 3.0f + Collapsed * 4.0f;
+        Settle(Interface());
+        Click(Vec2(m_Rect.X + FieldInset + 4.0f, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 0);
+        MoveAway();
+        Click(Vec2(m_Rect.GetRight() - FieldInset - 4.0f, m_Rect.GetCenter().Y), Interface());
+        EXPECT_EQ(m_Activated, 3);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(PathControlTests, PopUpStyleListsThePathInAMenu)
+    {
+        m_Options.Style = PathControlStyle::PopUp;
+        Settle(Interface());
+        const ID menu = HashID("##menu", m_Id);
+        Click(m_Rect.GetCenter(), Interface());
+        EXPECT_TRUE(IsOverlayOpen(menu));
+        Settle(Interface());
+        // The selected item lies over the button; its parents follow below it, the root last.
+        Click(Vec2(m_Rect.X + 40.0f, m_Rect.GetCenter().Y + 22.0f * 2.0f), Interface());
+        EXPECT_EQ(m_Activated, 1);
+        EXPECT_FALSE(IsOverlayOpen(menu));
+
+        // The keyboard opens it too.
+        TapKey(Key::Tab, Interface());
+        ASSERT_EQ(GetFocusedID(), m_Id);
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_TRUE(IsOverlayOpen(menu));
+    }
+
+    TEST_F(PathControlTests, DisabledAndEmptyPathsDoNothing)
+    {
+        m_Options.Disabled = true;
+        Settle(Interface());
+        Click(m_Rect.GetCenter(), Interface());
+        EXPECT_EQ(m_Activations, 0);
+        TapKey(Key::Tab, Interface());
+        EXPECT_FALSE(GetFocusedID().IsValid());
+
+        m_Options.Disabled = false;
+        m_Path.clear();
+        Settle(Interface());
+        Click(m_Rect.GetCenter(), Interface());
+        EXPECT_EQ(m_Activations, 0);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
 } // namespace Carbon

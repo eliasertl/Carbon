@@ -13,6 +13,7 @@
 #include "Carbon/Extensions/MenuBar.h"
 #include "Carbon/Extensions/Notification.h"
 #include "Carbon/Extensions/OutlineView.h"
+#include "Carbon/Extensions/PathControl.h"
 #include "Carbon/Extensions/PopUpButton.h"
 #include "Carbon/Extensions/Popover.h"
 #include "Carbon/Extensions/ProgressIndicator.h"

@@ -13,6 +13,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/MenuBar.h
     src/Carbon/Extensions/Notification.h
     src/Carbon/Extensions/OutlineView.h
+    src/Carbon/Extensions/PathControl.h
     src/Carbon/Extensions/Popover.h
     src/Carbon/Extensions/PopUpButton.h
     src/Carbon/Extensions/ProgressIndicator.h
@@ -47,6 +48,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/MenuBar.cpp
     src/Carbon/Extensions/Notification.cpp
     src/Carbon/Extensions/OutlineView.cpp
+    src/Carbon/Extensions/PathControl.cpp
     src/Carbon/Extensions/Popover.cpp
     src/Carbon/Extensions/PopUpButton.cpp
     src/Carbon/Extensions/ProgressIndicator.cpp

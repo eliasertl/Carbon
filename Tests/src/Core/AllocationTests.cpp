@@ -170,6 +170,11 @@ namespace Carbon
                 BeginVStack({.Spacing = 10.0f, .Padding = 16.0f, .Width = Size::Fill(), .Height = Size::Fill()});
                 SegmentedControl("Segments", &m_Selected, {"One", "Two", "Three"});
                 RadioGroup("Radios", &m_Selected, {"One", "Two", "Three"});
+                static const PathControlItem Path[] = {{.Label = "Disk", .Icon = Icons::HardDrives},
+                                                       {.Label = "Folder", .Icon = Icons::Folder},
+                                                       {.Label = "File"}};
+                PathControl("Path", Path, {.Width = 100.0f});
+                PathControl("Pop-up path", Path, {.Style = PathControlStyle::PopUp});
                 PopUpButton("PopUp", &m_Selected, {"One", "Two", "Three"});
                 Stepper("Stepper", &m_Selected);
                 ProgressIndicator(0.5f);
