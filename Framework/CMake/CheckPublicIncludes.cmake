@@ -1,14 +1,16 @@
 # Script mode: fails when a source file includes a Carbon header that is not public.
 #
-#   cmake -DCHECK_DIR=<dir> -DALLOWED_FILE=<file> [-DCHECK_LIST_FILE=<file>] -P CheckPublicIncludes.cmake
+#   cmake -DCHECK_DIR=<dir> -DALLOWED_FILE=<file> [-DCHECK_LIST_FILE=<file>] [-DOWN_PREFIX=<prefix>]
+#         -P CheckPublicIncludes.cmake
 #
 # CHECK_DIR        directory whose .h and .cpp files are checked, recursively
 # ALLOWED_FILE     text file with one public header per line, as it is written in an include ("Carbon/Core/ID.h")
 # CHECK_LIST_FILE  optional: text file with the files to check, relative to CHECK_DIR, instead of all of them.
 #                  Files that do not exist there (generated headers) are skipped.
+# OWN_PREFIX       include prefix of the checked library's own files, which are always allowed
+#                  (default "Carbon/Extensions/").
 #
-# CarbonExtensions and custom components must be buildable from the installed headers alone. Includes below
-# "Carbon/Extensions/" are the extension library's own files and always allowed.
+# CarbonExtensions, CarbonReflection and custom components must be buildable from the installed headers alone.
 
 # A script has no project to take its policies from; without this, older CMake versions do not know IN_LIST.
 cmake_minimum_required(VERSION 3.25)
@@ -16,6 +18,10 @@ cmake_minimum_required(VERSION 3.25)
 if(NOT CHECK_DIR OR NOT ALLOWED_FILE)
     message(FATAL_ERROR "CheckPublicIncludes.cmake needs CHECK_DIR and ALLOWED_FILE")
 endif()
+if(NOT OWN_PREFIX)
+    set(OWN_PREFIX "Carbon/Extensions/")
+endif()
+string(LENGTH "${OWN_PREFIX}" own_prefix_length)
 
 file(STRINGS "${ALLOWED_FILE}" allowed_headers)
 if(CHECK_LIST_FILE)
@@ -39,7 +45,8 @@ foreach(checked_file IN LISTS checked_files)
     foreach(include_line IN LISTS include_lines)
         string(REGEX MATCH "[<\"]([^>\"]+)[>\"]" unused "${include_line}")
         set(included "${CMAKE_MATCH_1}")
-        if(included MATCHES "^Carbon/Extensions/")
+        string(SUBSTRING "${included}" 0 ${own_prefix_length} included_prefix)
+        if(included_prefix STREQUAL OWN_PREFIX)
             continue()
         endif()
         # Anything that names Carbon, or reaches into an internal header by a relative path, must be public.

@@ -85,6 +85,15 @@ target_sources(CarbonExtensions
 # Extensions are built only on Carbon's public API; they never link Carbon's private dependencies.
 target_link_libraries(CarbonExtensions PUBLIC Carbon::Carbon)
 
+# The public headers as they are written in an include directive, for the PublicApiBoundary tests of the code
+# built on CarbonExtensions.
+set(carbon_extensions_include_names "")
+foreach(header IN LISTS CARBON_EXTENSIONS_PUBLIC_HEADERS)
+    string(REGEX REPLACE "^src/" "" header_name "${header}")
+    list(APPEND carbon_extensions_include_names "${header_name}")
+endforeach()
+set_property(TARGET CarbonExtensions PROPERTY CARBON_PUBLIC_INCLUDE_NAMES "${carbon_extensions_include_names}")
+
 carbon_configure_target(CarbonExtensions)
 # The installed package exports the target under the same name as the alias: Carbon::Extensions.
 set_target_properties(CarbonExtensions PROPERTIES EXPORT_NAME Extensions)

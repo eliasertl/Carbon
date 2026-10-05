@@ -3,6 +3,7 @@ cmake_minimum_required(VERSION 3.25)
 project(Carbon VERSION 0.1.0 DESCRIPTION "Immediate-mode C++ UI framework with a macOS look" LANGUAGES C CXX)
 
 option(CARBON_BUILD_EXTENSIONS "Build the CarbonExtensions library" ON)
+option(CARBON_BUILD_REFLECTION "Build the CarbonReflection library (needs CARBON_BUILD_EXTENSIONS)" ON)
 option(CARBON_BUILD_EXAMPLES "Build the Carbon examples" ${PROJECT_IS_TOP_LEVEL})
 option(CARBON_BUILD_TESTS "Build the Carbon unit tests" ${PROJECT_IS_TOP_LEVEL})
 option(CARBON_INSTALL "Generate install rules and the CarbonConfig.cmake package" ${PROJECT_IS_TOP_LEVEL})
@@ -14,6 +15,12 @@ add_subdirectory(Framework)
 
 if(CARBON_BUILD_EXTENSIONS)
     add_subdirectory(Extensions)
+endif()
+
+if(CARBON_BUILD_REFLECTION AND CARBON_BUILD_EXTENSIONS)
+    add_subdirectory(Reflection)
+elseif(CARBON_BUILD_REFLECTION)
+    message(STATUS "Carbon: skipping CarbonReflection because CARBON_BUILD_EXTENSIONS is OFF")
 endif()
 
 if(CARBON_BUILD_EXAMPLES)

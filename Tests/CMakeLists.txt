@@ -50,6 +50,16 @@ if(CARBON_BUILD_EXTENSIONS)
     target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_EXTENSIONS=1)
 endif()
 
+if(TARGET CarbonReflection)
+    target_sources(CarbonTests PRIVATE
+        src/Reflection/DisplayNameTests.cpp
+        src/Reflection/EnumTests.cpp
+        src/Reflection/StructTests.cpp
+    )
+    target_link_libraries(CarbonTests PRIVATE Carbon::Reflection)
+    target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_REFLECTION=1)
+endif()
+
 carbon_configure_target(CarbonTests)
 
 # The renderer tests create a real device when the machine has an adapter (they skip otherwise).
@@ -69,6 +79,20 @@ foreach(boundary IN ITEMS Extensions/src Examples/CustomComponent)
             -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckPublicIncludes.cmake"
     )
 endforeach()
+# CarbonReflection may include public Carbon and public CarbonExtensions headers.
+if(TARGET CarbonReflection)
+    get_target_property(carbon_extensions_include_names CarbonExtensions CARBON_PUBLIC_INCLUDE_NAMES)
+    list(JOIN carbon_extensions_include_names "\n" carbon_extensions_include_text)
+    set(carbon_reflection_allowed_file "${CMAKE_CURRENT_BINARY_DIR}/ReflectionAllowedHeaders.txt")
+    file(WRITE "${carbon_reflection_allowed_file}" "${carbon_public_include_text}\n${carbon_extensions_include_text}\n")
+    add_test(NAME PublicApiBoundary.Reflection.src
+        COMMAND "${CMAKE_COMMAND}"
+            "-DCHECK_DIR=${PROJECT_SOURCE_DIR}/Reflection/src"
+            "-DALLOWED_FILE=${carbon_reflection_allowed_file}"
+            "-DOWN_PREFIX=Carbon/Reflection/"
+            -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckPublicIncludes.cmake"
+    )
+endif()
 # A public header must not pull in an internal one either.
 add_test(NAME PublicApiBoundary.PublicHeaders
     COMMAND "${CMAKE_COMMAND}"
