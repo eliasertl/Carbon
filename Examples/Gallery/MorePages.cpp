@@ -212,6 +212,85 @@ namespace Gallery
         EndSection();
     }
 
+    namespace
+    {
+        // The same toolbar in every display mode: a toggle, navigation, a control, commands and a search field.
+        void DemoToolbar(GalleryState& state, ToolbarDisplayMode mode, Size width)
+        {
+            BeginToolbar("Toolbar", {.Width = width,
+                                     .Background = GetStyleColor(StyleColor::Background),
+                                     .HasSeparator = false,
+                                     .DisplayMode = mode});
+            if (ToolbarItem("Sidebar", {.Icon = Icons::SidebarSimple, .IsSelected = state.ToolbarShowsSidebar}))
+                state.ToolbarShowsSidebar = !state.ToolbarShowsSidebar;
+            ToolbarSpace();
+            if (ToolbarItem("Back", {.Icon = Icons::CaretLeft}))
+                state.ToolbarAction = "Back";
+            ToolbarItem("Forward", {.Icon = Icons::CaretRight, .Disabled = true});
+            ToolbarSeparator();
+            if (BeginToolbarControl("View", {.Icon = Icons::SquaresFour}))
+            {
+                SegmentedControl("View", &state.ToolbarView, {"Icons", "List", "Columns"});
+                EndToolbarControl();
+            }
+            ToolbarFlexibleSpace();
+            if (ToolbarItem("New Folder", {.Icon = Icons::FolderPlus}))
+                state.ToolbarAction = "New Folder";
+            if (ToolbarItem("Share", {.Icon = Icons::Export}))
+                state.ToolbarAction = "Share";
+            if (ToolbarItem("Delete", {.Icon = Icons::Trash}))
+                state.ToolbarAction = "Delete";
+            if (BeginToolbarControl("Sort", {.Icon = Icons::ArrowsDownUp}))
+            {
+                if (BeginPullDownButton("Sort", {.Icon = Icons::ArrowsDownUp}))
+                {
+                    if (MenuItem("Name"))
+                        state.ToolbarAction = "Sort by name";
+                    if (MenuItem("Date Modified"))
+                        state.ToolbarAction = "Sort by date";
+                    EndPullDownButton();
+                }
+                EndToolbarControl();
+            }
+            ToolbarSpace();
+            if (BeginToolbarControl("Search", {.Icon = Icons::MagnifyingGlass}))
+            {
+                SearchField("Search", &state.ToolbarQuery, {.Width = 150.0f});
+                EndToolbarControl();
+            }
+            EndToolbar();
+        }
+    } // namespace
+
+    void ToolbarsPage(GalleryState& state)
+    {
+        BeginSection("Display modes",
+                     "Frequently used commands and controls. Items have no bezel: a highlight appears under the "
+                     "pointer. The sidebar item toggles; Forward is disabled. Every item is a stop for Tab.");
+        static const ToolbarDisplayMode Modes[] = {ToolbarDisplayMode::IconAndLabel, ToolbarDisplayMode::IconOnly,
+                                                   ToolbarDisplayMode::LabelOnly};
+        static const std::string_view Names[] = {"Icon and label", "Icon only (labels become tooltips)", "Label only"};
+        for (int i = 0; i < 3; i++)
+        {
+            PushID(i);
+            Text(Names[i], {.Style = TextStyle::Subheadline, .Secondary = true});
+            DemoToolbar(state, Modes[i], Size::Fill());
+            PopID();
+        }
+        Text(std::format("Last action: {}", state.ToolbarAction), {.Secondary = true});
+        EndSection();
+
+        BeginSection("Overflow",
+                     "When the toolbar is too narrow for its items, those at its trailing end move into a menu "
+                     "behind the chevron. A control chosen there opens in a popover.");
+        PushID("narrow");
+        if (TakeShow(state, "toolbaroverflow"))
+            OpenOverlay(HashID("##overflowmenu", GetID("Toolbar")));
+        DemoToolbar(state, ToolbarDisplayMode::IconAndLabel, 380.0f);
+        PopID();
+        EndSection();
+    }
+
     void NotificationsPage(GalleryState& state)
     {
         BeginSection("Notifications",

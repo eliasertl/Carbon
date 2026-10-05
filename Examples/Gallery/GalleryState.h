@@ -21,6 +21,7 @@ namespace Gallery
 
         Selection,
         Menus,
+        Toolbars,
         Dialogs,
         Notifications,
         Progress,
@@ -64,6 +65,11 @@ namespace Gallery
 
         // Selection controls.
         int ViewMode = 1;
+        // Toolbars.
+        bool ToolbarShowsSidebar = true;
+        int ToolbarView = 1;
+        std::string ToolbarQuery;
+        std::string ToolbarAction = "None yet";
         int Appearance = 2;
         int IconSize = 1;
         int StartWith = -1;
