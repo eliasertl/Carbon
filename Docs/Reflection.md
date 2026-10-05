@@ -19,6 +19,8 @@ Carbon::Reflect("quality", &quality);   // a PopUpButton: Low / Medium / High / 
 Carbon::Reflect("graphics", &graphics); // one labeled control per field: "Texture Quality", "V Sync", "Gamma"
 ```
 
+![GraphicsSettings, and the controls Reflect builds from it](Images/Reflection-Structs-Light.png)
+
 Both lines work without any extra code. An optional macro adds display names, tooltips, ranges, control
 overrides and hidden or read-only flags, and describes types that automatic reflection cannot see.
 
@@ -66,6 +68,8 @@ enum class Port { Http = 80, Https = 443, Custom = 8080 };
 CB_REFLECT_ENUM(Port, CB_VALUE(Https, {}), CB_VALUE(Custom, { .DisplayName = "Custom Port" }));
 // Http (80) is found in the default range; 443 and 8080 are named.
 ```
+
+![The same enum as a segmented control and as radio buttons](Images/Reflection-Enums-Dark.png)
 
 **Metadata per value** (`ReflectValueOptions`): `DisplayName` replaces the automatic label, `Hidden` leaves the
 value out entirely, which is useful for a trailing `Count`:

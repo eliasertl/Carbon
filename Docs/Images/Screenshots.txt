@@ -60,3 +60,8 @@ Components/OutlineView.png        Gallery  --page hierarchies --section outlinev
 Components/ColumnView.png         Gallery  --page hierarchies --section columnview
 Components/PathControl.png        Gallery  --page hierarchies --section pathcontrol
 Components/Chart.png              Gallery  --page charts --section linechart,barchart --theme dark
+
+# ---- Reflection ---------------------------------------------------------------------------------------------------
+Components/Reflect.png            Gallery  --page reflection --section metadata --size 1040x1300
+Reflection-Structs-Light.png      Gallery  --page reflection --section structs
+Reflection-Enums-Dark.png         Gallery  --page reflection --section enumstyles --theme dark
