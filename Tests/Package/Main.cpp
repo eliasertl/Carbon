@@ -47,6 +47,7 @@ int main()
 
     int rating = 3;
     int segment = 0;
+    PackageCheck::Settings settings;
     size_t vertexCount = 0;
     for (int frame = 0; frame < 5; frame++)
     {
@@ -55,6 +56,7 @@ int main()
         Carbon::Text("Installed package", {.Style = Carbon::TextStyle::Title2});
         Carbon::Button("Button");
         Carbon::SegmentedControl("Segments", &segment, {"One", "Two"});
+        Carbon::Reflect("Settings", &settings);
         Carbon::ProgressIndicator(0.5f);
         Example::StarRating("Rating", &rating);
         Carbon::EndVStack();
