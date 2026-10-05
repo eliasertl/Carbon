@@ -15,11 +15,11 @@ struct GraphicsSettings
     float Gamma = 2.2f;
 };
 
-Carbon::GetEnumDisplayName(Quality::VeryHigh);          // "Very High"
-Carbon::GetFieldDisplayName<GraphicsSettings>(1);       // "V Sync"
+Carbon::Reflect("quality", &quality);   // a PopUpButton: Low / Medium / High / Very High
+Carbon::Reflect("graphics", &graphics); // one labeled control per field: "Texture Quality", "V Sync", "Gamma"
 ```
 
-Both types work without any extra code. An optional macro adds display names, tooltips, ranges, control
+Both lines work without any extra code. An optional macro adds display names, tooltips, ranges, control
 overrides and hidden or read-only flags, and describes types that automatic reflection cannot see.
 
 The library is built when `CARBON_BUILD_REFLECTION` is on (the default) and needs `CarbonExtensions`. Link
@@ -139,6 +139,36 @@ CB_REFLECT_STRUCT(AudioSettings,
 | `Tooltip` | help text for the field's row |
 | `Hidden` | leaves the field out of the interface |
 | `ReadOnly` | shows the field disabled |
+
+## Reflect
+
+`Carbon::Reflect(label, &value, options)` draws the controls for a reflected enum or struct and returns `true` on
+frames the value changed (for a struct: any field). See [Reflect](Components/Reflect.md) for its options.
+
+| Field type | Control |
+| --- | --- |
+| `bool` | Toggle (switch); `ReflectControl::Checkbox` for a checkbox that carries the label |
+| integer / `float` / `double` with `Min` and `Max` | Slider, with the value after it |
+| integer / `float` / `double` without a range | The value as text, then a stepper over the type's limits, step 1 for integers and 0.1 for floating point |
+| `std::string` | TextField |
+| reflected enum | PopUpButton, SegmentedControl or RadioGroup |
+| `Carbon::Color` | ColorWell |
+| `Carbon::DateTime` | DatePicker (date elements) |
+| reflected nested struct | A sub-group: the field's label as an emphasized title, then its fields indented by 16 points, recursively |
+
+- **Precedence** for a field's control: the field's `Control` from `CB_FIELD`, then the call's `EnumStyle`, then
+  the default above. A control that does not suit the type is a compile error.
+- **ReadOnly** fields are drawn disabled; **Hidden** fields are skipped; a **Tooltip** belongs to the field's row.
+- **Layouts.** `LabelLeading` puts the labels in the secondary label color in a column as wide as the widest
+  label of the struct (a [Grid](Components/Grid.md)), with 12 points between rows and between label and control,
+  as in the Gallery's forms. `LabelAbove` puts each label 4 points above its control. A checkbox carries its own
+  label in both.
+- **IDs.** Every field pushes its name onto the ID stack, so state survives layout changes. Tab follows field
+  order.
+- **Numbers** are edited as `double` and converted back, rounded and clamped for integers. Values show at most two
+  decimals, formatted into a fixed buffer. A field of another type fails to compile; hide it with
+  `CB_FIELD(Name, { .Hidden = true })`.
+- **No allocations** in a settled frame: labels come from static storage, numbers are formatted on the stack.
 
 ## Writing the macros
 

@@ -20,6 +20,14 @@ its options and its keyboard behaviour.
 | [Grid](Grid.md) | Rows of cells whose columns line up |
 | [ScrollView](ScrollView.md) | A clipped, scrollable area |
 
+## Reflection (`CarbonReflection`)
+
+Link `Carbon::Reflection` and include `Carbon/Reflection/Reflection.h`. See [Reflection](../Reflection.md).
+
+| Component | Purpose |
+| --- | --- |
+| [Reflect](Reflect.md) | Controls generated from an enum or a struct |
+
 ## Extensions (`CarbonExtensions`)
 
 Link `Carbon::Extensions` and include `Carbon/Extensions/Extensions.h`, or the header of a single component.

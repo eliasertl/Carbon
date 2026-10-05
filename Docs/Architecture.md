@@ -724,6 +724,11 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 85 | Automatic reflection supports up to 64 fields and the enum range [-128, 127], clamped to the underlying type; a macro range may span 1024 values | Each limit trades compile time for coverage; 64 fields and 256 values cover settings structs and enums, with the macro for the rest |
 | 86 | `ReflectControl` also has `Switch` and `Checkbox` | macOS settings use both for booleans; the field's control override is the natural place to choose |
 | 87 | Private fields cannot be reflected, even with the macro | The type is never modified, and only a `friend` declaration inside the type could grant access |
+| 88 | A `DateTime` field gets a date picker for the date only | `ReflectFieldOptions` has no elements to choose, and settings dates are usually days; an application that needs the time draws the field itself or hides it |
+| 89 | Floating-point values are formatted with `std::to_chars`, integers with `std::format_to_n` | MSVC's `std::format` allocates for a floating-point value with a precision, and a settled `Reflect` frame must not allocate |
+| 90 | A checkbox field carries its label after the box and leaves the label column empty; the value of a number sits after a slider and before a stepper | That is how macOS forms place them; the value's column has a fixed width so the control beside it does not move |
+| 91 | The tooltip of a field is attached to its whole row with `SetLastItem` | Containers do not register as items for `Tooltip`; the extension API already allows this |
+| 92 | Every field of a struct is reached with a comma fold, never with `|` or `||` | Fields must be drawn in order, every frame; `|` leaves the order of evaluation unspecified |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
