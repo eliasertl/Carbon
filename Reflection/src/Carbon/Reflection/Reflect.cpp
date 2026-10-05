@@ -206,8 +206,9 @@ namespace Carbon::Internal
         }
         else
         {
-            // As on macOS: the value, then the stepper that changes it.
-            ShowValue(*value, spec, valueWidth, TextAlignment::Trailing);
+            // As on macOS: the value, then the stepper that changes it. Below a label the value lines up with it.
+            ShowValue(*value, spec, valueWidth,
+                      options.Layout == ReflectLayout::LabelAbove ? TextAlignment::Leading : TextAlignment::Trailing);
             changed =
                 Stepper("##stepper", value,
                         {.Min = spec.Min, .Max = spec.Max, .Step = spec.Step, .ControlSize = options.ControlSize});
