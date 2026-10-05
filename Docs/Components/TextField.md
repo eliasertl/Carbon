@@ -32,9 +32,16 @@ identifies the field and serves as its placeholder; put a `Text` next to the fie
 | `MaxLength` | `size_t` | 0 | Longest text in characters; 0 is unlimited |
 | `TrailingInset` | `float` | 0 | Points kept free at the trailing edge for an accessory you draw there, such as the button of a [ComboBox](ComboBox.md) |
 | `VerticalArrowsMoveCaret` | `bool` | `true` | Up and down move the caret to the start and end. Turn it off when your component uses those keys. |
+| `IsBezeled` | `bool` | `true` | Background, border and focus ring. Turn it off when your component draws the field around the text, as a [TokenField](TokenField.md) does |
+| `AcceptsInput` | `bool` | `true` | While `false` the field keeps its focus but leaves keys, typing and clicks alone and hides its caret: for frames in which your component handles the keys itself |
 
 When you replace the text of a field while it is being edited, call `ReloadTextField(label)` at the same ID
 scope: the caret then moves to the end of the new text and undo starts over.
+
+`GetTextFieldSelection(label, &selection)` tells where the caret and the selection of the field `label` are, as
+byte offsets into its text (`Caret`, `Start`, `End`), and returns `false` while the field is not being edited.
+Components built around a text field use it to act on keys at the ends of the text, such as Backspace with the
+caret at the start.
 
 ## Mouse
 

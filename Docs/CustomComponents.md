@@ -183,7 +183,9 @@ return changed;
 
 `SetLastItem` makes `Tooltip()`, `IsItemHovered()`, `GetItemRect()` and context menus work after your component.
 A component that takes text and reacts to Enter calls `SetItemSubmitted()` after it, so that `IsItemSubmitted()`
-works too; the [ComboBox](../Extensions/src/Carbon/Extensions/ComboBox.cpp) does.
+works too; the [ComboBox](../Extensions/src/Carbon/Extensions/ComboBox.cpp) does. A component built around a text
+field can turn off its bezel (`IsBezeled`), take the keys for a while (`AcceptsInput`) and ask where its caret is
+(`GetTextFieldSelection`), as the [TokenField](../Extensions/src/Carbon/Extensions/TokenField.cpp) does.
 
 Check your arguments with `CB_VERIFY(condition, "message {}", value)`. It reports through the host's log and
 assert callbacks in every build type and lets the frame continue, so return early afterwards.

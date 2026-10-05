@@ -56,6 +56,7 @@ These components are built only on Carbon's public extension API; see
 | [Toolbar](Toolbar.md) | Frequently used commands and controls along the top of a window |
 | [DatePickerCalendar](DatePickerCalendar.md) | A month of days to pick a date from |
 | [DatePicker](DatePicker.md) | A compact field for a date, a time or both, with a calendar in a popover |
+| [TokenField](TokenField.md) | Text that turns into tokens, such as the recipients of a mail |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 

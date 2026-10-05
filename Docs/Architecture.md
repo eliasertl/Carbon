@@ -51,10 +51,10 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 ```
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
-SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, RadioGroup,
-DatePicker, DatePickerCalendar, Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView,
-PathControl, SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them share:
-`SelectionList` (Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and
+SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, TokenField,
+RadioGroup, DatePicker, DatePickerCalendar, Stepper, ProgressIndicator, SearchField, List, Table, OutlineView,
+ColumnView, PathControl, SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them
+share: `SelectionList` (Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and
 `MenuInternal` (Menu, MenuBar).
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
@@ -688,6 +688,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 68 | The date picker's calendar popover leaves the keyboard in the field and closes when the field loses focus, on a click outside, on Escape or Enter, and after a day is picked with the mouse | The ComboBox precedent (decision 53): typing goes on while the calendar shows the result. Closing for lost focus waits until the popover has been open for a frame, because focus requests take effect a frame late |
 | 69 | The stepper is Carbon's `Stepper` bound to a scratch value between -1 and 1, and moves the selected element | It brings the stepper's look, repeat and keyboard behaviour without a second implementation |
 | 70 | `DateFormat` is a struct with `ISO()`, `German()` and `US()` presets, and `FormatDateTime` is public | Formats are the application's choice (no locales); the presets cover the required styles and a format can be adjusted field by field. Applications can show a value as the picker does, without allocating |
+| 71 | `TextField` gained `IsBezeled`, `AcceptsInput` and `GetTextFieldSelection` | A token field needs a borderless field after its tokens, must take Backspace, Delete and the arrows while tokens are selected, and must know when the caret is at the start of the text. The editor itself stays internal; this follows `TrailingInset` (decision 53) |
+| 72 | The text a token field is still editing lives in its per-ID state as a fixed 512-byte buffer, bridged to the `TextField` by one reused scratch string; it becomes a token at a delimiter, at Return and when the field loses focus | Per-ID state must be trivially copyable, and the application's list holds only finished tokens. Copying in and out of a reserved string costs no allocation, and each field keeps its own text. `NSTokenField` also tokenizes when editing ends |
+| 73 | Token fields tokenize at a comma (configurable) and at Return; there are no suggestions. Typing while tokens are selected replaces them, and a right click on a token opens a menu the application builds with `BeginTokenFieldMenu` | The HIG names the comma as the default and Return as a common addition, calls suggestions optional, and recommends a context menu on tokens. Replacing the selection is how Mail behaves |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
