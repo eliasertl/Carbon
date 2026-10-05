@@ -338,6 +338,9 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
 
 - **Shaping.** HarfBuzz shapes UTF-8 runs (kerning and ligatures on). Runs are split by font fallback: requested
   font → Public Sans → Phosphor (icons live in the Private Use Area) → fonts added by the host, in order.
+- **Fonts.** Public Sans is the default font, JetBrains Mono the embedded monospaced one (`GetMonospacedFont`).
+  The font of a text is the per-call `TextOptions::Font`, else the innermost `PushFont`, else `Theme::Font`,
+  else Public Sans. `GetTextSpec` returns the pushed or theme font, so every component follows `PushFont`.
 - **Variable weight.** One FreeType face per font file; a weight instance (`wght` axis) per used weight, each with
   its own HarfBuzz font. `FontWeight` is a numeric 100–900 enum.
 - **Glyph atlas.** A single-channel atlas with skyline packing, rasterized without hinting at
@@ -349,8 +352,9 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
 - **Shaped-line cache.** Shaping happens in font units, so a shaped line is independent of size and content
   scale. Lines are cached by a hash of (text, font, weight, italic, icon variant) and evicted after about ten
   seconds without use, so steady-state frames do no shaping and no allocation.
-- **Fallback.** Each character uses the requested face if it has the glyph, then the icon font for Private Use
-  Area code points, then the other registered fonts in order. A line is split into runs per face and each run is
+- **Fallback.** Private Use Area code points use the icon font if it has the glyph; every other character uses
+  the requested face if it has the glyph, then the other registered fonts in order. The monospaced font is never
+  a fallback. A line is split into runs per face and each run is
   shaped separately.
 - **Text drawing** is `DrawList::AddText`. It is declared on the draw list for convenience but implemented in
   `Text/`, because text sits above the draw list in the layering.
@@ -592,7 +596,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 - Fonts and shaders are converted to `.cpp` byte arrays at build time by `Framework/CMake/EmbedAsset.cmake`
   (pure CMake, no Python), written to the build tree and never committed. `Icons.h` is generated the same way.
 - Submodules pinned to release tags: FreeType, HarfBuzz, GoogleTest (v1.18.0), GLFW (3.5.1),
-  Public Sans (v2.001), Phosphor web (v2.1.2); stb has no tags and is pinned to a commit.
+  Public Sans (v2.001), JetBrains Mono (v2.304), Phosphor web (v2.1.2); stb has no tags and is pinned to a
+  commit.
 - **Dawn**: developed against commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b` (2026-09-03). That install has
   no `webgpu_glfw` helper, so the examples create their surface per platform (Win32, X11, Wayland) in
   `Examples/Common/`.
@@ -613,6 +618,11 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | M4 Styling, input, core widgets | Themes, style stacks, option structs, keyboard navigation, focus rings, core widgets, Gallery | Gallery screenshots vs. HIG; interaction tests |
 | M5 Extensions | Extension API final, overlays, all extension components, CustomComponent | Extensions build against public headers only |
 | M6 Docs, CI, polish | Complete docs, README screenshots, GitHub Actions, HIG and naming sweep | CI green; fresh clone builds the Gallery |
+| M7 Fonts | JetBrains Mono embedded, `GetMonospacedFont`, `TextOptions::Font`, `PushFont` / `PopFont` | Precedence, nesting and unbalanced-push tests; monospaced measurement |
+| M8 Reflection core | `Reflection/` library and `CARBON_BUILD_REFLECTION`; enum and aggregate reflection, labels, `CB_REFLECT_*` macros; boundary checks | Unit tests on MSVC, GCC and Clang (CI) |
+| M9 Reflect | `Carbon::Reflect` for enums and structs, `ReflectOptions`, field mapping, both layouts | Widget tests (change detection), zero allocations, screenshots in both themes at scale 1 and 2 |
+| M10 Gallery page | "Reflection" page: five sections, each a code box above the generated UI | Screenshots vs. HIG |
+| M11 Example and docs | `Examples/Reflection` settings window, `Docs/Reflection.md`, `Docs/Components/Reflect.md`, packaging (`find_package(Carbon COMPONENTS Reflection)`) | Package test; CI green |
 
 ## 16. Decision log
 
@@ -692,6 +702,10 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 72 | The text a token field is still editing lives in its per-ID state as a fixed 512-byte buffer, bridged to the `TextField` by one reused scratch string; it becomes a token at a delimiter, at Return and when the field loses focus | Per-ID state must be trivially copyable, and the application's list holds only finished tokens. Copying in and out of a reserved string costs no allocation, and each field keeps its own text. `NSTokenField` also tokenizes when editing ends |
 | 73 | Token fields tokenize at a comma (configurable) and at Return; there are no suggestions. Typing while tokens are selected replaces them, and a right click on a token opens a menu the application builds with `BeginTokenFieldMenu` | The HIG names the comma as the default and Return as a common addition, calls suggestions optional, and recommends a context menu on tokens. Replacing the selection is how Mail behaves |
 | 74 | Documentation screenshots are listed in `Docs/Images/Screenshots.txt`, rendered by `Scripts/Screenshots.py`, and committed by CI after every push to `main` when they look different; the Gallery can crop to its sections (`--section`) and shows a fixed day as today in screenshots | Images that are rendered from a list cannot fall behind the code. Cropping to a section's box follows layout changes, where fixed pixel areas would not. WARP in CI renders within a level or two of a GPU, so a small tolerance keeps unchanged images from being committed again |
+
+| 75 | JetBrains Mono is embedded as Carbon's monospaced font and is not a fallback for other fonts | Code needs a monospaced face without a file; as a fallback it would change how missing characters of proportional text look |
+| 76 | Private Use Area characters take the icon font before the requested font | JetBrains Mono has powerline glyphs at four of Phosphor's code points; `Carbon::Icons` must draw the same icon in every font |
+| 77 | `PushFont` is part of the style stack, and `GetTextSpec` returns the pushed font | Every core and extension component builds its text from `GetTextSpec`, so all of them follow a pushed font without changes |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
