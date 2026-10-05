@@ -11,6 +11,8 @@ namespace Carbon::Internal
     /// letter of every word is capitalized. "DarkMode", "darkMode" and "dark_mode" become "Dark Mode"; runs of
     /// capitals stay together as an acronym ("HDREnabled" becomes "HDR Enabled"); digits start a word after a
     /// lowercase letter and stay with capitals ("Volume2" becomes "Volume 2", "MP3Player" "MP3 Player").
+    /// Articles, conjunctions and short prepositions inside the label stay in lower case, as in title-style
+    /// capitalization ("LaunchAtLogin" becomes "Launch at Login").
     /// Writes at most twice the identifier's length into `output` and returns the label's length.
     size_t FormatDisplayName(std::string_view identifier, std::span<char> output) noexcept;
 

@@ -60,6 +60,21 @@ namespace Carbon
         EXPECT_EQ(Format("___"), "");
     }
 
+    TEST(DisplayNameTests, MinorWordsInsideALabelStayLowercase)
+    {
+        EXPECT_EQ(Format("LaunchAtLogin"), "Launch at Login");
+        EXPECT_EQ(Format("DownloadInBackground"), "Download in Background");
+        EXPECT_EQ(Format("show_in_finder"), "Show in Finder");
+        EXPECT_EQ(Format("SaveAsCopy"), "Save as Copy");
+        EXPECT_EQ(Format("RulesOfTheGame"), "Rules of the Game");
+        // First and last words keep their capital; so do words in capitals and longer words.
+        EXPECT_EQ(Format("OnStartup"), "On Startup");
+        EXPECT_EQ(Format("SignIn"), "Sign In");
+        EXPECT_EQ(Format("HDR_IN_Output"), "HDR IN Output");
+        EXPECT_EQ(Format("PlayAboutSounds"), "Play About Sounds");
+        EXPECT_EQ(Format("Infinity"), "Infinity");
+    }
+
     TEST(DisplayNameTests, NeverWritesMoreThanTwiceTheIdentifier)
     {
         // The worst case is a word break before every character after the first.

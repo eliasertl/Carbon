@@ -1,5 +1,7 @@
 #include "Carbon/Reflection/Detail/DisplayName.h"
 
+#include <array>
+
 namespace Carbon::Internal
 {
     namespace
@@ -22,6 +24,55 @@ namespace Carbon::Internal
         char ToUpper(char character)
         {
             return IsLower(character) ? static_cast<char>(character - 'a' + 'A') : character;
+        }
+
+        char ToLower(char character)
+        {
+            return IsUpper(character) ? static_cast<char>(character - 'A' + 'a') : character;
+        }
+
+        // Words that title-style capitalization keeps in lower case inside a label: articles, coordinating
+        // conjunctions and short prepositions (Apple's style guide).
+        constexpr std::array<std::string_view, 25> MinorWords = {
+            "a",   "an", "and",  "as", "at",   "but", "by", "for", "from", "in",  "into", "nor", "of",
+            "off", "on", "onto", "or", "over", "per", "so", "the", "to",   "via", "with", "yet"};
+
+        bool IsMinorWord(std::span<const char> word)
+        {
+            for (const std::string_view minor : MinorWords)
+            {
+                if (minor.size() != word.size())
+                    continue;
+                bool matches = true;
+                for (size_t i = 0; i < word.size() && matches; i++)
+                    matches = ToLower(word[i]) == minor[i];
+                if (matches)
+                    return true;
+            }
+            return false;
+        }
+
+        // Lowers the first letter of minor words that are neither the first nor the last word, unless the word is
+        // written in capitals ("Launch At Login" becomes "Launch at Login", "HDR In OUT" stays).
+        void LowerMinorWords(std::span<char> label)
+        {
+            size_t start = 0;
+            bool isFirst = true;
+            while (start < label.size())
+            {
+                size_t end = start;
+                while (end < label.size() && label[end] != ' ')
+                    end++;
+                const bool isLast = end == label.size();
+                const std::span<char> word = label.subspan(start, end - start);
+                bool isCapitalized = !word.empty() && IsUpper(word[0]);
+                for (size_t i = 1; i < word.size() && isCapitalized; i++)
+                    isCapitalized = !IsUpper(word[i]);
+                if (!isFirst && !isLast && isCapitalized && IsMinorWord(word))
+                    word[0] = ToLower(word[0]);
+                isFirst = false;
+                start = end + 1;
+            }
         }
 
         // Whether a word starts at `index` (which is not the first character of a word already).
@@ -64,6 +115,7 @@ namespace Carbon::Internal
             if (length < output.size())
                 output[length++] = character;
         }
+        LowerMinorWords(output.first(length));
         return length;
     }
 } // namespace Carbon::Internal
