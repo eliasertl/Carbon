@@ -54,6 +54,7 @@ These components are built only on Carbon's public extension API; see
 | [RadioGroup](RadioGroup.md) | A few mutually exclusive choices as radio buttons |
 | [PathControl](PathControl.md) | The path to an item, from its root; each part can be clicked |
 | [Toolbar](Toolbar.md) | Frequently used commands and controls along the top of a window |
+| [DatePickerCalendar](DatePickerCalendar.md) | A month of days to pick a date from |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 

@@ -52,9 +52,10 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
 SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, RadioGroup,
-Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, PathControl, SplitView, Alert, Sheet,
-ColorWell, Notification) and, in `Internal/`, what several of them share: `SelectionList` (Sidebar, List, Table,
-OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu, MenuBar).
+DatePickerCalendar, Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, PathControl,
+SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them share: `SelectionList`
+(Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu,
+MenuBar).
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
@@ -681,6 +682,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 62 | A toolbar decides which items fit from the widths of the previous frame and moves the rest, from its trailing end, into an overflow menu; an item chosen there reports it in the next frame | Whether an item fits is known only after every item has been submitted. Items are copied into fixed buffers so the menu can be built at the end, as with notifications (decision 54); the one frame of latency is that of decision 38 |
 | 63 | A control in the overflow menu opens in a popover below the chevron and gets the keyboard; with labels shown, controls get their label below them | A menu cannot hold a search field. macOS shows the labels of all toolbar items, controls included, in the icon-and-label mode |
 | 64 | `ToolbarOptions::Height` is optional (52 points with labels, 38 without) where `MenuBarOptions::Height` is a fixed default | The right height depends on the display mode, which the options also choose |
+| 65 | Dates are a trivially copyable `DateTime` (year, month, day, hour, minute) of local wall time, shared by both date components in `DateTime.h`; calendar arithmetic goes through `std::chrono`, and the operating system's time zone is used only to read the current time | The application owns the value and decides what it means; time zones are out of scope. `std::chrono`'s calendar types do the leap-year and weekday arithmetic, and a plain struct of ints works with designated initializers and per-ID state |
+| 66 | The calendar always shows six weeks; its month buttons are not Tab stops (Page Up and Page Down move by month), so it is one stop; the month on display follows the value whenever the value changes | A fixed height keeps the layout from jumping between months. One stop keeps the calendar usable inside DatePicker's popover. The month on display is view state, the value stays the application's |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
