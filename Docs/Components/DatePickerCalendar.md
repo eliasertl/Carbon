@@ -4,6 +4,8 @@ The graphical date picker: a month as a grid of days, for browsing and picking a
 HIG: [Pickers](https://developer.apple.com/design/human-interface-guidelines/pickers) (date pickers, macOS)
 Library: CarbonExtensions, `#include <Carbon/Extensions/DatePickerCalendar.h>`
 
+![Three calendars: weeks starting on Monday, on Sunday, and a limited range](../Images/Components/DatePickerCalendar.png)
+
 ```cpp
 Carbon::DateTime due = { .Year = 2026, .Month = 10, .Day = 5 };
 if (Carbon::DatePickerCalendar("Due date", &due, { .MinDate = Carbon::GetCurrentDateTime() }))

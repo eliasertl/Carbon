@@ -4,6 +4,8 @@ Two small buttons that increase and decrease a value in fixed steps.
 HIG: [Steppers](https://developer.apple.com/design/human-interface-guidelines/steppers)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Stepper.h>`
 
+![Steppers next to the values they change](../Images/Components/Stepper.png)
+
 ```cpp
 int copies = 1;
 Carbon::BeginHStack();

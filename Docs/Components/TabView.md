@@ -4,6 +4,8 @@ Several panes of content in the same area, one visible at a time.
 HIG: [Tab views](https://developer.apple.com/design/human-interface-guidelines/tab-views)
 Library: CarbonExtensions, `#include <Carbon/Extensions/TabView.h>`
 
+![A tab view with three tabs](../Images/Components/TabView.png)
+
 ```cpp
 int tab = 0;
 Carbon::BeginTabView("settings", &tab, { "General", "Appearance", "Advanced" });

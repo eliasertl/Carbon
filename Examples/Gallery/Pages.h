@@ -17,6 +17,14 @@ namespace Gallery
     void BeginRow(std::string_view label);
     void EndRow();
 
+    /// For screenshots of single sections (--section): the keys of the sections to capture, separated by commas.
+    /// A key is a section's title in lower case without spaces or punctuation ("Text fields" is "textfields").
+    void SetCapturedSections(std::string_view keys);
+    /// The area of the boxes of the captured sections, as drawn during this frame; empty when none was drawn.
+    Carbon::Rect GetCapturedArea();
+    /// Called at the start of each frame.
+    void ResetCapturedArea();
+
     // Core components (CorePages.cpp).
     void TypographyPage();
     void IconsPage();

@@ -4,7 +4,7 @@ Interrupts with critical information and waits for an answer.
 HIG: [Alerts](https://developer.apple.com/design/human-interface-guidelines/alerts)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Alert.h>`
 
-![An alert for a destructive action](../Images/Gallery-Alert-Dark.png)
+![An alert for a destructive action, in the dark appearance](../Images/Components/Alert.png)
 
 ```cpp
 if (Carbon::Button("Delete File..."))

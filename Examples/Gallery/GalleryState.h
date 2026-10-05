@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -69,7 +70,8 @@ namespace Gallery
         std::vector<std::string> Recipients = {"Ada Lovelace", "Grace Hopper", "Alan Kay"};
         std::vector<std::string> Tags = {"design", "macOS", "immediate mode", "WebGPU"};
         std::string TokenAction = "None yet";
-        // Dates.
+        // Dates. Today is the computer's date, except in screenshots, which show a fixed day.
+        std::optional<Carbon::DateTime> Today;
         Carbon::DateTime CalendarDate = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
         Carbon::DateTime SundayDate = {.Year = 2026, .Month = 10, .Day = 5};
         Carbon::DateTime LimitedDate = {.Year = 2026, .Month = 10, .Day = 12};

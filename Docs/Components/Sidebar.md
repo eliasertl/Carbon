@@ -4,6 +4,8 @@ The column at the leading edge of a window that navigates between the areas of a
 HIG: [Sidebars](https://developer.apple.com/design/human-interface-guidelines/sidebars)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Sidebar.h>`
 
+![The sidebar of the Gallery with headers, icons and the selected page](../Images/Components/Sidebar.png)
+
 ```cpp
 Carbon::BeginHStack({ .Spacing = 0.0f, .Alignment = Carbon::VerticalAlignment::Top,
                       .Width = Carbon::Size::Fill(), .Height = Carbon::Size::Fill() });

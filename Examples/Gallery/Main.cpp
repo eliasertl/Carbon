@@ -50,6 +50,13 @@ namespace Gallery
         // The first page of the components that live in CarbonExtensions.
         constexpr Page FirstExtensionPage = Page::Selection;
 
+        // Screenshots of sections (--section): points between the top of the page and the first captured section,
+        // and around the captured area.
+        constexpr float SectionScreenshotHeadroom = 40.0f;
+        constexpr float SectionScreenshotMargin = 6.0f;
+        // The frame in which --show takes effect with --section; scripted pointer input starts at frame 6.
+        constexpr int SectionScreenshotShowFrame = 4;
+
         const PageInfo& GetPageInfo(Page page)
         {
             return Pages[static_cast<size_t>(page)];
@@ -189,6 +196,13 @@ namespace Gallery
             BeginScrollView(page.Key, {.Spacing = 24.0f, .Padding = 24.0f});
             BuildPage(state);
             EndScrollView();
+            // A screenshot of single sections (--section) scrolls them to the top, leaving room for a menu above.
+            const Rect captured = GetCapturedArea();
+            if (captured.Width > 0.0f)
+            {
+                const float top = GetLastItemRect().Y + SectionScreenshotHeadroom;
+                SetScrollOffset(page.Key, Vec2(0.0f, GetScrollOffset(page.Key).Y + captured.Y - top));
+            }
 
             EndVStack();
             EndHStack();
@@ -207,7 +221,11 @@ int main(int argc, char** argv)
 
     Gallery::GalleryState state;
     state.IsDark = app.GetArguments().IsDark;
-    state.Show = app.GetArguments().Show;
+    // With --section, menus and popovers open once the section has been scrolled into place, so that they are
+    // placed where the screenshot shows them.
+    const bool isShowDelayed = !app.GetArguments().Section.empty();
+    if (!isShowDelayed)
+        state.Show = app.GetArguments().Show;
     state.Artwork = Gallery::CreateArtwork(app.GetHost().GetDevice());
 
     const std::string& requested = app.GetArguments().Page;
@@ -225,5 +243,24 @@ int main(int argc, char** argv)
         if (!found)
             std::fprintf(stderr, "Unknown page '%s'\n", requested.c_str());
     }
-    return app.Run([&state] { Gallery::BuildGallery(state); });
+    // Screenshots are reproducible: they show a fixed day as today, and can show single sections.
+    if (app.GetHost().IsScreenshotMode())
+        state.Today = Carbon::DateTime{.Year = 2026, .Month = 10, .Day = 5};
+    Gallery::SetCapturedSections(app.GetArguments().Section);
+    Example::Host& host = app.GetHost();
+    return app.Run(
+        [&state, &host, isShowDelayed]
+        {
+            if (isShowDelayed && host.GetFrameIndex() == Gallery::SectionScreenshotShowFrame)
+                state.Show = host.GetArguments().Show;
+            Gallery::ResetCapturedArea();
+            Gallery::BuildGallery(state);
+            const Carbon::Rect area = Gallery::GetCapturedArea();
+            if (area.Width > 0.0f)
+            {
+                const float margin = Gallery::SectionScreenshotMargin;
+                host.SetScreenshotArea(area.X - margin, area.Y - margin, area.Width + margin * 2.0f,
+                                       area.Height + margin * 2.0f, area.X, area.Y);
+            }
+        });
 }

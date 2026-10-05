@@ -4,6 +4,8 @@ Rows of data in columns, with a header and a selection.
 HIG: [Lists and tables](https://developer.apple.com/design/human-interface-guidelines/lists-and-tables)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Table.h>`
 
+![A table of tasks with checkboxes, owners and estimates](../Images/Components/Table.png)
+
 ```cpp
 const Carbon::TableColumn columns[] = {
     { .Title = "Done", .Width = 52.0f },

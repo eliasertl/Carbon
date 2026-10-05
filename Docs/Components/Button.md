@@ -3,6 +3,8 @@
 Starts an action when clicked.
 HIG: [Buttons](https://developer.apple.com/design/human-interface-guidelines/buttons)
 
+![Buttons in every role, size and style](../Images/Components/Button.png)
+
 ```cpp
 if (Carbon::Button("Cancel"))
     Close();

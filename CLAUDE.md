@@ -49,6 +49,8 @@ contract is [Docs/Architecture.md](Docs/Architecture.md); read it before changin
   Throwaway files go in the gitignored `Scratch/` folder.
 - When a new file establishes a better name or pattern, rename older files with `git mv` and update includes,
   CMake and docs in the same commit.
+- Documentation images are rendered from `Docs/Images/Screenshots.txt` by `Scripts/Screenshots.py` (CI commits
+  them after pushes to `main`). Never edit or hand-crop an image; change the list. Every component page shows one.
 - Check visuals yourself: every example accepts `--screenshot <file.png>`, `--theme light|dark` and
   `--scale <factor>`. Look at the result and compare it with the HIG (macOS flavor) before calling it done.
 - Documentation is part of every milestone. New components get `Docs/Components/<Name>.md`.

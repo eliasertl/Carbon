@@ -4,6 +4,8 @@ A text field combined with a list of choices.
 HIG: [Combo boxes](https://developer.apple.com/design/human-interface-guidelines/combo-boxes)
 Library: CarbonExtensions, `#include <Carbon/Extensions/ComboBox.h>`
 
+![Combo boxes with and without a value](../Images/Components/ComboBox.png)
+
 ```cpp
 std::string font = "Helvetica";
 Carbon::BeginHStack();

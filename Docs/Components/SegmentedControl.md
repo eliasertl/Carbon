@@ -4,6 +4,8 @@ A row of closely related choices of which exactly one is selected.
 HIG: [Segmented controls](https://developer.apple.com/design/human-interface-guidelines/segmented-controls)
 Library: CarbonExtensions, `#include <Carbon/Extensions/SegmentedControl.h>`
 
+![Segmented controls in three sizes, filling a row and disabled](../Images/Components/SegmentedControl.png)
+
 ```cpp
 int view = 0;
 if (Carbon::SegmentedControl("View", &view, { "Icons", "List", "Columns" }))

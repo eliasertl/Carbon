@@ -4,6 +4,8 @@ A modal view for a self-contained task.
 HIG: [Sheets](https://developer.apple.com/design/human-interface-guidelines/sheets)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Sheet.h>`
 
+![A sheet for exporting a document](../Images/Components/Sheet.png)
+
 ```cpp
 if (Carbon::Button("Export..."))
     Carbon::OpenSheet("export");

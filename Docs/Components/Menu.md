@@ -4,7 +4,7 @@ A list of commands that appears on demand.
 HIG: [Menus](https://developer.apple.com/design/human-interface-guidelines/menus)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Menu.h>`
 
-![A menu with icons, shortcuts, a submenu and checked items](../Images/Gallery-Menu-Light.png)
+![A menu with icons, shortcuts, a submenu and checked items](../Images/Components/Menu.png)
 
 ```cpp
 if (Carbon::Button("Edit"))

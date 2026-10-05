@@ -3,6 +3,8 @@
 Picks a value from a continuous or stepped range.
 HIG: [Sliders](https://developer.apple.com/design/human-interface-guidelines/sliders)
 
+![Sliders, continuous and with tick marks](../Images/Components/Slider.png)
+
 ```cpp
 Carbon::BeginHStack({ .Spacing = 10.0f, .Width = Carbon::Size::Fill() });
     Carbon::Text("Volume");

@@ -3,6 +3,8 @@
 A thin line between items.
 HIG: [Layout](https://developer.apple.com/design/human-interface-guidelines/layout) (grouping related items)
 
+![Images separated by vertical separators](../Images/Components/Image.png)
+
 ```cpp
 Carbon::BeginVStack({ .Width = Carbon::Size::Fill() });
     Carbon::Toggle("Wi-Fi", &wifi, { .Width = Carbon::Size::Fill() });

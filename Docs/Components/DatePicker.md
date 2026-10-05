@@ -5,6 +5,8 @@ calendar a click away.
 HIG: [Pickers](https://developer.apple.com/design/human-interface-guidelines/pickers) (date pickers, macOS)
 Library: CarbonExtensions, `#include <Carbon/Extensions/DatePicker.h>`
 
+![Date pickers in ISO, German and US formats, with the calendar of the first one open](../Images/Components/DatePicker.png)
+
 ```cpp
 Carbon::DateTime meeting = { .Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30 };
 

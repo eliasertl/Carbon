@@ -4,6 +4,8 @@ A bar of frequently used commands and controls along the top of a window.
 HIG: [Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Toolbar.h>`
 
+![The same toolbar with icons and labels, icons only and labels only](../Images/Components/Toolbar.png)
+
 ```cpp
 Carbon::BeginToolbar("Main", { .DisplayMode = Carbon::ToolbarDisplayMode::IconOnly });
     if (Carbon::ToolbarItem("Sidebar", { .Icon = Carbon::Icons::SidebarSimple, .IsSelected = showsSidebar }))

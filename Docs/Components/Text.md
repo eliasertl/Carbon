@@ -3,6 +3,8 @@
 Displays text in one of the macOS text styles.
 HIG: [Typography](https://developer.apple.com/design/human-interface-guidelines/typography)
 
+![The macOS type ramp in regular and emphasized weights](../Images/Components/Text.png)
+
 ```cpp
 Carbon::Text("Settings", { .Style = Carbon::TextStyle::LargeTitle, .Emphasized = true });
 Carbon::Text("Changes apply to all windows.", { .Secondary = true });

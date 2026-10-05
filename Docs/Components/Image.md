@@ -3,6 +3,8 @@
 Displays a texture that belongs to the host: a rendered scene, a thumbnail, artwork.
 HIG: [Image views](https://developer.apple.com/design/human-interface-guidelines/image-views)
 
+![Images with rounded corners, a tint and a part of a texture, separated by separators](../Images/Components/Image.png)
+
 ```cpp
 #include <Carbon/Renderer/Render.h>
 

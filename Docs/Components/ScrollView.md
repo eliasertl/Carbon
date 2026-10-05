@@ -3,6 +3,8 @@
 A clipped area whose content can be larger than it.
 HIG: [Scroll views](https://developer.apple.com/design/human-interface-guidelines/scroll-views)
 
+![A scroll view showing part of a list of messages](../Images/Components/ScrollView.png)
+
 ```cpp
 Carbon::BeginScrollView("log", { .Height = 200.0f, .Spacing = 4.0f });
     for (const std::string& line : lines)

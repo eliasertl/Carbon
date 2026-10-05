@@ -1,5 +1,6 @@
 #include "ExampleHost.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -25,6 +26,20 @@ namespace Example
         // Screenshot mode renders a few frames first so that animations and first-frame layout have settled.
         constexpr int ScreenshotWarmupFrames = 16;
         constexpr float ScreenshotDeltaTime = 0.25f;
+
+        // Reads `count` numbers separated by commas, such as "10,20,300,200".
+        bool ParseNumbers(const char* text, float* values, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                char* end = nullptr;
+                values[i] = std::strtof(text, &end);
+                if (end == text || (i + 1 < count && *end != ',') || (i + 1 == count && *end != '\0'))
+                    return false;
+                text = end + 1;
+            }
+            return true;
+        }
 
         void PrintString(const char* prefix, wgpu::StringView message)
         {
@@ -84,6 +99,19 @@ namespace Example
             {
                 arguments.Show = argv[++i];
             }
+            else if ((option == "--crop" || option == "--extend") && hasValue)
+            {
+                float* values = option == "--crop" ? arguments.Crop : arguments.Extend;
+                if (!ParseNumbers(argv[++i], values, 4))
+                {
+                    std::fprintf(stderr, "Invalid area '%s'; expected four numbers separated by commas\n", argv[i]);
+                    std::fill(values, values + 4, 0.0f);
+                }
+            }
+            else if (option == "--section" && hasValue)
+            {
+                arguments.Section = argv[++i];
+            }
             else if ((option == "--pointer" || option == "--click" || option == "--right-click") && hasValue)
             {
                 arguments.ClickButton = option == "--click" ? 0 : (option == "--right-click" ? 1 : -1);
@@ -105,7 +133,8 @@ namespace Example
                 std::fprintf(stderr,
                              "Options: --screenshot <file.png>  --theme light|dark  --scale <factor>  "
                              "--size <width>x<height>  --page <name>  --show <name>  --pointer <x>x<y>  "
-                             "--click <x>x<y>  --right-click <x>x<y>\n");
+                             "--click <x>x<y>  --right-click <x>x<y>  --crop <x>,<y>,<w>,<h>  "
+                             "--section <key>[,<key>...]  --extend <left>,<top>,<right>,<bottom>\n");
             }
         }
         return arguments;
@@ -376,6 +405,16 @@ namespace Example
         m_Instance.ProcessEvents();
     }
 
+    void Host::SetScreenshotArea(float x, float y, float width, float height, float anchorX, float anchorY)
+    {
+        m_Area[0] = x;
+        m_Area[1] = y;
+        m_Area[2] = width;
+        m_Area[3] = height;
+        m_PointerOriginX = anchorX;
+        m_PointerOriginY = anchorY;
+    }
+
     bool Host::SaveScreenshot()
     {
         // Rows in a buffer copy must be aligned to 256 bytes.
@@ -413,17 +452,39 @@ namespace Example
             return false;
         }
 
-        const void* pixels = buffer.GetConstMappedRange(0, static_cast<size_t>(bufferSize));
-        const int written = stbi_write_png(m_Arguments.ScreenshotPath.c_str(), static_cast<int>(m_PixelWidth),
-                                           static_cast<int>(m_PixelHeight), 4, pixels, static_cast<int>(bytesPerRow));
+        // The area to keep: what the example asked for, or --crop, grown by --extend and kept inside the window.
+        const float* area = m_Area[2] > 0.0f ? m_Area : m_Arguments.Crop;
+        uint32_t left = 0;
+        uint32_t top = 0;
+        uint32_t right = m_PixelWidth;
+        uint32_t bottom = m_PixelHeight;
+        if (area[2] > 0.0f && area[3] > 0.0f)
+        {
+            const float* extend = m_Arguments.Extend;
+            const auto toPixels = [this](float points, uint32_t limit)
+            {
+                return static_cast<uint32_t>(
+                    std::clamp(std::lround(points * m_ContentScale), 0L, static_cast<long>(limit)));
+            };
+            left = toPixels(area[0] - extend[0], m_PixelWidth);
+            top = toPixels(area[1] - extend[1], m_PixelHeight);
+            right = std::max(toPixels(area[0] + area[2] + extend[2], m_PixelWidth), left + 1);
+            bottom = std::max(toPixels(area[1] + area[3] + extend[3], m_PixelHeight), top + 1);
+        }
+
+        const uint8_t* pixels =
+            static_cast<const uint8_t*>(buffer.GetConstMappedRange(0, static_cast<size_t>(bufferSize)));
+        const uint8_t* first = pixels + static_cast<size_t>(top) * bytesPerRow + static_cast<size_t>(left) * 4;
+        const int written = stbi_write_png(m_Arguments.ScreenshotPath.c_str(), static_cast<int>(right - left),
+                                           static_cast<int>(bottom - top), 4, first, static_cast<int>(bytesPerRow));
         buffer.Unmap();
         if (written == 0)
         {
             std::fprintf(stderr, "Could not write '%s'\n", m_Arguments.ScreenshotPath.c_str());
             return false;
         }
-        std::printf("Saved %s (%u x %u pixels, scale %.2f)\n", m_Arguments.ScreenshotPath.c_str(), m_PixelWidth,
-                    m_PixelHeight, static_cast<double>(m_ContentScale));
+        std::printf("Saved %s (%u x %u pixels, scale %.2f)\n", m_Arguments.ScreenshotPath.c_str(), right - left,
+                    bottom - top, static_cast<double>(m_ContentScale));
         return true;
     }
 } // namespace Example
