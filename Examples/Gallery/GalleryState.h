@@ -89,7 +89,7 @@ namespace Gallery
         // Outline and column views.
         const void* OutlineSelection = nullptr;
         std::string OutlineAction = "None yet";
-        std::vector<int> ColumnPath = {0};
+        std::vector<int> ColumnPath = {0, 0, 0, 1};
 
         // Notifications.
         int NotificationPosition = 2;

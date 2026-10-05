@@ -174,6 +174,42 @@ namespace Gallery
         }
         EndColumnView();
         EndSection();
+
+        BeginSection("Path control",
+                     "The path to the item selected in the column view above. Click a component to go back to it. "
+                     "When the path does not fit, the names between the first and the last component make room; "
+                     "point at one to see it.");
+        // The path is the column view's: the disk, then one component per selected item.
+        PathControlItem path[16];
+        size_t length = 0;
+        path[length++] = {.Label = "Macintosh HD", .Icon = Icons::HardDrives};
+        std::span<const FileNode> nodes = Root;
+        for (const int index : state.ColumnPath)
+        {
+            if (index < 0 || static_cast<size_t>(index) >= nodes.size() || length == std::size(path))
+                break;
+            const FileNode& node = nodes[static_cast<size_t>(index)];
+            path[length++] = {.Label = node.Name, .Icon = node.Icon};
+            nodes = node.Children;
+        }
+        const std::span<const PathControlItem> components(path, length);
+        const auto goTo = [&](int component)
+        {
+            if (component >= 0)
+                state.ColumnPath.resize(static_cast<size_t>(component));
+        };
+        BeginRow("Standard");
+        goTo(PathControl("Path", components, {.Width = Size::Fill()}));
+        EndRow();
+        BeginRow("Narrow");
+        goTo(PathControl("Narrow path", components, {.Width = 240.0f}));
+        EndRow();
+        BeginRow("Pop-up");
+        if (TakeShow(state, "pathmenu"))
+            OpenOverlay(HashID("##menu", GetID("Location")));
+        goTo(PathControl("Location", components, {.Style = PathControlStyle::PopUp}));
+        EndRow();
+        EndSection();
     }
 
     void NotificationsPage(GalleryState& state)
