@@ -45,7 +45,7 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
   Tooltip, stacks, Grid, Spacer and ScrollView, each with hover, pressed, focused and disabled states that animate.
 - **Extension components** (`CarbonExtensions`): Sidebar with a sliding selection, TabView, SegmentedControl,
   line and bar charts, Popover, Menu with submenus, ContextMenu, MenuBar, PopUpButton, PullDownButton,
-  ComboBox, Stepper, ProgressIndicator (bar and spinner), SearchField, List, Table, OutlineView (trees, such as a
+  ComboBox, RadioGroup, Stepper, ProgressIndicator (bar and spinner), SearchField, List, Table, OutlineView (trees, such as a
   file browser), ColumnView, SplitView, Alert, Sheet, ColorWell and notifications at any edge or corner.
 - **Overlays**: popovers, menus, alerts and sheets float in a layer above the interface and take the pointer and
   the keyboard while they are open.

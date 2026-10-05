@@ -51,6 +51,7 @@ These components are built only on Carbon's public extension API; see
 | [MenuBar](MenuBar.md) | The menus of a window, in a row at its top |
 | [ComboBox](ComboBox.md) | A text field with a list of choices |
 | [Notifications](Notification.md) | Banners that tell about something that happened |
+| [RadioGroup](RadioGroup.md) | A few mutually exclusive choices as radio buttons |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 
