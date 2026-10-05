@@ -33,6 +33,7 @@
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
 #include "Carbon/Interaction/Interaction.h"
+#include "Carbon/Layout/Grid.h"
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Layout/ScrollView.h"
 #include "Carbon/Layout/Size.h"

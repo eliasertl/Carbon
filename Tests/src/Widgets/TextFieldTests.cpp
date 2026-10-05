@@ -600,4 +600,64 @@ namespace Carbon
         EXPECT_EQ(m_Text, "new!");
         EXPECT_TRUE(m_AssertMessages.empty());
     }
+
+    TEST_F(TextFieldTests, ReportsTheSelectionWhileEditing)
+    {
+        m_Text = "Hello";
+        TextFieldSelection selection;
+        Settle(Field());
+        EXPECT_FALSE(GetTextFieldSelection("Name", &selection)) << "not being edited";
+
+        FocusAtEnd();
+        ASSERT_TRUE(GetTextFieldSelection("Name", &selection));
+        EXPECT_EQ(selection.Caret, 5u);
+        EXPECT_EQ(selection.Start, selection.End);
+        TapKey(Key::LeftShift, Key::LeftArrow, Field());
+        TapKey(Key::LeftShift, Key::LeftArrow, Field());
+        ASSERT_TRUE(GetTextFieldSelection("Name", &selection));
+        EXPECT_EQ(selection.Caret, 3u);
+        EXPECT_EQ(selection.Start, 3u);
+        EXPECT_EQ(selection.End, 5u);
+        TapKey(Key::Home, Field());
+        ASSERT_TRUE(GetTextFieldSelection("Name", &selection));
+        EXPECT_EQ(selection.Caret, 0u);
+    }
+
+    TEST_F(TextFieldTests, AFieldThatDoesNotAcceptInputKeepsFocusButIgnoresKeys)
+    {
+        m_Text = "Hello";
+        FocusAtEnd();
+        m_Options.AcceptsInput = false;
+        Type("x", Field());
+        TapKey(Key::Backspace, Field());
+        TapKey(Key::LeftArrow, Field());
+        TapKey(Key::Escape, Field());
+        EXPECT_EQ(m_Text, "Hello");
+        EXPECT_EQ(GetFocusedID(), GetID("Name")) << "Escape is left to the component around the field";
+        EXPECT_FALSE(GetIO().WantsTextInput());
+        TextFieldSelection selection;
+        ASSERT_TRUE(GetTextFieldSelection("Name", &selection));
+        EXPECT_EQ(selection.Caret, 5u);
+
+        m_Options.AcceptsInput = true;
+        Type("!", Field());
+        EXPECT_EQ(m_Text, "Hello!");
+    }
+
+    TEST_F(TextFieldTests, AFieldWithoutBezelDrawsOnlyItsText)
+    {
+        m_Text = "Hi";
+        m_Options.Width = 120.0f;
+        Settle(Field());
+        const size_t bezeled = GetDrawData().Vertices.size();
+        m_Options.IsBezeled = false;
+        Settle(Field());
+        // Background and border are two quads.
+        EXPECT_EQ(GetDrawData().Vertices.size(), bezeled - 8u);
+
+        // Still a field: a click focuses it and typing edits the text.
+        Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), Field());
+        Type("!", Field());
+        EXPECT_EQ(m_Text, "Hi!");
+    }
 } // namespace Carbon

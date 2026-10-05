@@ -14,6 +14,7 @@ add_executable(CarbonTests
     src/Draw/SquircleTests.cpp
     src/Input/InputTests.cpp
     src/Interaction/InteractionTests.cpp
+    src/Layout/GridTests.cpp
     src/Layout/LayoutTests.cpp
     src/Layout/ScrollViewTests.cpp
     src/Overlay/OverlayTests.cpp
@@ -37,10 +38,13 @@ if(CARBON_BUILD_EXTENSIONS)
     target_sources(CarbonTests PRIVATE
         src/Extensions/ContainerTests.cpp
         src/Extensions/ControlTests.cpp
+        src/Extensions/DateTests.cpp
         src/Extensions/HierarchyTests.cpp
         src/Extensions/MenuBarTests.cpp
         src/Extensions/MenuTests.cpp
         src/Extensions/NotificationTests.cpp
+        src/Extensions/TokenFieldTests.cpp
+        src/Extensions/ToolbarTests.cpp
     )
     target_link_libraries(CarbonTests PRIVATE Carbon::Extensions)
     target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_EXTENSIONS=1)

@@ -80,6 +80,10 @@ namespace Carbon
         float m_Slider = 0.4f;
         std::string m_Text = "Some text";
         int m_Selected = 1;
+#if defined(CARBON_TESTS_HAVE_EXTENSIONS)
+        DateTime m_Date = {.Year = 2026, .Month = 10, .Day = 5};
+        std::vector<std::string> m_Tokens = {"Ada", "Grace", "Alan"};
+#endif
     };
 
     TEST_F(AllocationTests, CoreWidgetsDoNotAllocateInSteadyState)
@@ -103,10 +107,71 @@ namespace Carbon
                 Separator();
                 Icon(Icons::Gear);
                 Tooltip("Never shown, but evaluated");
+                BeginGrid();
+                for (int row = 0; row < 3; row++)
+                {
+                    BeginGridRow();
+                    Text("Label");
+                    SetNextGridCell({.ColumnSpan = row == 2 ? 2 : 1});
+                    Button("Cell");
+                    EndGridRow();
+                }
+                EndGrid();
                 EndScrollView();
             });
         EXPECT_EQ(allocations, 0u);
     }
+
+#if defined(CARBON_TESTS_HAVE_EXTENSIONS)
+    TEST_F(AllocationTests, EditingADateDoesNotAllocateInSteadyState)
+    {
+        const auto build = [this]
+        {
+            BeginVStack({.Padding = 20.0f});
+            DatePicker("Date", &m_Date, {.Elements = DatePickerElements::DateAndTime, .Today = m_Date});
+            EndVStack();
+        };
+        // Focus the field, open the calendar with Space and type into the elements.
+        CountAllocationsOfOneFrame(build, 5);
+        GetIO().AddKeyEvent(Key::Tab, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Tab, false);
+        GetIO().AddKeyEvent(Key::Space, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Space, false);
+        // Text that has never been shown is shaped once, which may allocate: type during the warm-up.
+        GetIO().AddInputCharactersUTF8("2027-12");
+        CountAllocationsOfOneFrame(build, 10);
+        GetIO().AddKeyEvent(Key::UpArrow, true);
+        CountAllocationsOfOneFrame(build, 10);
+        GetIO().AddKeyEvent(Key::UpArrow, false);
+
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        EXPECT_EQ(m_Date.Year, 2027);
+        EXPECT_EQ(m_Date.Month, 12);
+        EXPECT_EQ(m_Date.Day, 6);
+    }
+
+    TEST_F(AllocationTests, TypingIntoATokenFieldDoesNotAllocateInSteadyState)
+    {
+        const auto build = [this]
+        {
+            BeginVStack({.Padding = 20.0f});
+            TokenField("Tokens", &m_Tokens);
+            EndVStack();
+        };
+        // Focus the field, type some text and select a token. New tokens allocate; text that stays text and
+        // selection do not, once the text has been shaped during the warm-up.
+        CountAllocationsOfOneFrame(build, 5);
+        GetIO().AddKeyEvent(Key::Tab, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Tab, false);
+        GetIO().AddInputCharactersUTF8("Barbara");
+        CountAllocationsOfOneFrame(build, 10);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        EXPECT_EQ(m_Tokens.size(), 3u);
+    }
+#endif
 
     TEST_F(AllocationTests, HoverFocusAndTypingDoNotAllocateInSteadyState)
     {
@@ -159,6 +224,29 @@ namespace Carbon
 
                 BeginVStack({.Spacing = 10.0f, .Padding = 16.0f, .Width = Size::Fill(), .Height = Size::Fill()});
                 SegmentedControl("Segments", &m_Selected, {"One", "Two", "Three"});
+                RadioGroup("Radios", &m_Selected, {"One", "Two", "Three"});
+                static const PathControlItem Path[] = {{.Label = "Disk", .Icon = Icons::HardDrives},
+                                                       {.Label = "Folder", .Icon = Icons::Folder},
+                                                       {.Label = "File"}};
+                PathControl("Path", Path, {.Width = 100.0f});
+                PathControl("Pop-up path", Path, {.Style = PathControlStyle::PopUp});
+                DatePickerCalendar("Calendar", &m_Date, {.Today = m_Date});
+                TokenField("Tokens", &m_Tokens);
+                TokenField("Tokens on one line", &m_Tokens, {.Layout = TokenFieldLayout::SingleLine});
+                DatePicker("Date picker", &m_Date,
+                           {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .Today = m_Date});
+                BeginToolbar("Toolbar", {.Width = 200.0f});
+                ToolbarItem("New", {.Icon = Icons::Plus});
+                ToolbarSeparator();
+                ToolbarFlexibleSpace();
+                ToolbarItem("Share", {.Icon = Icons::Export});
+                ToolbarItem("Delete", {.Icon = Icons::Trash});
+                if (BeginToolbarControl("Find"))
+                {
+                    SearchField("Find", &m_Text, {.Width = 120.0f});
+                    EndToolbarControl();
+                }
+                EndToolbar();
                 PopUpButton("PopUp", &m_Selected, {"One", "Two", "Three"});
                 Stepper("Stepper", &m_Selected);
                 ProgressIndicator(0.5f);

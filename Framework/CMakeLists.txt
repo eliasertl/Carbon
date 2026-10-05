@@ -44,6 +44,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Input/Key.h
     src/Carbon/Input/MouseButton.h
     src/Carbon/Interaction/Interaction.h
+    src/Carbon/Layout/Grid.h
     src/Carbon/Layout/Layout.h
     src/Carbon/Layout/ScrollView.h
     src/Carbon/Layout/Size.h
@@ -108,6 +109,7 @@ set(CARBON_SOURCES
     src/Carbon/Input/Input.cpp
     src/Carbon/Input/InputStateInternal.cpp
     src/Carbon/Interaction/Interaction.cpp
+    src/Carbon/Layout/Grid.cpp
     src/Carbon/Layout/Layout.cpp
     src/Carbon/Layout/ScrollView.cpp
     src/Carbon/Layout/Stack.cpp

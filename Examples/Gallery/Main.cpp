@@ -35,7 +35,9 @@ namespace Gallery
             {Page::Images, "Images", "images", Icons::Image},
             {Page::Layout, "Layout", "layout", Icons::Layout},
             {Page::Selection, "Selection Controls", "selection", Icons::SquaresFour},
+            {Page::Dates, "Date and Time", "dates", Icons::CalendarBlank},
             {Page::Menus, "Menus and Popovers", "menus", Icons::List},
+            {Page::Toolbars, "Toolbars", "toolbars", Icons::Toolbox},
             {Page::Dialogs, "Alerts and Sheets", "dialogs", Icons::AppWindow},
             {Page::Notifications, "Notifications", "notifications", Icons::Bell},
             {Page::Progress, "Progress", "progress", Icons::CircleNotch},
@@ -113,13 +115,19 @@ namespace Gallery
                     ImagesPage(state);
                     break;
                 case Page::Layout:
-                    LayoutPage();
+                    LayoutPage(state);
                     break;
                 case Page::Selection:
                     SelectionPage(state);
                     break;
+                case Page::Dates:
+                    DatesPage(state);
+                    break;
                 case Page::Menus:
                     MenusPage(state);
+                    break;
+                case Page::Toolbars:
+                    ToolbarsPage(state);
                     break;
                 case Page::Dialogs:
                     DialogsPage(state);

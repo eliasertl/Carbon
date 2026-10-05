@@ -96,6 +96,38 @@ to `Fill`; inside a stack that fits its content, give the scrolling axis a fixed
   before they reach the GPU.
 - `Padding` scrolls with the content.
 
+## Grids
+
+Stacks line items up along one axis. When items must also line up *across* rows, as the labels and controls of a
+form do, use a grid: rows of cells whose columns are as wide as their widest cell.
+
+```cpp
+static constexpr Carbon::Alignment FormColumns[] = { Carbon::Alignment::Trailing, Carbon::Alignment::Leading };
+
+Carbon::BeginGrid({ .HorizontalSpacing = 8.0f, .ColumnAlignments = FormColumns });
+    Carbon::BeginGridRow();
+        Carbon::Text("Name:");
+        Carbon::TextField("Name", &name);
+    Carbon::EndGridRow();
+    Carbon::BeginGridRow();
+        Carbon::Text("Volume:");
+        Carbon::Slider("Volume", &volume, 0.0f, 1.0f);
+    Carbon::EndGridRow();
+Carbon::EndGrid();
+```
+
+- Every item in a row is one cell, whether it is a widget or a stack. Cells fill the columns from the leading
+  edge on; `SetNextGridCell({ .ColumnSpan = 2 })` makes the next cell cover two columns.
+- Cells are aligned inside their column by the grid's `Alignment`, overridden per column by `ColumnAlignments`
+  and per cell by `SetNextGridCell`. Vertically, by the grid's `VerticalAlignment`, the row's `Alignment` and the
+  cell's.
+- `Width = Size::Fill()` in a cell takes the column's width. The column is still as wide as the widest content,
+  so a column of such cells gives equal-width items.
+- Items placed directly in the grid, outside a row, take the grid's width: a `Separator()` between groups of rows.
+- Grids follow the identity rules of stacks and do not push onto the ID stack either.
+
+[Grid](Components/Grid.md) lists every option.
+
 ## One frame of latency
 
 Carbon runs your interface code once per frame and places each item immediately. Whatever depends on a size that
@@ -103,6 +135,7 @@ is not known yet at that moment uses the measurement from the previous frame:
 
 - the size of a stack that fits its content, as seen from *inside* the stack (centering, trailing alignment);
 - free space for spacers and `Fill` items;
+- the width of a grid's columns;
 - `Justify`.
 
 This is invisible in practice:

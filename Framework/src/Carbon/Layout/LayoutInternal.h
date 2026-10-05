@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <optional>
 #include <vector>
 
 #include "Carbon/Core/EdgeInsets.h"
@@ -34,13 +35,28 @@ namespace Carbon::Internal
         uint64_t LastFrame;
     };
 
+    /// The most columns a grid can have.
+    inline constexpr uint32_t MaxGridColumns = 32;
+    /// The most cells spanning several columns that one grid measures per frame.
+    inline constexpr uint32_t MaxGridSpans = 64;
+
+    /// What a grid remembers from the previous frame: the width of each column. Cells are placed against these,
+    /// so a column lines up across rows even though its widest cell may come later in the frame.
+    struct GridRecord
+    {
+        float ColumnWidths[MaxGridColumns];
+        uint32_t ColumnCount;
+    };
+
     enum class ContainerKind : uint8_t
     {
         Root,
         VStack,
         HStack,
         ScrollView,
-        Overlay
+        Overlay,
+        Grid,
+        GridRow
     };
 
     /// Parameters shared by every kind of container.
@@ -104,6 +120,8 @@ namespace Carbon::Internal
         bool IsFlexible = false;
         float ParentFlexWeight = 0.0f;
         bool FillsParentCross = false;
+        /// Inside a grid row: takes the width of its cell, and its column measures its content instead.
+        bool FillsParentCell = false;
         bool IsFloating = false;
 
         DeferredShape Background;
@@ -122,11 +140,49 @@ namespace Carbon::Internal
         Vec2 DisplayedOffset;
     };
 
+    /// A cell that spans several columns, measured during the frame and distributed over its columns at the end.
+    struct GridSpan
+    {
+        uint32_t Column = 0;
+        uint32_t Count = 0;
+        float Width = 0.0f;
+    };
+
+    /// A grid that is open during the frame; parallel to its LayoutFrame. Holds this frame's measurements and the
+    /// cursor of the row that is open.
+    struct GridFrame
+    {
+        /// Index of the grid's LayoutFrame in LayoutState::Frames.
+        size_t FrameIndex = 0;
+        GridRecord* Record = nullptr;
+        float HorizontalSpacing = 0.0f;
+        float AlignmentFactor = 0.0f;
+        float VerticalFactor = 0.5f;
+        float ColumnFactors[MaxGridColumns] = {};
+        uint32_t ColumnFactorCount = 0;
+
+        // Measured while the grid is open.
+        float Widths[MaxGridColumns] = {};
+        GridSpan Spans[MaxGridSpans] = {};
+        uint32_t SpanCount = 0;
+        uint32_t ColumnCount = 0;
+
+        // The open row.
+        uint32_t Column = 0;
+        float RowVerticalFactor = 0.5f;
+
+        // Set by SetNextGridCell for the next cell only.
+        uint32_t NextSpan = 1;
+        std::optional<float> NextAlignmentFactor;
+        std::optional<float> NextVerticalFactor;
+    };
+
     /// The layout state of one context: the stack of open containers and scroll bookkeeping.
     struct LayoutState
     {
         std::vector<LayoutFrame> Frames;
         std::vector<ScrollFrame> ScrollFrames;
+        std::vector<GridFrame> GridFrames;
         /// The scroll view under the pointer: found during a frame, used by the next one.
         ID HoveredScrollView;
         ID HoveredScrollViewCandidate;
@@ -148,6 +204,14 @@ namespace Carbon::Internal
     /// Scrolls the open scroll views so that a rectangle becomes visible. Used when keyboard focus moves to an
     /// item.
     void RevealInScrollViews(Context& context, const Rect& rect);
+
+    /// The grid whose cells are the items of `parent`, or null when `parent` is not a row directly inside the
+    /// innermost open grid.
+    GridFrame* FindGrid(LayoutState& layout, const LayoutFrame& parent);
+
+    /// 0, 0.5 or 1: the position of an item in the free space for an alignment.
+    float GetAlignmentFactor(Alignment alignment);
+    float GetAlignmentFactor(VerticalAlignment alignment);
 
     /// Identifies a container by its call site, the enclosing container and the ID scope.
     ID GetCallSiteID(Context& context, const char* file, uint32_t line, uint32_t column);

@@ -31,7 +31,7 @@ Framework/src/Carbon/
 ├── Input/                IO, Input (queries), Key, MouseButton, InputEvent, Cursor
 ├── Draw/                 DrawList, DrawTypes (vertex, primitive, command, draw data), Squircle (CPU shape function)
 ├── Text/                 FontLibrary, Font, TextShaper, GlyphAtlas, TextLayout, Icons (generated)
-├── Layout/               Stack, Spacer, Size, ScrollView, layout cursor
+├── Layout/               Stack, Spacer, Grid, Size, ScrollView, layout cursor
 ├── Animation/            Spring, Easing, AnimationSpec, Animator (per-ID state)
 ├── Style/                Theme, StyleColor, StyleVar, style stacks, TextStyle ramp
 ├── Interaction/          hit testing, ButtonBehavior, DragBehavior, focus and keyboard navigation
@@ -51,10 +51,11 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 ```
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
-SegmentedControl, Chart, Popover, Menu, MenuBar, PopUpButton, PullDownButton, ComboBox, Stepper,
-ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, SplitView, Alert, Sheet, ColorWell,
-Notification) and, in `Internal/`, what several of them share: `SelectionList` (Sidebar, List, Table,
-OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu, MenuBar).
+SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, TokenField,
+RadioGroup, DatePicker, DatePickerCalendar, Stepper, ProgressIndicator, SearchField, List, Table, OutlineView,
+ColumnView, PathControl, SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them
+share: `SelectionList` (Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and
+`MenuInternal` (Menu, MenuBar).
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
@@ -672,6 +673,24 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 53 | ComboBox filters its list while typing, instead of completing inline | Inline completion needs the text field to select the completed part, which would add API for one component; a filtered list serves the same purpose and is common on the target platforms. TextField gained `TrailingInset`, `VerticalArrowsMoveCaret` and `ReloadTextField`, and the interaction API `SetItemSubmitted` |
 | 54 | Notifications are posted from anywhere and drawn by one `ShowNotifications` call per frame; their text is copied into fixed buffers | Posting must work from code that has no part in building the interface (a finished job). Fixed buffers keep the state trivially copyable and make showing them allocation-free |
 | 55 | Notifications draw in the top overlay sub-layer and take clicks there, but never the keyboard | They must stay visible over sheets and popovers, and must not interrupt typing |
+| 56 | `Grid` and `GridRow` are container kinds of the stack layout: a row places its items into cells inside the same three placement steps that every widget and nested stack already goes through | Widgets, stacks and nested grids work in cells without any change of their own, and grids inherit call-site identity, the first-frame settle and `IsAnimating()` from the stacks |
+| 57 | Column widths are measured in one frame and used in the next, kept in a fixed 32-column record; span and alignment of a cell are set with `SetNextGridCell` rather than new `ItemOptions` fields | The same one frame of latency as a fitting stack; per-ID state must be trivially copyable; every widget would otherwise have to forward cell options |
+| 58 | A `Fill` cell takes its column's width, but its column measures the cell's content | A column of only `Fill` cells (equal-width chips) would otherwise have no width at all, and a cell that measured its stretched width would keep its column from ever shrinking |
+| 59 | A radio group is one Tab stop whose arrow keys change the selection directly; -1 means no button is selected | This is AppKit's behaviour with Full Keyboard Access; a group that starts without a choice is a legitimate state for radio buttons, unlike segmented controls |
+| 60 | `PathControl` returns the index of the activated component (-1 for none) instead of a `bool` with a value it edits | The application owns the path (decision 51); what the control reports is an action on one of its components, not a new value |
+| 61 | A path that does not fit hides the middle names first, from the root's side, then truncates the root's name and last the selected item's; a hovered or highlighted component always shows its name. The pop-up style's menu lists the path from the selected item down, without check marks | The HIG names only the first step; keeping the selected item readable longest matches Finder's path bar. The menu has one leading column, which a check mark would take from the icons |
+| 62 | A toolbar decides which items fit from the widths of the previous frame and moves the rest, from its trailing end, into an overflow menu; an item chosen there reports it in the next frame | Whether an item fits is known only after every item has been submitted. Items are copied into fixed buffers so the menu can be built at the end, as with notifications (decision 54); the one frame of latency is that of decision 38 |
+| 63 | A control in the overflow menu opens in a popover below the chevron and gets the keyboard; with labels shown, controls get their label below them | A menu cannot hold a search field. macOS shows the labels of all toolbar items, controls included, in the icon-and-label mode |
+| 64 | `ToolbarOptions::Height` is optional (52 points with labels, 38 without) where `MenuBarOptions::Height` is a fixed default | The right height depends on the display mode, which the options also choose |
+| 65 | Dates are a trivially copyable `DateTime` (year, month, day, hour, minute) of local wall time, shared by both date components in `DateTime.h`; calendar arithmetic goes through `std::chrono`, and the operating system's time zone is used only to read the current time | The application owns the value and decides what it means; time zones are out of scope. `std::chrono`'s calendar types do the leap-year and weekday arithmetic, and a plain struct of ints works with designated initializers and per-ID state |
+| 66 | The calendar always shows six weeks; its month buttons are not Tab stops (Page Up and Page Down move by month), so it is one stop; the month on display follows the value whenever the value changes | A fixed height keeps the layout from jumping between months. One stop keeps the calendar usable inside DatePicker's popover. The month on display is view state, the value stays the application's |
+| 67 | `DatePicker`'s field is drawn and edited by the component, element by element, not built on `TextField`; complete elements move the selection on, and a separator typed right after that only confirms the move | macOS's textual date picker edits year, month, day, hour and minute separately; free text would have to be parsed and could be invalid while typing. Ignoring the confirming separator is how typing "2027-12" works on macOS |
+| 68 | The date picker's calendar popover leaves the keyboard in the field and closes when the field loses focus, on a click outside, on Escape or Enter, and after a day is picked with the mouse | The ComboBox precedent (decision 53): typing goes on while the calendar shows the result. Closing for lost focus waits until the popover has been open for a frame, because focus requests take effect a frame late |
+| 69 | The stepper is Carbon's `Stepper` bound to a scratch value between -1 and 1, and moves the selected element | It brings the stepper's look, repeat and keyboard behaviour without a second implementation |
+| 70 | `DateFormat` is a struct with `ISO()`, `German()` and `US()` presets, and `FormatDateTime` is public | Formats are the application's choice (no locales); the presets cover the required styles and a format can be adjusted field by field. Applications can show a value as the picker does, without allocating |
+| 71 | `TextField` gained `IsBezeled`, `AcceptsInput` and `GetTextFieldSelection` | A token field needs a borderless field after its tokens, must take Backspace, Delete and the arrows while tokens are selected, and must know when the caret is at the start of the text. The editor itself stays internal; this follows `TrailingInset` (decision 53) |
+| 72 | The text a token field is still editing lives in its per-ID state as a fixed 512-byte buffer, bridged to the `TextField` by one reused scratch string; it becomes a token at a delimiter, at Return and when the field loses focus | Per-ID state must be trivially copyable, and the application's list holds only finished tokens. Copying in and out of a reserved string costs no allocation, and each field keeps its own text. `NSTokenField` also tokenizes when editing ends |
+| 73 | Token fields tokenize at a comma (configurable) and at Return; there are no suggestions. Typing while tokens are selected replaces them, and a right click on a token opens a menu the application builds with `BeginTokenFieldMenu` | The HIG names the comma as the default and Return as a common addition, calls suggestions optional, and recommends a context menu on tokens. Replacing the selection is how Mail behaves |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

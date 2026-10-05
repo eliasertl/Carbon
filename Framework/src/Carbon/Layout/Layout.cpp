@@ -44,9 +44,40 @@ namespace Carbon::Internal
             float FlexMinimum = 0.0f;
             /// Takes the container's full extent across the axis, so it must not define that extent.
             bool FillsCross = false;
+            /// Inside a grid row: takes the width of its cell. Its column then measures `FitWidth`, the width of its
+            /// content, so that a column of such cells is as wide as its widest content.
+            bool FillsCell = false;
+            float FitWidth = 0.0f;
         };
 
-        ItemFlow ResolveItem(const LayoutFrame& parent, Size width, Size height, Vec2 fitSize)
+        // Where a column starts, relative to the row's content area, from last frame's column widths.
+        float GetColumnOffset(const GridFrame& grid, uint32_t column)
+        {
+            float offset = 0.0f;
+            for (uint32_t i = 0; i < column && i < MaxGridColumns; i++)
+                offset += grid.Record->ColumnWidths[i] + grid.HorizontalSpacing;
+            return offset;
+        }
+
+        // The column the next cell of the open row goes to, and how many columns it covers.
+        uint32_t GetCellColumn(const GridFrame& grid)
+        {
+            return std::min(grid.Column, MaxGridColumns - 1);
+        }
+
+        uint32_t GetCellSpan(const GridFrame& grid)
+        {
+            return std::clamp(grid.NextSpan, 1u, MaxGridColumns - GetCellColumn(grid));
+        }
+
+        float GetCellWidth(const GridFrame& grid)
+        {
+            const uint32_t column = GetCellColumn(grid);
+            const uint32_t end = column + GetCellSpan(grid);
+            return GetColumnOffset(grid, end) - GetColumnOffset(grid, column) - grid.HorizontalSpacing;
+        }
+
+        ItemFlow ResolveItem(const LayoutFrame& parent, const GridFrame* grid, Size width, Size height, Vec2 fitSize)
         {
             ItemFlow flow;
             const Size modes[2] = {width, height};
@@ -64,7 +95,13 @@ namespace Carbon::Internal
                         resolved[i] = std::max(modes[i].Value, 0.0f);
                         break;
                     case SizeMode::Fill:
-                        if (axis == parent.Axis)
+                        if (axis == parent.Axis && grid != nullptr)
+                        {
+                            flow.FillsCell = true;
+                            flow.FitWidth = fit[i];
+                            resolved[i] = std::max(GetCellWidth(*grid), 0.0f);
+                        }
+                        else if (axis == parent.Axis)
                         {
                             flow.IsFlexible = true;
                             flow.FlexWeight = std::max(modes[i].Value, 0.0f);
@@ -83,10 +120,23 @@ namespace Carbon::Internal
         }
 
         // Where the next item of `size` goes. Origins are snapped to whole pixels so edges and text stay crisp.
-        Vec2 PlaceItem(const Context& context, const LayoutFrame& parent, Vec2 size)
+        Vec2 PlaceItem(const Context& context, const LayoutFrame& parent, const GridFrame* grid, Vec2 size)
         {
             if (parent.HasCursorOverride)
                 return context.Scale.Snap(parent.CursorOverride);
+
+            if (grid != nullptr)
+            {
+                // A grid cell: aligned inside its column(s) horizontally and inside the row vertically.
+                const uint32_t column = GetCellColumn(*grid);
+                const float horizontal = grid->NextAlignmentFactor.value_or(
+                    column < grid->ColumnFactorCount ? grid->ColumnFactors[column] : grid->AlignmentFactor);
+                const float vertical = grid->NextVerticalFactor.value_or(grid->RowVerticalFactor);
+                const float x =
+                    parent.Inner.X + GetColumnOffset(*grid, column) + (GetCellWidth(*grid) - size.X) * horizontal;
+                const float y = parent.Inner.Y + (parent.Inner.Height - size.Y) * vertical;
+                return context.Scale.Snap(Vec2(x, y));
+            }
 
             const float crossStart = GetCross(parent.Inner.GetMin(), parent.Axis);
             const float crossSize = GetCross(parent.Inner.GetSize(), parent.Axis);
@@ -94,9 +144,41 @@ namespace Carbon::Internal
             return context.Scale.Snap(MakeVec(parent.Axis, parent.Cursor, cross));
         }
 
-        // Advances the cursor past an item and adds it to the container's measurements.
-        void CommitItem(LayoutFrame& parent, Vec2 origin, const ItemFlow& flow)
+        // Records a grid cell in its grid's column measurements and moves the row on to the next column.
+        void CommitCell(LayoutFrame& row, GridFrame& grid, Vec2 origin, const ItemFlow& flow)
         {
+            const uint32_t column = GetCellColumn(grid);
+            const uint32_t span = GetCellSpan(grid);
+            const float measured = flow.FillsCell ? flow.FitWidth : flow.Size.X;
+            if (span == 1)
+                grid.Widths[column] = std::max(grid.Widths[column], measured);
+            else if (grid.SpanCount < MaxGridSpans)
+                grid.Spans[grid.SpanCount++] = GridSpan{column, span, measured};
+            grid.ColumnCount = std::max(grid.ColumnCount, column + span);
+
+            const float end = GetColumnOffset(grid, column + span);
+            row.MainExtent = std::max(row.MainExtent, end - grid.HorizontalSpacing);
+            if (!flow.FillsCross)
+                row.CrossExtent = std::max(row.CrossExtent, flow.Size.Y);
+            row.Cursor = row.Inner.X + end;
+            row.ItemCount++;
+            row.LastItem = Rect(origin, flow.Size);
+
+            grid.Column = column + span;
+            grid.NextSpan = 1;
+            grid.NextAlignmentFactor.reset();
+            grid.NextVerticalFactor.reset();
+        }
+
+        // Advances the cursor past an item and adds it to the container's measurements.
+        void CommitItem(LayoutFrame& parent, GridFrame* grid, Vec2 origin, const ItemFlow& flow)
+        {
+            if (grid != nullptr && !parent.HasCursorOverride)
+            {
+                CommitCell(parent, *grid, origin, flow);
+                return;
+            }
+
             const float mainSize = GetMain(flow.Size, parent.Axis);
             const float measuredMain = flow.IsFlexible ? flow.FlexMinimum : mainSize;
             if (parent.HasCursorOverride)
@@ -163,6 +245,7 @@ namespace Carbon::Internal
         LayoutState& layout = context.Layout;
         layout.Frames.clear();
         layout.ScrollFrames.clear();
+        layout.GridFrames.clear();
 
         LayoutFrame root;
         root.Kind = ContainerKind::Root;
@@ -197,6 +280,7 @@ namespace Carbon::Internal
             layout.Frames.pop_back();
         }
         layout.ScrollFrames.clear();
+        layout.GridFrames.clear();
 
         if (!layout.Frames.empty())
         {
@@ -229,6 +313,7 @@ namespace Carbon::Internal
         record->LastFrame = context.FrameCount;
 
         const LayoutFrame& parent = layout.Frames.back();
+        const GridFrame* grid = FindGrid(layout, parent);
         const Vec2 padding(description.Padding.GetHorizontal(), description.Padding.GetVertical());
         ItemFlow flow;
         if (description.IsFloating)
@@ -252,7 +337,7 @@ namespace Carbon::Internal
         }
         else
         {
-            flow = ResolveItem(parent, description.Width, description.Height, record->ContentSize + padding);
+            flow = ResolveItem(parent, grid, description.Width, description.Height, record->ContentSize + padding);
         }
 
         LayoutFrame frame;
@@ -261,7 +346,7 @@ namespace Carbon::Internal
         frame.Id = id;
         frame.Record = record;
         frame.Origin = description.IsFloating ? context.Scale.Snap(description.FloatingOrigin)
-                                              : PlaceItem(context, parent, flow.Size);
+                                              : PlaceItem(context, parent, grid, flow.Size);
         frame.IsFloating = description.IsFloating;
         frame.ResolvedSize = flow.Size;
         frame.FitsWidth = description.Width.Mode == SizeMode::Fit;
@@ -272,6 +357,7 @@ namespace Carbon::Internal
         frame.IsFlexible = flow.IsFlexible;
         frame.ParentFlexWeight = flow.FlexWeight;
         frame.FillsParentCross = flow.FillsCross;
+        frame.FillsParentCell = flow.FillsCell;
         StartFlow(frame, *record, description.JustifyFactor, description.IsScrolling, description.ScrollOffset);
 
         // A container seen for the first time lays out with empty measurements, so it is hidden for that frame
@@ -334,8 +420,50 @@ namespace Carbon::Internal
         flow.IsFlexible = frame.IsFlexible;
         flow.FlexWeight = frame.ParentFlexWeight;
         flow.FillsCross = frame.FillsParentCross;
-        CommitItem(parent, frame.Origin, flow);
+        flow.FillsCell = frame.FillsParentCell;
+        flow.FitWidth = frame.Record->ContentSize.X + frame.Padding.GetHorizontal();
+        CommitItem(parent, FindGrid(layout, parent), frame.Origin, flow);
         return rect;
+    }
+
+    GridFrame* FindGrid(LayoutState& layout, const LayoutFrame& parent)
+    {
+        if (parent.Kind != ContainerKind::GridRow || layout.GridFrames.empty())
+            return nullptr;
+        // Only a row directly inside the innermost grid places cells; anywhere else it is a plain row.
+        GridFrame& grid = layout.GridFrames.back();
+        const size_t rowIndex = grid.FrameIndex + 1;
+        if (rowIndex >= layout.Frames.size() || &layout.Frames[rowIndex] != &parent)
+            return nullptr;
+        return &grid;
+    }
+
+    float GetAlignmentFactor(Alignment alignment)
+    {
+        switch (alignment)
+        {
+            case Alignment::Leading:
+                return 0.0f;
+            case Alignment::Center:
+                return 0.5f;
+            case Alignment::Trailing:
+                return 1.0f;
+        }
+        return 0.0f;
+    }
+
+    float GetAlignmentFactor(VerticalAlignment alignment)
+    {
+        switch (alignment)
+        {
+            case VerticalAlignment::Top:
+                return 0.0f;
+            case VerticalAlignment::Center:
+                return 0.5f;
+            case VerticalAlignment::Bottom:
+                return 1.0f;
+        }
+        return 0.0f;
     }
 
     ID GetCallSiteID(Context& context, const char* file, uint32_t line, uint32_t column)
@@ -355,16 +483,19 @@ namespace Carbon
     {
         Context& context = Internal::GetFrameContext();
         LayoutFrame& frame = context.Layout.Frames.back();
-        const Internal::ItemFlow flow = Internal::ResolveItem(frame, options.Width, options.Height, size);
-        const Vec2 origin = Internal::PlaceItem(context, frame, flow.Size);
-        Internal::CommitItem(frame, origin, flow);
+        Internal::GridFrame* grid = Internal::FindGrid(context.Layout, frame);
+        const Internal::ItemFlow flow = Internal::ResolveItem(frame, grid, options.Width, options.Height, size);
+        const Vec2 origin = Internal::PlaceItem(context, frame, grid, flow.Size);
+        Internal::CommitItem(frame, grid, origin, flow);
         return Rect(origin, flow.Size);
     }
 
     Vec2 ResolveItemSize(Vec2 size, const ItemOptions& options)
     {
-        const Context& context = Internal::GetFrameContext();
-        return Internal::ResolveItem(context.Layout.Frames.back(), options.Width, options.Height, size).Size;
+        Context& context = Internal::GetFrameContext();
+        const LayoutFrame& frame = context.Layout.Frames.back();
+        const Internal::GridFrame* grid = Internal::FindGrid(context.Layout, frame);
+        return Internal::ResolveItem(frame, grid, options.Width, options.Height, size).Size;
     }
 
     Axis GetLayoutAxis()
@@ -419,7 +550,8 @@ namespace Carbon
             flow.FlexMinimum = std::max(options.MinLength, 0.0f);
             flow.Size = Internal::MakeVec(frame.Axis, flow.FlexMinimum + frame.FlexUnit * flow.FlexWeight, 0.0f);
         }
-        const Vec2 origin = Internal::PlaceItem(context, frame, flow.Size);
-        Internal::CommitItem(frame, origin, flow);
+        Internal::GridFrame* grid = Internal::FindGrid(context.Layout, frame);
+        const Vec2 origin = Internal::PlaceItem(context, frame, grid, flow.Size);
+        Internal::CommitItem(frame, grid, origin, flow);
     }
 } // namespace Carbon

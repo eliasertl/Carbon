@@ -278,7 +278,7 @@ namespace Gallery
         EndSection();
     }
 
-    void LayoutPage()
+    void LayoutPage(GalleryState& state)
     {
         BeginSection("Layout", "Stacks, spacers and fill sizes. No positions are computed by hand.");
         const Color box = GetStyleColor(StyleColor::ControlFill);
@@ -310,6 +310,51 @@ namespace Gallery
         chip("Centered in the remaining width");
         EndHStack();
         EndRow();
+        EndSection();
+
+        BeginSection("Grid", "Columns that line up across rows. Each column is as wide as its widest cell.");
+        // A form as in macOS settings windows: labels aligned on their trailing edge, controls on their leading one.
+        static constexpr Alignment FormColumns[] = {Alignment::Trailing, Alignment::Leading};
+        BeginGrid({.HorizontalSpacing = 8.0f, .VerticalSpacing = 10.0f, .ColumnAlignments = FormColumns});
+        BeginGridRow();
+        Text("Name:");
+        TextField("Name##form", &state.FormName, {.Width = 220.0f});
+        EndGridRow();
+        BeginGridRow();
+        Text("Software updates:");
+        Toggle("Download automatically", &state.FormUpdates, {.Kind = ToggleKind::Checkbox});
+        EndGridRow();
+        BeginGridRow();
+        Spacer({.Length = 0.0f});
+        Toggle("Include beta versions", &state.FormBeta, {.Kind = ToggleKind::Checkbox});
+        EndGridRow();
+        BeginGridRow();
+        Text("Alert volume:");
+        Slider("Alert volume##form", &state.FormVolume, 0.0f, 1.0f, {.Width = 220.0f});
+        EndGridRow();
+        EndGrid();
+
+        Separator();
+
+        // Cells of different widths, and a cell that spans every column.
+        BeginGrid({.HorizontalSpacing = 6.0f, .VerticalSpacing = 6.0f});
+        static constexpr std::string_view Planets[][3] = {
+            {"Mercury", "0.39 AU", "88 days"},
+            {"Jupiter", "5.2 AU", "11.9 years"},
+            {"Neptune", "30 AU", "165 years"},
+        };
+        for (const auto& planet : Planets)
+        {
+            BeginGridRow();
+            for (std::string_view cell : planet)
+                chip(cell, Size::Fill());
+            EndGridRow();
+        }
+        BeginGridRow();
+        SetNextGridCell({.ColumnSpan = 3});
+        chip("A cell can span several columns", Size::Fill());
+        EndGridRow();
+        EndGrid();
         EndSection();
     }
 } // namespace Gallery

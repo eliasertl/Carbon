@@ -21,6 +21,7 @@
 #include "Carbon/Core/Vec2.h"
 
 // Layout: reserving space and nesting containers.
+#include "Carbon/Layout/Grid.h"
 #include "Carbon/Layout/Layout.h"
 #include "Carbon/Layout/ScrollView.h"
 #include "Carbon/Layout/Size.h"

@@ -20,7 +20,9 @@ namespace Gallery
         Layout,
 
         Selection,
+        Dates,
         Menus,
+        Toolbars,
         Dialogs,
         Notifications,
         Progress,
@@ -57,9 +59,31 @@ namespace Gallery
         std::string Search;
         int Clicks = 0;
         wgpu::TextureView Artwork;
+        std::string FormName = "Ada Lovelace";
+        bool FormUpdates = true;
+        bool FormBeta = false;
+        float FormVolume = 0.4f;
 
         // Selection controls.
         int ViewMode = 1;
+        std::vector<std::string> Recipients = {"Ada Lovelace", "Grace Hopper", "Alan Kay"};
+        std::vector<std::string> Tags = {"design", "macOS", "immediate mode", "WebGPU"};
+        std::string TokenAction = "None yet";
+        // Dates.
+        Carbon::DateTime CalendarDate = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
+        Carbon::DateTime SundayDate = {.Year = 2026, .Month = 10, .Day = 5};
+        Carbon::DateTime LimitedDate = {.Year = 2026, .Month = 10, .Day = 12};
+        Carbon::DateTime Appointment = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
+        Carbon::DateTime Deadline = {.Year = 2026, .Month = 10, .Day = 20, .Hour = 17, .Minute = 0};
+        Carbon::DateTime Alarm = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 7, .Minute = 15};
+        // Toolbars.
+        bool ToolbarShowsSidebar = true;
+        int ToolbarView = 1;
+        std::string ToolbarQuery;
+        std::string ToolbarAction = "None yet";
+        int Appearance = 2;
+        int IconSize = 1;
+        int StartWith = -1;
         int Justification = 0;
         int SortOrder = 1;
         int Quality = 2;
@@ -82,7 +106,7 @@ namespace Gallery
         // Outline and column views.
         const void* OutlineSelection = nullptr;
         std::string OutlineAction = "None yet";
-        std::vector<int> ColumnPath = {0};
+        std::vector<int> ColumnPath = {0, 0, 0, 1};
 
         // Notifications.
         int NotificationPosition = 2;

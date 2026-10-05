@@ -174,6 +174,189 @@ namespace Gallery
         }
         EndColumnView();
         EndSection();
+
+        BeginSection("Path control",
+                     "The path to the item selected in the column view above. Click a component to go back to it. "
+                     "When the path does not fit, the names between the first and the last component make room; "
+                     "point at one to see it.");
+        // The path is the column view's: the disk, then one component per selected item.
+        PathControlItem path[16];
+        size_t length = 0;
+        path[length++] = {.Label = "Macintosh HD", .Icon = Icons::HardDrives};
+        std::span<const FileNode> nodes = Root;
+        for (const int index : state.ColumnPath)
+        {
+            if (index < 0 || static_cast<size_t>(index) >= nodes.size() || length == std::size(path))
+                break;
+            const FileNode& node = nodes[static_cast<size_t>(index)];
+            path[length++] = {.Label = node.Name, .Icon = node.Icon};
+            nodes = node.Children;
+        }
+        const std::span<const PathControlItem> components(path, length);
+        const auto goTo = [&](int component)
+        {
+            if (component >= 0)
+                state.ColumnPath.resize(static_cast<size_t>(component));
+        };
+        BeginRow("Standard");
+        goTo(PathControl("Path", components, {.Width = Size::Fill()}));
+        EndRow();
+        BeginRow("Narrow");
+        goTo(PathControl("Narrow path", components, {.Width = 240.0f}));
+        EndRow();
+        BeginRow("Pop-up");
+        if (TakeShow(state, "pathmenu"))
+            OpenOverlay(HashID("##menu", GetID("Location")));
+        goTo(PathControl("Location", components, {.Style = PathControlStyle::PopUp}));
+        EndRow();
+        EndSection();
+    }
+
+    namespace
+    {
+        // The same toolbar in every display mode: a toggle, navigation, a control, commands and a search field.
+        void DemoToolbar(GalleryState& state, ToolbarDisplayMode mode, Size width)
+        {
+            BeginToolbar("Toolbar", {.Width = width,
+                                     .Background = GetStyleColor(StyleColor::Background),
+                                     .HasSeparator = false,
+                                     .DisplayMode = mode});
+            if (ToolbarItem("Sidebar", {.Icon = Icons::SidebarSimple, .IsSelected = state.ToolbarShowsSidebar}))
+                state.ToolbarShowsSidebar = !state.ToolbarShowsSidebar;
+            ToolbarSpace();
+            if (ToolbarItem("Back", {.Icon = Icons::CaretLeft}))
+                state.ToolbarAction = "Back";
+            ToolbarItem("Forward", {.Icon = Icons::CaretRight, .Disabled = true});
+            ToolbarSeparator();
+            if (BeginToolbarControl("View", {.Icon = Icons::SquaresFour}))
+            {
+                SegmentedControl("View", &state.ToolbarView, {"Icons", "List", "Columns"});
+                EndToolbarControl();
+            }
+            ToolbarFlexibleSpace();
+            if (ToolbarItem("New Folder", {.Icon = Icons::FolderPlus}))
+                state.ToolbarAction = "New Folder";
+            if (ToolbarItem("Share", {.Icon = Icons::Export}))
+                state.ToolbarAction = "Share";
+            if (ToolbarItem("Delete", {.Icon = Icons::Trash}))
+                state.ToolbarAction = "Delete";
+            if (BeginToolbarControl("Sort", {.Icon = Icons::ArrowsDownUp}))
+            {
+                if (BeginPullDownButton("Sort", {.Icon = Icons::ArrowsDownUp}))
+                {
+                    if (MenuItem("Name"))
+                        state.ToolbarAction = "Sort by name";
+                    if (MenuItem("Date Modified"))
+                        state.ToolbarAction = "Sort by date";
+                    EndPullDownButton();
+                }
+                EndToolbarControl();
+            }
+            ToolbarSpace();
+            if (BeginToolbarControl("Search", {.Icon = Icons::MagnifyingGlass}))
+            {
+                SearchField("Search", &state.ToolbarQuery, {.Width = 150.0f});
+                EndToolbarControl();
+            }
+            EndToolbar();
+        }
+    } // namespace
+
+    void ToolbarsPage(GalleryState& state)
+    {
+        BeginSection("Display modes",
+                     "Frequently used commands and controls. Items have no bezel: a highlight appears under the "
+                     "pointer. The sidebar item toggles; Forward is disabled. Every item is a stop for Tab.");
+        static const ToolbarDisplayMode Modes[] = {ToolbarDisplayMode::IconAndLabel, ToolbarDisplayMode::IconOnly,
+                                                   ToolbarDisplayMode::LabelOnly};
+        static const std::string_view Names[] = {"Icon and label", "Icon only (labels become tooltips)", "Label only"};
+        for (int i = 0; i < 3; i++)
+        {
+            PushID(i);
+            Text(Names[i], {.Style = TextStyle::Subheadline, .Secondary = true});
+            DemoToolbar(state, Modes[i], Size::Fill());
+            PopID();
+        }
+        Text(std::format("Last action: {}", state.ToolbarAction), {.Secondary = true});
+        EndSection();
+
+        BeginSection("Overflow",
+                     "When the toolbar is too narrow for its items, those at its trailing end move into a menu "
+                     "behind the chevron. A control chosen there opens in a popover.");
+        PushID("narrow");
+        if (TakeShow(state, "toolbaroverflow"))
+            OpenOverlay(HashID("##overflowmenu", GetID("Toolbar")));
+        DemoToolbar(state, ToolbarDisplayMode::IconAndLabel, 380.0f);
+        PopID();
+        EndSection();
+    }
+
+    void DatesPage(GalleryState& state)
+    {
+        BeginSection("Date picker",
+                     "The textual date picker. Click an element or move between them with the left and right arrow "
+                     "keys, then type or step it with the up and down arrow keys or the stepper. Clicking the date "
+                     "opens a calendar.");
+        BeginGrid({.HorizontalSpacing = 12.0f, .VerticalSpacing = 12.0f});
+        BeginGridRow();
+        Text("ISO date", {.Secondary = true, .Width = LabelColumn});
+        if (TakeShow(state, "datepicker"))
+        {
+            // The popover stays open while the field has the focus.
+            OpenOverlay(HashID("##popover", GetID("ISO date")));
+            SetFocus(GetID("ISO date"));
+        }
+        DatePicker("ISO date", &state.Appointment);
+        EndGridRow();
+        BeginGridRow();
+        Text("German, with time", {.Secondary = true, .Width = LabelColumn});
+        DatePicker("German date", &state.Appointment,
+                   {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::German()});
+        EndGridRow();
+        BeginGridRow();
+        Text("US, with time", {.Secondary = true, .Width = LabelColumn});
+        DatePicker(
+            "US date", &state.Appointment,
+            {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .FirstWeekday = Weekday::Sunday});
+        EndGridRow();
+        BeginGridRow();
+        Text("Time, quarter hours", {.Secondary = true, .Width = LabelColumn});
+        DatePicker("Alarm", &state.Alarm, {.Elements = DatePickerElements::Time, .MinuteInterval = 15});
+        EndGridRow();
+        BeginGridRow();
+        Text("Within October", {.Secondary = true, .Width = LabelColumn});
+        DatePicker("Deadline", &state.Deadline,
+                   {.Elements = DatePickerElements::DateAndTime,
+                    .MinDate = DateTime{.Year = 2026, .Month = 10, .Day = 1},
+                    .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 31, .Hour = 23, .Minute = 59}});
+        EndGridRow();
+        EndGrid();
+        EndSection();
+
+        BeginSection("Calendar",
+                     "The graphical date picker. Click a day, or use the arrow keys while it has focus; Page Up and "
+                     "Page Down change the month, with Shift the year. Today is marked in the accent color.");
+        BeginHStack({.Spacing = 40.0f, .Alignment = VerticalAlignment::Top});
+        BeginVStack({.Spacing = 8.0f});
+        Text("Weeks start on Monday", {.Style = TextStyle::Subheadline, .Secondary = true});
+        DatePickerCalendar("Calendar", &state.CalendarDate);
+        EndVStack();
+        BeginVStack({.Spacing = 8.0f});
+        Text("Weeks start on Sunday", {.Style = TextStyle::Subheadline, .Secondary = true});
+        DatePickerCalendar("Sunday calendar", &state.SundayDate, {.FirstWeekday = Weekday::Sunday});
+        EndVStack();
+        BeginVStack({.Spacing = 8.0f});
+        Text("October 3 to 24 only", {.Style = TextStyle::Subheadline, .Secondary = true});
+        DatePickerCalendar("Limited calendar", &state.LimitedDate,
+                           {.MinDate = DateTime{.Year = 2026, .Month = 10, .Day = 3},
+                            .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 24, .Hour = 23, .Minute = 59}});
+        EndVStack();
+        EndHStack();
+        const DateTime& date = state.CalendarDate;
+        Text(std::format("Selected: {}, {} {}, {}", GetWeekdayName(GetWeekday(date)), GetMonthName(date.Month),
+                         date.Day, date.Year),
+             {.Secondary = true});
+        EndSection();
     }
 
     void NotificationsPage(GalleryState& state)

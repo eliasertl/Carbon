@@ -32,6 +32,22 @@ namespace Carbon
         /// The up and down arrow keys move the caret to the start and end, as on macOS. Components that use those
         /// keys themselves (a combo box choosing from its list) turn this off.
         bool VerticalArrowsMoveCaret = true;
+        /// Draws the field's background, border and focus ring. Components that draw their own field around the
+        /// text (a token field) turn this off.
+        bool IsBezeled = true;
+        /// While false, the field keeps the focus but ignores the keyboard and the mouse and hides its caret and
+        /// selection. Components that take the keys themselves for a while (a token field while tokens are
+        /// selected) turn this off for those frames.
+        bool AcceptsInput = true;
+    };
+
+    /// Where the caret and the selection of a text field are, as byte offsets into its text.
+    struct TextFieldSelection
+    {
+        size_t Caret = 0;
+        /// The selected range; Start == End when nothing is selected.
+        size_t Start = 0;
+        size_t End = 0;
     };
 
     /// A single-line text field editing `text` (UTF-8). Returns true on frames the text changed.
@@ -48,4 +64,9 @@ namespace Carbon
     /// being edited, for example by choosing an item of a combo box. On its next call the caret moves to the end
     /// and the undo history starts over. Does nothing when the field is not being edited.
     void ReloadTextField(std::string_view label);
+
+    /// Fills `selection` with the caret and selection of the text field `label` (at the current ID scope) and
+    /// returns true while that field is being edited; returns false otherwise. Components built around a text
+    /// field use it to act on keys at the ends of the text, such as Backspace with the caret at the start.
+    bool GetTextFieldSelection(std::string_view label, TextFieldSelection* selection);
 } // namespace Carbon

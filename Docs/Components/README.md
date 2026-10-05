@@ -17,6 +17,7 @@ its options and its keyboard behaviour.
 | [Separator](Separator.md) | A thin line between items |
 | [Tooltip](Tooltip.md) | Explains the control under the pointer |
 | [Stacks and Spacer](Stack.md) | Lay items out vertically or horizontally |
+| [Grid](Grid.md) | Rows of cells whose columns line up |
 | [ScrollView](ScrollView.md) | A clipped, scrollable area |
 
 ## Extensions (`CarbonExtensions`)
@@ -50,6 +51,12 @@ These components are built only on Carbon's public extension API; see
 | [MenuBar](MenuBar.md) | The menus of a window, in a row at its top |
 | [ComboBox](ComboBox.md) | A text field with a list of choices |
 | [Notifications](Notification.md) | Banners that tell about something that happened |
+| [RadioGroup](RadioGroup.md) | A few mutually exclusive choices as radio buttons |
+| [PathControl](PathControl.md) | The path to an item, from its root; each part can be clicked |
+| [Toolbar](Toolbar.md) | Frequently used commands and controls along the top of a window |
+| [DatePickerCalendar](DatePickerCalendar.md) | A month of days to pick a date from |
+| [DatePicker](DatePicker.md) | A compact field for a date, a time or both, with a calendar in a popover |
+| [TokenField](TokenField.md) | Text that turns into tokens, such as the recipients of a mail |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 
@@ -73,8 +80,8 @@ Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
   dims them and makes them ignore input and Tab.
 - **After the call.** `IsItemHovered()`, `IsItemFocused()`, `IsItemActive()`, `GetItemRect()` and `Tooltip()`
   refer to the component submitted last.
-- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
-  `BeginTable`, `BeginTabView` and `BeginSplitView` always need their `End`. Pairs that can be closed return a
+- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginGrid`, `BeginGridRow`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
+  `BeginTable`, `BeginTabView`, `BeginSplitView` and `BeginToolbar` always need their `End`. Pairs that can be closed return a
   `bool` from `Begin` (`BeginPopover`, `BeginMenu`, `BeginSubmenu`, `BeginContextMenu`, `BeginPullDownButton`,
   `BeginSheet`, `BeginOverlay`): call `End` only when it returned `true`.
 - **Open at the same ID scope.** `OpenPopover("name")`, `OpenMenu`, `OpenAlert` and `OpenSheet` find their

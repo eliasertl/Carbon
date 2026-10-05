@@ -48,10 +48,11 @@ the keyboard.
 
 ## Groups that are one stop
 
-Some components are a single stop for Tab and use the arrow keys inside: a segmented control (left and right),
-a stepper (up and down), a sidebar, list or table (up, down, Home, End), an outline view (also left and right to
-collapse and expand). A column view has one stop per column; left and right move between them. Clicking one of
-them gives it focus, so the arrow keys continue from the click.
+Some components are a single stop for Tab and use the arrow keys inside: a segmented control (left and right), a
+radio group (all four arrows), a path control (left, right, Home, End), a calendar (arrows, Page Up, Page Down,
+Home, End), a stepper (up and down), a sidebar, list or table (up, down, Home, End), an outline view (also left and
+right to collapse and expand). A column view has one stop per column; left and right move between them. Clicking one
+of them gives it focus, so the arrow keys continue from the click.
 
 ## The focus ring
 
