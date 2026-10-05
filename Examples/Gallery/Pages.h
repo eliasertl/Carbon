@@ -25,7 +25,7 @@ namespace Gallery
     void SlidersPage(GalleryState& state);
     void TextFieldsPage(GalleryState& state);
     void ImagesPage(GalleryState& state);
-    void LayoutPage();
+    void LayoutPage(GalleryState& state);
 
     // Components of CarbonExtensions (ExtensionPages.cpp).
     void SelectionPage(GalleryState& state);

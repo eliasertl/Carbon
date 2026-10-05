@@ -113,7 +113,7 @@ namespace Gallery
                     ImagesPage(state);
                     break;
                 case Page::Layout:
-                    LayoutPage();
+                    LayoutPage(state);
                     break;
                 case Page::Selection:
                     SelectionPage(state);

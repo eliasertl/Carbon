@@ -57,6 +57,10 @@ namespace Gallery
         std::string Search;
         int Clicks = 0;
         wgpu::TextureView Artwork;
+        std::string FormName = "Ada Lovelace";
+        bool FormUpdates = true;
+        bool FormBeta = false;
+        float FormVolume = 0.4f;
 
         // Selection controls.
         int ViewMode = 1;
