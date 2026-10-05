@@ -68,11 +68,12 @@ the public templates are made of: `Signature.h` (every compiler-specific trick),
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
 subfolder and use `namespace Carbon::Internal`. Three checks keep the boundary honest:
 
-- a CMake script (`Framework/CMake/CheckPublicIncludes.cmake`), run by CTest and CI as the three
+- a CMake script (`Framework/CMake/CheckPublicIncludes.cmake`), run by CTest and CI as the
   `PublicApiBoundary.*` tests, fails if `Extensions/` or `Examples/CustomComponent` include a non-public
-  header, or if a public header includes an internal one;
-- CI builds `CarbonExtensions` and `Examples/CustomComponent` against the *installed* package, where internal
-  headers do not exist;
+  header, if `Reflection/` includes anything but public Carbon and CarbonExtensions headers, or if a public
+  header includes an internal one;
+- CI builds `CarbonExtensions`, `CarbonReflection` and `Examples/CustomComponent` against the *installed*
+  package, where internal headers do not exist;
 - only `Renderer/` and three public signatures (below) mention `wgpu::` types.
 
 ## 3. Public API sketch (application side)
@@ -729,6 +730,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 90 | A checkbox field carries its label after the box and leaves the label column empty; the value of a number sits after a slider and before a stepper | That is how macOS forms place them; the value's column has a fixed width so the control beside it does not move |
 | 91 | The tooltip of a field is attached to its whole row with `SetLastItem` | Containers do not register as items for `Tooltip`; the extension API already allows this |
 | 92 | Every field of a struct is reached with a comma fold, never with `|` or `||` | Fields must be drawn in order, every frame; `|` leaves the order of evaluation unspecified |
+| 93 | Automatic labels use title-style capitalization: minor words (articles, conjunctions, short prepositions) inside a label stay lowercase | The HIG asks for title-style labels; "Launch At Login" reads like a machine wrote it |
+| 94 | The Reflection example's executable is called `Reflection`, its target `ReflectionExample` | Every example's executable is named after its folder; a target called `Reflection` would read like the library |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

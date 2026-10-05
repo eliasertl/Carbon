@@ -139,7 +139,7 @@ For screenshots of states that need input, and of parts of a window, there are m
 
 | Option | Meaning |
 | --- | --- |
-| `--page <name>` | The Gallery page to start on, by its key (`selection`, `menus`, `dates`, ...) |
+| `--page <name>` | The Gallery page to start on, by its key (`selection`, `menus`, `dates`, `reflection`, ...), or the section of the Reflection example (`general`, `appearance`, `audio`, `network`) |
 | `--show <name>` | Something the Gallery opens at startup: `menu`, `popover`, `alert`, `sheet`, `notification`, `datepicker`, `pathmenu`, `toolbaroverflow` |
 | `--pointer`, `--click`, `--right-click <x>x<y>` | Put the pointer there, and click, before the screenshot is taken |
 | `--crop <x>,<y>,<width>,<height>` | Save only this area of the window, in points |

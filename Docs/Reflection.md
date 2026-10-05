@@ -24,6 +24,12 @@ Carbon::Reflect("graphics", &graphics); // one labeled control per field: "Textu
 Both lines work without any extra code. An optional macro adds display names, tooltips, ranges, control
 overrides and hidden or read-only flags, and describes types that automatic reflection cannot see.
 
+[Examples/Reflection](../Examples/Reflection/Main.cpp) builds a whole settings window from one struct:
+
+| Light | Dark |
+| --- | --- |
+| ![The Audio section of the Reflection example](Images/Reflection-Example-Light.png) | ![The General section of the Reflection example](Images/Reflection-Example-Dark.png) |
+
 The library is built when `CARBON_BUILD_REFLECTION` is on (the default) and needs `CarbonExtensions`. Link
 `Carbon::Reflection`; with an installed Carbon, use `find_package(Carbon COMPONENTS Reflection)`.
 
@@ -197,6 +203,7 @@ Automatic labels split identifiers into words and capitalize each word:
 | `Volume2`, `Channel10Gain` | Volume 2, Channel 10 Gain | digits start a word after a lowercase letter |
 | `MP3Player`, `Vector3D` | MP3 Player, Vector 3D | digits stay with capitals before them; capitals after digits stay unless a lowercase letter follows |
 | `MAX_SIZE`, `_private_` | MAX SIZE, Private | capitals are never lowered; leading, trailing and repeated `_` vanish |
+| `LaunchAtLogin`, `SignIn` | Launch at Login, Sign In | title-style capitalization: articles, conjunctions and short prepositions stay lowercase unless they are the first or last word |
 
 Labels are formatted once, on first use, into static storage; later frames never allocate for them.
 

@@ -28,6 +28,7 @@ Build/Examples/Gallery/Gallery --theme dark --page charts
 Build/Examples/MinimalIntegration/MinimalIntegration
 Build/Examples/CustomComponent/CustomComponent
 Build/Examples/CustomTitleBar/CustomTitleBar      # a window whose title bar is drawn by Carbon
+Build/Examples/Reflection/Reflection              # a settings window generated from a struct
 ```
 
 (With a Visual Studio generator the executables are in a configuration subfolder, for example
