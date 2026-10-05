@@ -80,6 +80,7 @@ namespace Carbon
         float m_Slider = 0.4f;
         std::string m_Text = "Some text";
         int m_Selected = 1;
+        DateTime m_Date = {.Year = 2026, .Month = 10, .Day = 5};
     };
 
     TEST_F(AllocationTests, CoreWidgetsDoNotAllocateInSteadyState)
@@ -175,6 +176,7 @@ namespace Carbon
                                                        {.Label = "File"}};
                 PathControl("Path", Path, {.Width = 100.0f});
                 PathControl("Pop-up path", Path, {.Style = PathControlStyle::PopUp});
+                DatePickerCalendar("Calendar", &m_Date, {.Today = m_Date});
                 BeginToolbar("Toolbar", {.Width = 200.0f});
                 ToolbarItem("New", {.Icon = Icons::Plus});
                 ToolbarSeparator();

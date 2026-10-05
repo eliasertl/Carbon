@@ -38,6 +38,7 @@ if(CARBON_BUILD_EXTENSIONS)
     target_sources(CarbonTests PRIVATE
         src/Extensions/ContainerTests.cpp
         src/Extensions/ControlTests.cpp
+        src/Extensions/DateTests.cpp
         src/Extensions/HierarchyTests.cpp
         src/Extensions/MenuBarTests.cpp
         src/Extensions/MenuTests.cpp
