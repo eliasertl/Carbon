@@ -110,6 +110,123 @@ namespace Carbon
         EXPECT_FALSE(IsAnimating());
     }
 
+    // ---- RadioGroup ---------------------------------------------------------------------------------------------
+
+    class RadioGroupTests : public WidgetTest
+    {
+    protected:
+        Builder Interface()
+        {
+            return [this]
+            {
+                if (RadioGroup("radios", &m_Selected, {"One", "Two", "Three"}, m_Options))
+                    m_Changes++;
+                m_Rect = GetItemRect();
+                m_Id = GetItemID();
+            };
+        }
+
+        // The centre of a button's label: the whole row of a button is its hit target.
+        Vec2 GetItemCenter(int index) const
+        {
+            if (m_Options.Orientation == Axis::Horizontal)
+            {
+                const float width = (m_Rect.Width - 40.0f) / 3.0f;
+                return Vec2(m_Rect.X + (width + 20.0f) * float(index) + width * 0.5f, m_Rect.GetCenter().Y);
+            }
+            const float height = (m_Rect.Height - 12.0f) / 3.0f;
+            return Vec2(m_Rect.X + 30.0f, m_Rect.Y + (height + 6.0f) * float(index) + height * 0.5f);
+        }
+
+        RadioGroupOptions m_Options;
+        int m_Selected = 0;
+        int m_Changes = 0;
+        Rect m_Rect;
+        ID m_Id;
+    };
+
+    TEST_F(RadioGroupTests, ClickSelectsAButton)
+    {
+        Settle(Interface());
+        Click(GetItemCenter(2), Interface());
+        EXPECT_EQ(m_Selected, 2);
+        EXPECT_EQ(m_Changes, 1);
+        Click(GetItemCenter(2), Interface());
+        EXPECT_EQ(m_Changes, 1) << "clicking the selected button changes nothing";
+        Click(GetItemCenter(0), Interface());
+        EXPECT_EQ(m_Selected, 0);
+        EXPECT_EQ(m_Changes, 2);
+    }
+
+    TEST_F(RadioGroupTests, IsOneTabStopAndArrowsMoveTheSelection)
+    {
+        Settle(Interface());
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 0) << "without focus the keys do nothing";
+
+        TapKey(Key::Tab, Interface());
+        EXPECT_EQ(GetFocusedID(), m_Id);
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 1);
+        TapKey(Key::RightArrow, Interface());
+        EXPECT_EQ(m_Selected, 2);
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 2) << "the selection stops at the last button";
+        TapKey(Key::UpArrow, Interface());
+        TapKey(Key::LeftArrow, Interface());
+        EXPECT_EQ(m_Selected, 0);
+        EXPECT_EQ(m_Changes, 4);
+    }
+
+    TEST_F(RadioGroupTests, ClickingFocusesTheGroupWithoutARing)
+    {
+        Settle(Interface());
+        Click(GetItemCenter(1), Interface());
+        EXPECT_EQ(GetFocusedID(), m_Id);
+        EXPECT_FALSE(IsFocusVisible(m_Id));
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 2);
+    }
+
+    TEST_F(RadioGroupTests, OutOfRangeIsClampedAndMinusOneSelectsNothing)
+    {
+        m_Selected = 7;
+        Settle(Interface());
+        EXPECT_EQ(m_Selected, 2);
+        EXPECT_EQ(m_Changes, 0) << "clamping is not a change by the user";
+        EXPECT_TRUE(m_AssertMessages.empty());
+
+        m_Selected = -1;
+        Settle(Interface());
+        EXPECT_EQ(m_Selected, -1);
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 0) << "the first arrow selects the first button";
+        EXPECT_EQ(m_Changes, 1);
+    }
+
+    TEST_F(RadioGroupTests, HorizontalButtonsAreEquallyWide)
+    {
+        m_Options.Orientation = Axis::Horizontal;
+        Settle(Interface());
+        EXPECT_GT(m_Rect.Width, m_Rect.Height * 6.0f);
+        EXPECT_LT(m_Rect.Height, 20.0f);
+        Click(GetItemCenter(1), Interface());
+        EXPECT_EQ(m_Selected, 1);
+        Click(GetItemCenter(2), Interface());
+        EXPECT_EQ(m_Selected, 2);
+    }
+
+    TEST_F(RadioGroupTests, DisabledIgnoresInput)
+    {
+        m_Options.Disabled = true;
+        Settle(Interface());
+        Click(GetItemCenter(2), Interface());
+        EXPECT_EQ(m_Selected, 0);
+        TapKey(Key::Tab, Interface());
+        EXPECT_FALSE(GetFocusedID().IsValid());
+    }
+
     // ---- Stepper ------------------------------------------------------------------------------------------------
 
     class StepperTests : public WidgetTest

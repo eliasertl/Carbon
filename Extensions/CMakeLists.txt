@@ -17,6 +17,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/PopUpButton.h
     src/Carbon/Extensions/ProgressIndicator.h
     src/Carbon/Extensions/PullDownButton.h
+    src/Carbon/Extensions/RadioGroup.h
     src/Carbon/Extensions/SearchField.h
     src/Carbon/Extensions/SegmentedControl.h
     src/Carbon/Extensions/Sheet.h
@@ -50,6 +51,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/PopUpButton.cpp
     src/Carbon/Extensions/ProgressIndicator.cpp
     src/Carbon/Extensions/PullDownButton.cpp
+    src/Carbon/Extensions/RadioGroup.cpp
     src/Carbon/Extensions/SearchField.cpp
     src/Carbon/Extensions/SegmentedControl.cpp
     src/Carbon/Extensions/Sheet.cpp

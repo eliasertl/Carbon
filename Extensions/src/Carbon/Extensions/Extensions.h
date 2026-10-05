@@ -17,6 +17,7 @@
 #include "Carbon/Extensions/Popover.h"
 #include "Carbon/Extensions/ProgressIndicator.h"
 #include "Carbon/Extensions/PullDownButton.h"
+#include "Carbon/Extensions/RadioGroup.h"
 #include "Carbon/Extensions/SearchField.h"
 #include "Carbon/Extensions/SegmentedControl.h"
 #include "Carbon/Extensions/Sheet.h"

@@ -169,6 +169,7 @@ namespace Carbon
 
                 BeginVStack({.Spacing = 10.0f, .Padding = 16.0f, .Width = Size::Fill(), .Height = Size::Fill()});
                 SegmentedControl("Segments", &m_Selected, {"One", "Two", "Three"});
+                RadioGroup("Radios", &m_Selected, {"One", "Two", "Three"});
                 PopUpButton("PopUp", &m_Selected, {"One", "Two", "Three"});
                 Stepper("Stepper", &m_Selected);
                 ProgressIndicator(0.5f);
