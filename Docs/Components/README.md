@@ -55,6 +55,7 @@ These components are built only on Carbon's public extension API; see
 | [PathControl](PathControl.md) | The path to an item, from its root; each part can be clicked |
 | [Toolbar](Toolbar.md) | Frequently used commands and controls along the top of a window |
 | [DatePickerCalendar](DatePickerCalendar.md) | A month of days to pick a date from |
+| [DatePicker](DatePicker.md) | A compact field for a date, a time or both, with a calendar in a popover |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 

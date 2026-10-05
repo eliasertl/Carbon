@@ -52,10 +52,10 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
 SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, RadioGroup,
-DatePickerCalendar, Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, PathControl,
-SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them share: `SelectionList`
-(Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu,
-MenuBar).
+DatePicker, DatePickerCalendar, Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView,
+PathControl, SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them share:
+`SelectionList` (Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and
+`MenuInternal` (Menu, MenuBar).
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
@@ -684,6 +684,10 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 64 | `ToolbarOptions::Height` is optional (52 points with labels, 38 without) where `MenuBarOptions::Height` is a fixed default | The right height depends on the display mode, which the options also choose |
 | 65 | Dates are a trivially copyable `DateTime` (year, month, day, hour, minute) of local wall time, shared by both date components in `DateTime.h`; calendar arithmetic goes through `std::chrono`, and the operating system's time zone is used only to read the current time | The application owns the value and decides what it means; time zones are out of scope. `std::chrono`'s calendar types do the leap-year and weekday arithmetic, and a plain struct of ints works with designated initializers and per-ID state |
 | 66 | The calendar always shows six weeks; its month buttons are not Tab stops (Page Up and Page Down move by month), so it is one stop; the month on display follows the value whenever the value changes | A fixed height keeps the layout from jumping between months. One stop keeps the calendar usable inside DatePicker's popover. The month on display is view state, the value stays the application's |
+| 67 | `DatePicker`'s field is drawn and edited by the component, element by element, not built on `TextField`; complete elements move the selection on, and a separator typed right after that only confirms the move | macOS's textual date picker edits year, month, day, hour and minute separately; free text would have to be parsed and could be invalid while typing. Ignoring the confirming separator is how typing "2027-12" works on macOS |
+| 68 | The date picker's calendar popover leaves the keyboard in the field and closes when the field loses focus, on a click outside, on Escape or Enter, and after a day is picked with the mouse | The ComboBox precedent (decision 53): typing goes on while the calendar shows the result. Closing for lost focus waits until the popover has been open for a frame, because focus requests take effect a frame late |
+| 69 | The stepper is Carbon's `Stepper` bound to a scratch value between -1 and 1, and moves the selected element | It brings the stepper's look, repeat and keyboard behaviour without a second implementation |
+| 70 | `DateFormat` is a struct with `ISO()`, `German()` and `US()` presets, and `FormatDateTime` is public | Formats are the application's choice (no locales); the presets cover the required styles and a format can be adjusted field by field. Applications can show a value as the picker does, without allocating |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
