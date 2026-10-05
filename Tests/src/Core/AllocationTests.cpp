@@ -103,6 +103,16 @@ namespace Carbon
                 Separator();
                 Icon(Icons::Gear);
                 Tooltip("Never shown, but evaluated");
+                BeginGrid();
+                for (int row = 0; row < 3; row++)
+                {
+                    BeginGridRow();
+                    Text("Label");
+                    SetNextGridCell({.ColumnSpan = row == 2 ? 2 : 1});
+                    Button("Cell");
+                    EndGridRow();
+                }
+                EndGrid();
                 EndScrollView();
             });
         EXPECT_EQ(allocations, 0u);

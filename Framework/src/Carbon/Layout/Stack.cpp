@@ -7,34 +7,6 @@ namespace Carbon
 {
     namespace
     {
-        float GetFactor(Alignment alignment)
-        {
-            switch (alignment)
-            {
-                case Alignment::Leading:
-                    return 0.0f;
-                case Alignment::Center:
-                    return 0.5f;
-                case Alignment::Trailing:
-                    return 1.0f;
-            }
-            return 0.0f;
-        }
-
-        float GetFactor(VerticalAlignment alignment)
-        {
-            switch (alignment)
-            {
-                case VerticalAlignment::Top:
-                    return 0.0f;
-                case VerticalAlignment::Center:
-                    return 0.5f;
-                case VerticalAlignment::Bottom:
-                    return 1.0f;
-            }
-            return 0.0f;
-        }
-
         ID GetStackID(Context& context, std::string_view explicitID, const std::source_location& location)
         {
             if (!explicitID.empty())
@@ -63,8 +35,8 @@ namespace Carbon
         description.Height = options.Height;
         description.Padding = options.Padding;
         description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
-        description.CrossFactor = GetFactor(options.Alignment);
-        description.JustifyFactor = GetFactor(options.Justify);
+        description.CrossFactor = Internal::GetAlignmentFactor(options.Alignment);
+        description.JustifyFactor = Internal::GetAlignmentFactor(options.Justify);
         Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
         AddBackground(context, frame, options.Background, options.CornerRadius);
     }
@@ -85,8 +57,8 @@ namespace Carbon
         description.Height = options.Height;
         description.Padding = options.Padding;
         description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
-        description.CrossFactor = GetFactor(options.Alignment);
-        description.JustifyFactor = GetFactor(options.Justify);
+        description.CrossFactor = Internal::GetAlignmentFactor(options.Alignment);
+        description.JustifyFactor = Internal::GetAlignmentFactor(options.Justify);
         Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
         AddBackground(context, frame, options.Background, options.CornerRadius);
     }
