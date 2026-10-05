@@ -70,6 +70,9 @@ namespace Gallery
         Carbon::DateTime CalendarDate = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
         Carbon::DateTime SundayDate = {.Year = 2026, .Month = 10, .Day = 5};
         Carbon::DateTime LimitedDate = {.Year = 2026, .Month = 10, .Day = 12};
+        Carbon::DateTime Appointment = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 14, .Minute = 30};
+        Carbon::DateTime Deadline = {.Year = 2026, .Month = 10, .Day = 20, .Hour = 17, .Minute = 0};
+        Carbon::DateTime Alarm = {.Year = 2026, .Month = 10, .Day = 5, .Hour = 7, .Minute = 15};
         // Toolbars.
         bool ToolbarShowsSidebar = true;
         int ToolbarView = 1;

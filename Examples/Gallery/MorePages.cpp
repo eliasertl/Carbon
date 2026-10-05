@@ -293,6 +293,46 @@ namespace Gallery
 
     void DatesPage(GalleryState& state)
     {
+        BeginSection("Date picker",
+                     "The textual date picker. Click an element or move between them with the left and right arrow "
+                     "keys, then type or step it with the up and down arrow keys or the stepper. Clicking the date "
+                     "opens a calendar.");
+        BeginGrid({.HorizontalSpacing = 12.0f, .VerticalSpacing = 12.0f});
+        BeginGridRow();
+        Text("ISO date", {.Secondary = true, .Width = LabelColumn});
+        if (TakeShow(state, "datepicker"))
+        {
+            // The popover stays open while the field has the focus.
+            OpenOverlay(HashID("##popover", GetID("ISO date")));
+            SetFocus(GetID("ISO date"));
+        }
+        DatePicker("ISO date", &state.Appointment);
+        EndGridRow();
+        BeginGridRow();
+        Text("German, with time", {.Secondary = true, .Width = LabelColumn});
+        DatePicker("German date", &state.Appointment,
+                   {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::German()});
+        EndGridRow();
+        BeginGridRow();
+        Text("US, with time", {.Secondary = true, .Width = LabelColumn});
+        DatePicker(
+            "US date", &state.Appointment,
+            {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .FirstWeekday = Weekday::Sunday});
+        EndGridRow();
+        BeginGridRow();
+        Text("Time, quarter hours", {.Secondary = true, .Width = LabelColumn});
+        DatePicker("Alarm", &state.Alarm, {.Elements = DatePickerElements::Time, .MinuteInterval = 15});
+        EndGridRow();
+        BeginGridRow();
+        Text("Within October", {.Secondary = true, .Width = LabelColumn});
+        DatePicker("Deadline", &state.Deadline,
+                   {.Elements = DatePickerElements::DateAndTime,
+                    .MinDate = DateTime{.Year = 2026, .Month = 10, .Day = 1},
+                    .MaxDate = DateTime{.Year = 2026, .Month = 10, .Day = 31, .Hour = 23, .Minute = 59}});
+        EndGridRow();
+        EndGrid();
+        EndSection();
+
         BeginSection("Calendar",
                      "The graphical date picker. Click a day, or use the arrow keys while it has focus; Page Up and "
                      "Page Down change the month, with Shift the year. Today is marked in the accent color.");
