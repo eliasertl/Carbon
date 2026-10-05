@@ -113,6 +113,9 @@ jobs:
   build:
     name: ${{ matrix.name }}
     needs: dawn
+    # The Windows job commits updated documentation screenshots to main; see the last step.
+    permissions:
+      contents: write
     # Also when Dawn failed to build for another platform: the cache restore below decides for this one.
     if: ${{ !cancelled() }}
     runs-on: ${{ matrix.os }}
@@ -210,6 +213,26 @@ jobs:
           name: Screenshots (${{ matrix.name }})
           path: Screenshots
           if-no-files-found: ignore
+
+      # The documentation's screenshots follow the code: after a push to main, the Windows job renders them from
+      # Docs/Images/Screenshots.txt and commits the images that look different. WARP renders within a level or two
+      # of a GPU, below the script's tolerance, so unchanged images stay as they are. A push made by this token
+      # starts no workflow of its own.
+      - name: Update documentation screenshots
+        if: matrix.os == 'windows-2022' && github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          python -m pip install --quiet pillow
+          python Scripts/Screenshots.py --build Build
+          git add Docs/Images
+          if git diff --cached --quiet; then
+            echo "The documentation screenshots are up to date."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git commit -m "Update documentation screenshots"
+            git push origin HEAD:main || echo "::warning::main has moved on; the next run updates the screenshots"
+          fi
 
       # The installed package: find_package(Carbon), a custom component and the extension sources built from
       # the installed headers only.
