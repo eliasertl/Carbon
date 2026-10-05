@@ -2,8 +2,8 @@
 
 # Package configuration of an installed Carbon:
 #
-#   find_package(Carbon CONFIG REQUIRED)                      # or: COMPONENTS Extensions
-#   target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions)
+#   find_package(Carbon CONFIG REQUIRED)                      # or: COMPONENTS Extensions Reflection
+#   target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Reflection)
 #
 # Carbon links Dawn through its public interface, so Dawn must be findable as well
 # (CMAKE_PREFIX_PATH or Dawn_DIR), unless the consuming project already defines its target.
@@ -22,6 +22,13 @@ if(EXISTS "${CMAKE_CURRENT_LIST_DIR}/CarbonExtensionsTargets.cmake")
     set(Carbon_Extensions_FOUND TRUE)
 else()
     set(Carbon_Extensions_FOUND FALSE)
+endif()
+# CarbonReflection is built on CarbonExtensions, so it is found only together with it.
+if(Carbon_Extensions_FOUND AND EXISTS "${CMAKE_CURRENT_LIST_DIR}/CarbonReflectionTargets.cmake")
+    include("${CMAKE_CURRENT_LIST_DIR}/CarbonReflectionTargets.cmake")
+    set(Carbon_Reflection_FOUND TRUE)
+else()
+    set(Carbon_Reflection_FOUND FALSE)
 endif()
 
 # carbon_copy_dawn_runtime(<target>): copies d3dcompiler_47.dll next to an executable on Windows.

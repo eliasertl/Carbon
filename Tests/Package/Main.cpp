@@ -4,8 +4,26 @@
 #include <cstdio>
 
 #include <Carbon/Extensions/Extensions.h>
+#include <Carbon/Reflection/Reflection.h>
 
 #include "StarRating.h"
+
+namespace PackageCheck
+{
+    enum class Quality
+    {
+        Low,
+        High,
+        VeryHigh
+    };
+    CB_REFLECT_ENUM(Quality, CB_VALUE(VeryHigh, {.DisplayName = "Ultra"}));
+
+    struct Settings
+    {
+        Quality TextureQuality = Quality::High;
+        bool VSync = true;
+    };
+} // namespace PackageCheck
 
 int main()
 {
@@ -45,11 +63,15 @@ int main()
     }
 
     const Carbon::Version version = Carbon::GetExtensionsVersion();
+    const bool isReflected = Carbon::GetEnumCount<PackageCheck::Quality>() == 3 &&
+                             Carbon::GetEnumDisplayName(PackageCheck::Quality::VeryHigh) == "Ultra" &&
+                             Carbon::GetFieldDisplayName<PackageCheck::Settings>(0) == "Texture Quality";
     Carbon::DestroyContext(context);
 
-    if (vertexCount == 0 || failedChecks != 0)
+    if (vertexCount == 0 || failedChecks != 0 || !isReflected)
     {
-        std::fprintf(stderr, "Package check failed: %zu vertices, %d failed checks\n", vertexCount, failedChecks);
+        std::fprintf(stderr, "Package check failed: %zu vertices, %d failed checks, reflection %s\n", vertexCount,
+                     failedChecks, isReflected ? "works" : "failed");
         return 1;
     }
     std::printf("Carbon %u.%u.%u package check passed (%zu vertices)\n", version.Major, version.Minor, version.Patch,
