@@ -27,6 +27,7 @@
 #include "Carbon/Extensions/Stepper.h"
 #include "Carbon/Extensions/TabView.h"
 #include "Carbon/Extensions/Table.h"
+#include "Carbon/Extensions/Toolbar.h"
 
 namespace Carbon
 {

@@ -175,6 +175,18 @@ namespace Carbon
                                                        {.Label = "File"}};
                 PathControl("Path", Path, {.Width = 100.0f});
                 PathControl("Pop-up path", Path, {.Style = PathControlStyle::PopUp});
+                BeginToolbar("Toolbar", {.Width = 200.0f});
+                ToolbarItem("New", {.Icon = Icons::Plus});
+                ToolbarSeparator();
+                ToolbarFlexibleSpace();
+                ToolbarItem("Share", {.Icon = Icons::Export});
+                ToolbarItem("Delete", {.Icon = Icons::Trash});
+                if (BeginToolbarControl("Find"))
+                {
+                    SearchField("Find", &m_Text, {.Width = 120.0f});
+                    EndToolbarControl();
+                }
+                EndToolbar();
                 PopUpButton("PopUp", &m_Selected, {"One", "Two", "Three"});
                 Stepper("Stepper", &m_Selected);
                 ProgressIndicator(0.5f);
