@@ -174,9 +174,11 @@ namespace Carbon
             display = edit.SecureText;
         }
 
+        // A field that does not accept input for now keeps its focus and its caret, but leaves the keys alone.
+        const bool acceptsInput = options.AcceptsInput;
         if (isFocused)
         {
-            interactionState.IsTextInputActive = true;
+            interactionState.IsTextInputActive = acceptsInput;
             editor.ClampTo(*text);
             GetCaretPositions(display, spec, edit.CaretPositions);
             const size_t caretBefore = editor.GetCaret();
@@ -186,7 +188,7 @@ namespace Carbon
             const float pointerX = input.MousePos.X - (textLeft - edit.ScrollX);
             const auto hitOffset = [&]()
             { return ToTextOffset(*text, HitTest(display, edit.CaretPositions, pointerX), options.IsSecure); };
-            if (isPressedHere)
+            if (isPressedHere && acceptsInput)
             {
                 const int clicks = input.MouseClickCount[static_cast<size_t>(MouseButton::Left)];
                 const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
@@ -203,7 +205,7 @@ namespace Carbon
                 interactionState.IsActiveAlive = true;
                 if (input.MouseDown[static_cast<size_t>(MouseButton::Left)])
                 {
-                    if (edit.IsDragSelecting && !isPressedHere)
+                    if (edit.IsDragSelecting && !isPressedHere && acceptsInput)
                         editor.SetCaret(*text, hitOffset(), true);
                 }
                 else
@@ -213,54 +215,59 @@ namespace Carbon
             }
 
             // ---- Keyboard ----
-            const KeyModifiers shortcut = context.HostIO.GetShortcutModifier();
-            const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
-            const bool byWord =
-                HasModifiers(input.Modifiers, shortcut) || HasModifiers(input.Modifiers, KeyModifiers::Alt);
-
-            if (IsKeyPressed(Key::LeftArrow))
-                editor.MoveLeft(*text, isShiftHeld, byWord);
-            if (IsKeyPressed(Key::RightArrow))
-                editor.MoveRight(*text, isShiftHeld, byWord);
-            const bool isUp = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::UpArrow);
-            const bool isDown = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::DownArrow);
-            if (IsKeyPressed(Key::Home) || isUp)
-                editor.MoveToStart(*text, isShiftHeld);
-            if (IsKeyPressed(Key::End) || isDown)
-                editor.MoveToEnd(*text, isShiftHeld);
-            if (IsKeyPressed(Key::Backspace))
-                changed = editor.DeleteBackward(*text, byWord) || changed;
-            if (IsKeyPressed(Key::Delete))
-                changed = editor.DeleteForward(*text, byWord) || changed;
-
-            if (IsShortcutPressed(Key::A))
-                editor.SelectAll(*text);
-            // A secure field never puts its text on the clipboard.
-            const bool canCopy = editor.HasSelection() && !options.IsSecure && context.HostCallbacks.SetClipboardText;
-            if (IsShortcutPressed(Key::C) && canCopy)
-                context.HostCallbacks.SetClipboardText(editor.GetSelectedText(*text));
-            if (IsShortcutPressed(Key::X) && canCopy)
+            if (acceptsInput)
             {
-                context.HostCallbacks.SetClipboardText(editor.GetSelectedText(*text));
-                changed = editor.DeleteSelection(*text) || changed;
-            }
-            if (IsShortcutPressed(Key::V) && context.HostCallbacks.GetClipboardText)
-                changed = editor.Insert(*text, context.HostCallbacks.GetClipboardText(), options.MaxLength) || changed;
-            if (IsShortcutPressed(Key::Z))
-                changed = editor.Undo(*text) || changed;
-            if (IsShortcutPressed(Key::Z, KeyModifiers::Shift) || IsShortcutPressed(Key::Y))
-                changed = editor.Redo(*text) || changed;
+                const KeyModifiers shortcut = context.HostIO.GetShortcutModifier();
+                const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
+                const bool byWord =
+                    HasModifiers(input.Modifiers, shortcut) || HasModifiers(input.Modifiers, KeyModifiers::Alt);
 
-            for (const char32_t character : input.Characters)
-            {
-                char encoded[4];
-                const uint32_t length = EncodeUTF8(character, encoded);
-                changed = editor.Insert(*text, std::string_view(encoded, length), options.MaxLength) || changed;
-            }
+                if (IsKeyPressed(Key::LeftArrow))
+                    editor.MoveLeft(*text, isShiftHeld, byWord);
+                if (IsKeyPressed(Key::RightArrow))
+                    editor.MoveRight(*text, isShiftHeld, byWord);
+                const bool isUp = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::UpArrow);
+                const bool isDown = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::DownArrow);
+                if (IsKeyPressed(Key::Home) || isUp)
+                    editor.MoveToStart(*text, isShiftHeld);
+                if (IsKeyPressed(Key::End) || isDown)
+                    editor.MoveToEnd(*text, isShiftHeld);
+                if (IsKeyPressed(Key::Backspace))
+                    changed = editor.DeleteBackward(*text, byWord) || changed;
+                if (IsKeyPressed(Key::Delete))
+                    changed = editor.DeleteForward(*text, byWord) || changed;
 
-            submitted = IsKeyPressed(Key::Enter, false) || IsKeyPressed(Key::KeypadEnter, false);
-            if (IsKeyPressed(Key::Escape, false))
-                ClearFocus();
+                if (IsShortcutPressed(Key::A))
+                    editor.SelectAll(*text);
+                // A secure field never puts its text on the clipboard.
+                const bool canCopy =
+                    editor.HasSelection() && !options.IsSecure && context.HostCallbacks.SetClipboardText;
+                if (IsShortcutPressed(Key::C) && canCopy)
+                    context.HostCallbacks.SetClipboardText(editor.GetSelectedText(*text));
+                if (IsShortcutPressed(Key::X) && canCopy)
+                {
+                    context.HostCallbacks.SetClipboardText(editor.GetSelectedText(*text));
+                    changed = editor.DeleteSelection(*text) || changed;
+                }
+                if (IsShortcutPressed(Key::V) && context.HostCallbacks.GetClipboardText)
+                    changed =
+                        editor.Insert(*text, context.HostCallbacks.GetClipboardText(), options.MaxLength) || changed;
+                if (IsShortcutPressed(Key::Z))
+                    changed = editor.Undo(*text) || changed;
+                if (IsShortcutPressed(Key::Z, KeyModifiers::Shift) || IsShortcutPressed(Key::Y))
+                    changed = editor.Redo(*text) || changed;
+
+                for (const char32_t character : input.Characters)
+                {
+                    char encoded[4];
+                    const uint32_t length = EncodeUTF8(character, encoded);
+                    changed = editor.Insert(*text, std::string_view(encoded, length), options.MaxLength) || changed;
+                }
+
+                submitted = IsKeyPressed(Key::Enter, false) || IsKeyPressed(Key::KeypadEnter, false);
+                if (IsKeyPressed(Key::Escape, false))
+                    ClearFocus();
+            }
 
             // The text may have changed: refresh what is on screen and where the caret can be.
             if (changed)
@@ -297,12 +304,15 @@ namespace Carbon
         // ---- Drawing ----
         DrawList& drawList = context.Draw;
         const float radius = metrics.CornerRadius;
-        drawList.AddSquircle(rect, context.Style.GetColor(StyleColor::ControlBackground), radius);
-        // The border gets stronger under the pointer: the field invites a click.
-        const ControlFeedback feedback = AnimateFeedback(id, isHovered, false);
-        const Color border = Blend(context.Style.GetColor(StyleColor::ControlBorder),
-                                   context.Style.GetColor(StyleColor::Label), 0.3f * feedback.Hover);
-        drawList.AddSquircleStroke(rect, border, radius, context.Style.GetVar(StyleVar::BorderWidth));
+        if (options.IsBezeled)
+        {
+            drawList.AddSquircle(rect, context.Style.GetColor(StyleColor::ControlBackground), radius);
+            // The border gets stronger under the pointer: the field invites a click.
+            const ControlFeedback feedback = AnimateFeedback(id, isHovered, false);
+            const Color border = Blend(context.Style.GetColor(StyleColor::ControlBorder),
+                                       context.Style.GetColor(StyleColor::Label), 0.3f * feedback.Hover);
+            drawList.AddSquircleStroke(rect, border, radius, context.Style.GetVar(StyleVar::BorderWidth));
+        }
 
         if (!options.Icon.empty())
         {
@@ -323,7 +333,8 @@ namespace Carbon
         const float textX = context.Scale.Snap(textLeft - scrollX);
         const float lineTop = centerY - fontMetrics.LineHeight * 0.5f;
         drawList.PushClipRect(Rect(textLeft, rect.Y, textWidth, rect.Height));
-        if (isFocused && editor.HasSelection())
+        const bool showsCaret = isFocused && acceptsInput;
+        if (showsCaret && editor.HasSelection())
         {
             const float start =
                 edit.CaretPositions[ToDisplayOffset(*text, editor.GetSelectionStart(), options.IsSecure)];
@@ -345,7 +356,7 @@ namespace Carbon
         {
             DrawLabel(drawList, rect, textX, display, spec, context.Style.GetColor(StyleColor::Label));
         }
-        if (isFocused && !editor.HasSelection() && std::fmod(edit.BlinkTime, BlinkPeriod) < BlinkPeriod * 0.5f)
+        if (showsCaret && !editor.HasSelection() && std::fmod(edit.BlinkTime, BlinkPeriod) < BlinkPeriod * 0.5f)
         {
             const float caretX = edit.CaretPositions[ToDisplayOffset(*text, editor.GetCaret(), options.IsSecure)];
             const Rect caret(textX + caretX, lineTop, CaretWidth, fontMetrics.LineHeight);
@@ -353,7 +364,8 @@ namespace Carbon
         }
         drawList.PopClipRect();
 
-        DrawFocusRing(id, rect, radius, true);
+        if (options.IsBezeled)
+            DrawFocusRing(id, rect, radius, true);
         PopDisabled();
 
         Interaction interaction;
@@ -370,5 +382,17 @@ namespace Carbon
         TextEditState& edit = Internal::GetContext().TextEdit;
         if (edit.Owner == GetID(label))
             edit.IsReloadPending = true;
+    }
+
+    bool GetTextFieldSelection(std::string_view label, TextFieldSelection* selection)
+    {
+        CB_VERIFY(selection != nullptr, "GetTextFieldSelection needs a TextFieldSelection to fill");
+        const TextEditState& edit = Internal::GetContext().TextEdit;
+        if (selection == nullptr || edit.Owner != GetID(label))
+            return false;
+        selection->Caret = edit.Editor.GetCaret();
+        selection->Start = edit.Editor.GetSelectionStart();
+        selection->End = edit.Editor.GetSelectionEnd();
+        return true;
     }
 } // namespace Carbon
