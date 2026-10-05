@@ -50,6 +50,9 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
   ColorWell and notifications at any edge or corner.
 - **Overlays**: popovers, menus, alerts and sheets float in a layer above the interface and take the pointer and
   the keyboard while they are open.
+- **Reflection** (`CarbonReflection`): enum value names and struct fields found by the compiler, with an
+  optional macro for display names, ranges and other metadata, so an application's own types can drive its
+  interface. [Docs/Reflection.md](Docs/Reflection.md) explains it.
 - **Custom components**: the extension components are built only on Carbon's public extension API, and yours
   can be too. [Docs/CustomComponents.md](Docs/CustomComponents.md) walks through a star rating control.
 - **Squircles**: every rounded shape has continuous-curvature corners, evaluated analytically in the fragment
@@ -116,6 +119,7 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Overlays](Docs/Overlays.md) — how popovers, menus, alerts and sheets float above the interface
 - [Components](Docs/Components/README.md) — one page per component
 - [Custom components](Docs/CustomComponents.md) — the extension API, by example
+- [Reflection](Docs/Reflection.md) — interface from your own enums and structs: automatic reflection, the macros, limits
 
 ## License
 

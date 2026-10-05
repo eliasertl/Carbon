@@ -4,8 +4,9 @@ Status: **approved plan** (2026-10-03); implementation follows the milestones in
 design contract for Carbon v1. Sections marked *Decision* record choices made where the brief left room.
 
 Carbon is an immediate-mode C++20 UI framework that looks like macOS 11–26 (flat, no translucency) and renders
-through WebGPU (Dawn) into a render pass owned by the host. It ships as two static libraries: `Carbon` (core) and
-`CarbonExtensions` (components built only on Carbon's public extension API).
+through WebGPU (Dawn) into a render pass owned by the host. It ships as three static libraries: `Carbon` (core),
+`CarbonExtensions` (components built only on Carbon's public extension API) and `CarbonReflection` (interface
+generated from an application's enums and structs, built on both).
 
 ## 1. Principles
 
@@ -56,6 +57,12 @@ RadioGroup, DatePicker, DatePickerCalendar, Stepper, ProgressIndicator, SearchFi
 ColumnView, PathControl, SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`, what several of them
 share: `SelectionList` (Sidebar, List, Table, OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and
 `MenuInternal` (Menu, MenuBar).
+
+`Reflection/src/Carbon/Reflection/` is the reflection library: `Enum.h` and `Struct.h` (queries), `Macros.h`
+(`CB_REFLECT_ENUM`, `CB_REFLECT_STRUCT`), the option structs and the umbrella `Reflection.h`. `Detail/` holds what
+the public templates are made of: `Signature.h` (every compiler-specific trick), `EnumModel.h`, `StructModel.h`,
+`FieldTie.h` (structured bindings for up to 64 fields), `Description.h` (what the macros expand to) and
+`DisplayName.h` (labels). `Reflection/src` may include public Carbon and CarbonExtensions headers only.
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
@@ -589,8 +596,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 
 ## 14. Build, packaging and repository
 
-- Root `CMakeLists.txt`: options and `add_subdirectory` only. Targets `Carbon` (`Carbon::Carbon`) and
-  `CarbonExtensions` (`Carbon::Extensions`), both static.
+- Root `CMakeLists.txt`: options and `add_subdirectory` only. Targets `Carbon` (`Carbon::Carbon`),
+  `CarbonExtensions` (`Carbon::Extensions`) and `CarbonReflection` (`Carbon::Reflection`, built when
+  `CARBON_BUILD_REFLECTION` and `CARBON_BUILD_EXTENSIONS` are on), all static.
 - `CARBON_DEPS_<NAME>_BUILD` / `CARBON_DEPS_<NAME>_NAME` for FreeType, HarfBuzz, GoogleTest, GLFW and stb; Dawn
   is always found (`find_package(Dawn CONFIG)` unless `CARBON_DEPS_DAWN_NAME` already exists).
 - Fonts and shaders are converted to `.cpp` byte arrays at build time by `Framework/CMake/EmbedAsset.cmake`
@@ -706,6 +714,16 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 75 | JetBrains Mono is embedded as Carbon's monospaced font and is not a fallback for other fonts | Code needs a monospaced face without a file; as a fallback it would change how missing characters of proportional text look |
 | 76 | Private Use Area characters take the icon font before the requested font | JetBrains Mono has powerline glyphs at four of Phosphor's code points; `Carbon::Icons` must draw the same icon in every font |
 | 77 | `PushFont` is part of the style stack, and `GetTextSpec` returns the pushed font | Every core and extension component builds its text from `GetTextSpec`, so all of them follow a pushed font without changes |
+| 78 | Reflection is a third library, `CarbonReflection`, on top of `CarbonExtensions`; `CARBON_BUILD_REFLECTION` without the extensions skips it with a message | It draws with extension components; applications that do not want it pay nothing |
+| 79 | The headers the reflection templates are made of live in `Detail/` and are installed; they use `Carbon::Internal` | Templates are compiled in the application, so their helpers must be reachable from the installed headers. `Internal/` keeps its meaning: never installed |
+| 80 | `CB_REFLECT_*` define a function `CarbonReflectDescribe(TypeTag<T>)` next to the type, found by argument-dependent lookup, instead of specializing a Carbon template | A specialization must be written in an enclosing namespace of `Carbon` (in practice the global one); the function works in any namespace, including one opened to describe someone else's type |
+| 81 | The options of `CB_FIELD` / `CB_VALUE` are a braced initializer and required (`{}` when empty); `ReflectFieldOptions` is ordered DisplayName, Min, Max, Step, Control, Tooltip, Hidden, ReadOnly | The braces carry commas through the preprocessor without `__VA_OPT__`, so the macros also work with MSVC's traditional preprocessor in applications. The order lets the brief's examples compile, since designated initializers follow declaration order |
+| 82 | Enum values are sorted by value; hidden values are left out of the count; values with one number are one value | A stable order for controls; `Count` sentinels should not be selectable |
+| 83 | Labels are formatted at run time, once per type, into a static table | The formatting code stays out of the templates (one `.cpp`), no frame allocates, and labels and names stay `std::string_view` |
+| 84 | Field names come from a pointer to the field of an `extern` object that is never defined, wrapped in a class-type template argument; field counts from brace initialization with a type that converts to anything | MSVC only evaluates the pointer when the object is reached through a function parameter; Clang spells a bare subobject pointer without the field's name. These are the Boost.PFR techniques, written in-house |
+| 85 | Automatic reflection supports up to 64 fields and the enum range [-128, 127], clamped to the underlying type; a macro range may span 1024 values | Each limit trades compile time for coverage; 64 fields and 256 values cover settings structs and enums, with the macro for the rest |
+| 86 | `ReflectControl` also has `Switch` and `Checkbox` | macOS settings use both for booleans; the field's control override is the natural place to choose |
+| 87 | Private fields cannot be reflected, even with the macro | The type is never modified, and only a `friend` declaration inside the type could grant access |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

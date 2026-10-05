@@ -75,6 +75,7 @@ Carbon warns at configure time when it detects this mismatch.
 | Option | Default | Meaning |
 | --- | --- | --- |
 | `CARBON_BUILD_EXTENSIONS` | `ON` | Build the `CarbonExtensions` library |
+| `CARBON_BUILD_REFLECTION` | `ON` | Build the `CarbonReflection` library (skipped with a message when `CARBON_BUILD_EXTENSIONS` is `OFF`) |
 | `CARBON_BUILD_EXAMPLES` | `ON` when Carbon is the top-level project | Build the examples (needs GLFW and stb) |
 | `CARBON_BUILD_TESTS` | `ON` when Carbon is the top-level project | Build the unit tests (needs GoogleTest) |
 | `CARBON_INSTALL` | `ON` when Carbon is the top-level project | Generate install rules and the `CarbonConfig.cmake` package |
@@ -176,7 +177,7 @@ set `CARBON_D3DCOMPILER_DLL` to its path if CMake cannot find it.
 
 ```cmake
 add_subdirectory(External/Carbon)
-target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions)
+target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Reflection)
 ```
 
 Examples, tests and install rules are off by default in this mode. Carbon does not set global compiler flags or
@@ -193,8 +194,8 @@ cmake --install Build --prefix <carbon-install>
 ```
 
 ```cmake
-find_package(Carbon CONFIG REQUIRED)            # add COMPONENTS Extensions to require the extension library
-target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions)
+find_package(Carbon CONFIG REQUIRED)            # add COMPONENTS Extensions Reflection to require them
+target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Reflection)
 carbon_copy_dawn_runtime(MyApp)                # Windows: copies d3dcompiler_47.dll next to the executable
 ```
 
@@ -202,11 +203,12 @@ Configure the application with both prefixes: `-DCMAKE_PREFIX_PATH="<carbon-inst
 
 What gets installed:
 
-- `lib/`: the static libraries `Carbon` and `CarbonExtensions`. Carbon is static, so an application links
+- `lib/`: the static libraries `Carbon`, `CarbonExtensions` and `CarbonReflection`. Carbon is static, so an application links
   FreeType and HarfBuzz as well: copies built from the submodules are installed next to Carbon and exported as
   `Carbon::freetype` and `Carbon::harfbuzz` (linked automatically through `Carbon::Carbon`). Copies that
   were found with `find_package` (`CARBON_DEPS_<NAME>_BUILD=OFF`) are found again by `CarbonConfig.cmake`.
-- `include/`: the public headers only. Internal headers are not installed.
+- `include/`: the public headers only. Internal headers are not installed. `Carbon/Reflection/Detail/` is
+  installed because the reflection templates are compiled in the application; it is not meant for direct use.
 - `lib/cmake/Carbon/`: the package files.
 - `share/doc/Carbon/`: Carbon's license, the third-party notices and, in `Licenses/`, the license texts of the
   embedded fonts, FreeType and HarfBuzz. Ship them with your application.
