@@ -236,6 +236,235 @@ namespace Carbon
         EXPECT_EQ(m_Value, Date(2026, 10, 1, 14, 30));
     }
 
+    // ---- DatePicker ---------------------------------------------------------------------------------------------
+
+    TEST(DatePickerFormatTests, FormatsTheThreeStyles)
+    {
+        char buffer[32];
+        const DateTime value = Date(2026, 10, 5, 14, 30);
+        const auto format = [&](const DateTime& date, DatePickerElements elements, const DateFormat& style)
+        { return std::string(FormatDateTime(date, elements, style, buffer)); };
+
+        EXPECT_EQ(format(value, DatePickerElements::Date, DateFormat::ISO()), "2026-10-05");
+        EXPECT_EQ(format(value, DatePickerElements::Time, DateFormat::ISO()), "14:30");
+        EXPECT_EQ(format(value, DatePickerElements::DateAndTime, DateFormat::ISO()), "2026-10-05 14:30");
+        EXPECT_EQ(format(value, DatePickerElements::Date, DateFormat::German()), "05.10.2026");
+        EXPECT_EQ(format(value, DatePickerElements::DateAndTime, DateFormat::German()), "05.10.2026, 14:30");
+        EXPECT_EQ(format(value, DatePickerElements::Date, DateFormat::US()), "10/5/2026");
+        EXPECT_EQ(format(value, DatePickerElements::DateAndTime, DateFormat::US()), "10/5/2026, 2:30 PM");
+
+        // The ends of the 12-hour clock, and padding.
+        EXPECT_EQ(format(Date(2026, 1, 9, 0, 30), DatePickerElements::Time, DateFormat::US()), "12:30 AM");
+        EXPECT_EQ(format(Date(2026, 1, 9, 12, 0), DatePickerElements::Time, DateFormat::US()), "12:00 PM");
+        EXPECT_EQ(format(Date(2026, 1, 9, 9, 5), DatePickerElements::Time, DateFormat::ISO()), "09:05");
+        EXPECT_EQ(format(Date(2026, 1, 9, 9, 5), DatePickerElements::Date, DateFormat::German()), "09.01.2026");
+
+        // A custom format: day, month and year with slashes, 24-hour time.
+        DateFormat british = DateFormat::German();
+        british.DateSeparator = '/';
+        EXPECT_EQ(format(value, DatePickerElements::DateAndTime, british), "05/10/2026, 14:30");
+    }
+
+    class DatePickerTests : public WidgetTest
+    {
+    protected:
+        Builder Interface()
+        {
+            return [this]
+            {
+                // Away from the edges, so that the popover opens below the field without being moved.
+                BeginVStack({.Padding = EdgeInsets(300.0f, 100.0f)});
+                if (DatePicker("picker", &m_Value, m_Options))
+                    m_Changes++;
+                m_Rect = GetItemRect();
+                m_Id = GetItemID();
+                EndVStack();
+            };
+        }
+
+        // The centre of the text of the element that starts after `before` (the field's text up to it).
+        Vec2 GetElement(std::string_view before, std::string_view element) const
+        {
+            const TextSpec spec = GetTextSpec(TextStyle::Body);
+            const float x = m_Rect.X + 7.0f + MeasureText(before, spec).X + MeasureText(element, spec).X * 0.5f;
+            return Vec2(x, m_Rect.GetCenter().Y);
+        }
+
+        // A day of the calendar in the popover: 12 points of padding below the 2-point gap and the 7-point arrow.
+        Vec2 GetCalendarCell(int column, int row) const
+        {
+            const Vec2 origin(m_Rect.X + 12.0f, m_Rect.GetBottom() + 2.0f + 7.0f + 12.0f);
+            return Vec2(origin.X + 32.0f * float(column) + 16.0f, origin.Y + 52.0f + 28.0f * float(row) + 14.0f);
+        }
+
+        ID GetPopover() { return HashID("##popover", m_Id); }
+
+        DateTime m_Value = Date(2026, 10, 5, 14, 30);
+        DatePickerOptions m_Options = {.Today = Date(2026, 10, 5)};
+        int m_Changes = 0;
+        Rect m_Rect;
+        ID m_Id;
+    };
+
+    TEST_F(DatePickerTests, KeysStepAndTypeTheElements)
+    {
+        Settle(Interface());
+        TapKey(Key::Tab, Interface());
+        ASSERT_EQ(GetFocusedID(), m_Id);
+        // Tab starts at the first element, the year.
+        TapKey(Key::UpArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2027, 10, 5, 14, 30));
+        TapKey(Key::RightArrow, Interface());
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2027, 9, 5, 14, 30));
+
+        // Two digits complete the month and move on to the day; a 4 cannot start a day, so it is the day.
+        Type("12", Interface());
+        EXPECT_EQ(m_Value, Date(2027, 12, 5, 14, 30));
+        Type("4", Interface());
+        EXPECT_EQ(m_Value, Date(2027, 12, 4, 14, 30));
+        Type("31", Interface());
+        EXPECT_EQ(m_Value, Date(2027, 12, 31, 14, 30));
+        // Stepping wraps within the month, as on macOS.
+        TapKey(Key::UpArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2027, 12, 1, 14, 30));
+
+        // A separator after a complete element only confirms the move; a day that the month does not have
+        // becomes its last day.
+        TapKey(Key::LeftArrow, Interface());
+        Type("2-", Interface());
+        Type("30", Interface());
+        EXPECT_EQ(m_Value, Date(2027, 2, 28, 14, 30));
+        // Two-digit years are this century.
+        TapKey(Key::LeftArrow, Interface());
+        TapKey(Key::LeftArrow, Interface());
+        Type("30-", Interface());
+        EXPECT_EQ(m_Value, Date(2030, 2, 28, 14, 30));
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(DatePickerTests, ClickingAnElementSelectsIt)
+    {
+        Settle(Interface());
+        Click(GetElement("2026-10-", "05"), Interface());
+        EXPECT_EQ(GetFocusedID(), m_Id);
+        TapKey(Key::UpArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 6, 14, 30));
+        Click(GetElement("2026-", "10"), Interface());
+        TapKey(Key::UpArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2026, 11, 6, 14, 30));
+    }
+
+    TEST_F(DatePickerTests, TwelveHourTimeTakesAmAndPm)
+    {
+        m_Options.Elements = DatePickerElements::DateAndTime;
+        m_Options.Format = DateFormat::US();
+        Settle(Interface());
+        TapKey(Key::Tab, Interface());
+        // Month, day, year, hour.
+        for (int i = 0; i < 3; i++)
+            TapKey(Key::RightArrow, Interface());
+        Type("9", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 21, 30)) << "the hour keeps PM";
+        Type("a", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 9, 30));
+        Type("12", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 9, 12)) << "after the hour, the minute";
+        // The minute moved on to AM/PM; two steps back is the hour.
+        TapKey(Key::LeftArrow, Interface());
+        TapKey(Key::LeftArrow, Interface());
+        Type("12", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 0, 12)) << "12 AM is midnight";
+        Type("p", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 12, 12));
+    }
+
+    TEST_F(DatePickerTests, MinutesFollowTheInterval)
+    {
+        m_Options.Elements = DatePickerElements::Time;
+        m_Options.MinuteInterval = 15;
+        m_Value = Date(2026, 10, 5, 7, 15);
+        Settle(Interface());
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::RightArrow, Interface());
+        TapKey(Key::UpArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 7, 30));
+        TapKey(Key::DownArrow, Interface());
+        TapKey(Key::DownArrow, Interface());
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 7, 45)) << "wraps from 0 to 45";
+        Type("44", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 5, 7, 30)) << "a typed minute is rounded down to the interval";
+    }
+
+    TEST_F(DatePickerTests, TheStepperChangesTheSelectedElement)
+    {
+        Settle(Interface());
+        Click(GetElement("2026-", "10"), Interface());
+        // The stepper is 4 points to the right of the field: its upper half adds one.
+        Click(Vec2(m_Rect.GetRight() + 4.0f + 7.0f, m_Rect.Y + 6.0f), Interface());
+        EXPECT_EQ(m_Value, Date(2026, 11, 5, 14, 30));
+        Click(Vec2(m_Rect.GetRight() + 4.0f + 7.0f, m_Rect.GetBottom() - 6.0f), Interface());
+        Click(Vec2(m_Rect.GetRight() + 4.0f + 7.0f, m_Rect.GetBottom() - 6.0f), Interface());
+        EXPECT_EQ(m_Value, Date(2026, 9, 5, 14, 30));
+    }
+
+    TEST_F(DatePickerTests, TheCalendarPopoverPicksADay)
+    {
+        Settle(Interface());
+        Click(GetElement("", "2026"), Interface());
+        EXPECT_TRUE(IsOverlayOpen(GetPopover()));
+        Settle(Interface());
+        // October 2026 starts on a Thursday: the 20th is the Tuesday of the fourth week.
+        Click(GetCalendarCell(1, 3), Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 20, 14, 30)) << "the day changes, the time stays";
+        EXPECT_FALSE(IsOverlayOpen(GetPopover()));
+        EXPECT_EQ(GetFocusedID(), m_Id) << "the field keeps the keyboard";
+
+        // Space opens and Escape closes it from the keyboard; typing goes on meanwhile.
+        TapKey(Key::Space, Interface());
+        EXPECT_TRUE(IsOverlayOpen(GetPopover()));
+        TapKey(Key::Escape, Interface());
+        EXPECT_FALSE(IsOverlayOpen(GetPopover()));
+
+        // A click elsewhere closes it too.
+        TapKey(Key::Space, Interface());
+        Settle(Interface());
+        Click(Vec2(780.0f, 590.0f), Interface());
+        EXPECT_FALSE(IsOverlayOpen(GetPopover()));
+    }
+
+    TEST_F(DatePickerTests, ValuesStayWithinMinAndMax)
+    {
+        m_Options.Elements = DatePickerElements::DateAndTime;
+        m_Options.MinDate = Date(2026, 10, 1);
+        m_Options.MaxDate = Date(2026, 10, 31, 23, 59);
+        Settle(Interface());
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::UpArrow, Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 31, 23, 59)) << "a year later is clamped to the maximum";
+        Type("2025-", Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 1)) << "a typed year before the range is clamped to the minimum";
+
+        // An out-of-range value from the application is corrected without counting as a change.
+        const int changes = m_Changes;
+        m_Value = Date(2030, 1, 1);
+        Settle(Interface());
+        EXPECT_EQ(m_Value, Date(2026, 10, 31, 23, 59));
+        EXPECT_EQ(m_Changes, changes);
+    }
+
+    TEST_F(DatePickerTests, DisabledIgnoresInput)
+    {
+        m_Options.Disabled = true;
+        Settle(Interface());
+        Click(GetElement("", "2026"), Interface());
+        EXPECT_FALSE(IsOverlayOpen(GetPopover()));
+        TapKey(Key::Tab, Interface());
+        EXPECT_FALSE(GetFocusedID().IsValid());
+        EXPECT_EQ(m_Changes, 0);
+    }
+
     TEST_F(DatePickerCalendarTests, InvalidValuesAreCorrectedAndDisabledIgnoresInput)
     {
         m_Value = Date(2026, 2, 31, 30, 99);

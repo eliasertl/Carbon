@@ -8,6 +8,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/ColorWell.h
     src/Carbon/Extensions/ColumnView.h
     src/Carbon/Extensions/ComboBox.h
+    src/Carbon/Extensions/DatePicker.h
     src/Carbon/Extensions/DatePickerCalendar.h
     src/Carbon/Extensions/DateTime.h
     src/Carbon/Extensions/List.h
@@ -46,6 +47,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/ColorWell.cpp
     src/Carbon/Extensions/ColumnView.cpp
     src/Carbon/Extensions/ComboBox.cpp
+    src/Carbon/Extensions/DatePicker.cpp
     src/Carbon/Extensions/DatePickerCalendar.cpp
     src/Carbon/Extensions/DateTime.cpp
     src/Carbon/Extensions/List.cpp

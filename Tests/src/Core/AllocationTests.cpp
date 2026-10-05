@@ -80,7 +80,9 @@ namespace Carbon
         float m_Slider = 0.4f;
         std::string m_Text = "Some text";
         int m_Selected = 1;
+#if defined(CARBON_TESTS_HAVE_EXTENSIONS)
         DateTime m_Date = {.Year = 2026, .Month = 10, .Day = 5};
+#endif
     };
 
     TEST_F(AllocationTests, CoreWidgetsDoNotAllocateInSteadyState)
@@ -118,6 +120,37 @@ namespace Carbon
             });
         EXPECT_EQ(allocations, 0u);
     }
+
+#if defined(CARBON_TESTS_HAVE_EXTENSIONS)
+    TEST_F(AllocationTests, EditingADateDoesNotAllocateInSteadyState)
+    {
+        const auto build = [this]
+        {
+            BeginVStack({.Padding = 20.0f});
+            DatePicker("Date", &m_Date, {.Elements = DatePickerElements::DateAndTime, .Today = m_Date});
+            EndVStack();
+        };
+        // Focus the field, open the calendar with Space and type into the elements.
+        CountAllocationsOfOneFrame(build, 5);
+        GetIO().AddKeyEvent(Key::Tab, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Tab, false);
+        GetIO().AddKeyEvent(Key::Space, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Space, false);
+        // Text that has never been shown is shaped once, which may allocate: type during the warm-up.
+        GetIO().AddInputCharactersUTF8("2027-12");
+        CountAllocationsOfOneFrame(build, 10);
+        GetIO().AddKeyEvent(Key::UpArrow, true);
+        CountAllocationsOfOneFrame(build, 10);
+        GetIO().AddKeyEvent(Key::UpArrow, false);
+
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        EXPECT_EQ(m_Date.Year, 2027);
+        EXPECT_EQ(m_Date.Month, 12);
+        EXPECT_EQ(m_Date.Day, 6);
+    }
+#endif
 
     TEST_F(AllocationTests, HoverFocusAndTypingDoNotAllocateInSteadyState)
     {
@@ -177,6 +210,8 @@ namespace Carbon
                 PathControl("Path", Path, {.Width = 100.0f});
                 PathControl("Pop-up path", Path, {.Style = PathControlStyle::PopUp});
                 DatePickerCalendar("Calendar", &m_Date, {.Today = m_Date});
+                DatePicker("Date picker", &m_Date,
+                           {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .Today = m_Date});
                 BeginToolbar("Toolbar", {.Width = 200.0f});
                 ToolbarItem("New", {.Icon = Icons::Plus});
                 ToolbarSeparator();

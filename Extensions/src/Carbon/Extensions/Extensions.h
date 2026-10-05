@@ -8,6 +8,7 @@
 #include "Carbon/Extensions/ColorWell.h"
 #include "Carbon/Extensions/ColumnView.h"
 #include "Carbon/Extensions/ComboBox.h"
+#include "Carbon/Extensions/DatePicker.h"
 #include "Carbon/Extensions/DatePickerCalendar.h"
 #include "Carbon/Extensions/DateTime.h"
 #include "Carbon/Extensions/List.h"
