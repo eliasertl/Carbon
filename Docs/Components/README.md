@@ -52,6 +52,7 @@ These components are built only on Carbon's public extension API; see
 | [ComboBox](ComboBox.md) | A text field with a list of choices |
 | [Notifications](Notification.md) | Banners that tell about something that happened |
 | [RadioGroup](RadioGroup.md) | A few mutually exclusive choices as radio buttons |
+| [PathControl](PathControl.md) | The path to an item, from its root; each part can be clicked |
 
 Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
 

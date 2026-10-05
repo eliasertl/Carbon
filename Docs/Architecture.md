@@ -51,9 +51,9 @@ Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends o
 ```
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
-SegmentedControl, Chart, Popover, Menu, MenuBar, PopUpButton, PullDownButton, ComboBox, RadioGroup,
-Stepper, ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, SplitView, Alert, Sheet, ColorWell,
-Notification) and, in `Internal/`, what several of them share: `SelectionList` (Sidebar, List, Table,
+SegmentedControl, Chart, Popover, Menu, MenuBar, PopUpButton, PullDownButton, ComboBox, RadioGroup, Stepper,
+ProgressIndicator, SearchField, List, Table, OutlineView, ColumnView, PathControl, SplitView, Alert, Sheet,
+ColorWell, Notification) and, in `Internal/`, what several of them share: `SelectionList` (Sidebar, List, Table,
 OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView) and `MenuInternal` (Menu, MenuBar).
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
@@ -676,6 +676,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 57 | Column widths are measured in one frame and used in the next, kept in a fixed 32-column record; span and alignment of a cell are set with `SetNextGridCell` rather than new `ItemOptions` fields | The same one frame of latency as a fitting stack; per-ID state must be trivially copyable; every widget would otherwise have to forward cell options |
 | 58 | A `Fill` cell takes its column's width, but its column measures the cell's content | A column of only `Fill` cells (equal-width chips) would otherwise have no width at all, and a cell that measured its stretched width would keep its column from ever shrinking |
 | 59 | A radio group is one Tab stop whose arrow keys change the selection directly; -1 means no button is selected | This is AppKit's behaviour with Full Keyboard Access; a group that starts without a choice is a legitimate state for radio buttons, unlike segmented controls |
+| 60 | `PathControl` returns the index of the activated component (-1 for none) instead of a `bool` with a value it edits | The application owns the path (decision 51); what the control reports is an action on one of its components, not a new value |
+| 61 | A path that does not fit hides the middle names first, from the root's side, then truncates the root's name and last the selected item's; a hovered or highlighted component always shows its name. The pop-up style's menu lists the path from the selected item down, without check marks | The HIG names only the first step; keeping the selected item readable longest matches Finder's path bar. The menu has one leading column, which a check mark would take from the icons |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
