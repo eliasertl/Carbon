@@ -51,7 +51,9 @@ namespace Carbon
                                            static_cast<uint32_t>(TestScene::Height * scale), Color::White());
                 ASSERT_EQ(image.Width, static_cast<uint32_t>(TestScene::Width * scale));
                 if (frame == 3)
+                {
                     EXPECT_GT(CountInk(image, Color::White()), static_cast<size_t>(2000 * scale * scale));
+                }
             }
         }
 
@@ -69,7 +71,9 @@ namespace Carbon
                 m_Harness->RenderFrame(static_cast<uint32_t>(TestScene::Width * 2.0f),
                                        static_cast<uint32_t>(TestScene::Height * 2.0f), Color::White());
             if (frame == 2)
+            {
                 EXPECT_GT(CountInk(image, Color::White()), 8000u);
+            }
         }
         m_Harness->ShutdownBackend();
     }
