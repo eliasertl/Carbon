@@ -44,19 +44,25 @@ namespace Carbon
         context->HostCallbacks = description.Callbacks;
         context->IDStack.push_back(HashID("Carbon"));
         context->Text = std::make_unique<Internal::TextSystem>();
-        context->Renderer = std::make_unique<Internal::Renderer>(
-            description.Device, description.ColorFormat, description.DepthStencilFormat, description.SampleCount);
-
-        Context* previous = Internal::g_CurrentContext;
-        if (previous == nullptr)
-            Internal::g_CurrentContext = context;
 
         if (context->HostCallbacks.Log)
         {
             context->HostCallbacks.Log(LogLevel::Info, "Core",
-                                       std::format("Carbon {} context created{}", GetVersionString(),
-                                                   description.Device ? "" : " (headless: no device)"));
+                                       std::format("Carbon {} context created", GetVersionString()));
         }
+
+        // Until the WebGPU backend has its own Init function, a device in the description installs it.
+        if (description.Device != nullptr)
+        {
+            Context* current = Internal::g_CurrentContext;
+            Internal::g_CurrentContext = context;
+            Internal::InstallRenderer(*context, description.Device, description.ColorFormat,
+                                      description.DepthStencilFormat, description.SampleCount);
+            Internal::g_CurrentContext = current;
+        }
+
+        if (Internal::g_CurrentContext == nullptr)
+            Internal::g_CurrentContext = context;
         return context;
     }
 
@@ -66,8 +72,12 @@ namespace Carbon
             context = Internal::g_CurrentContext;
         if (context == nullptr)
             return;
-        if (Internal::g_CurrentContext == context)
-            Internal::g_CurrentContext = nullptr;
+
+        // A backend may log or call Carbon while it shuts down, so its context is current meanwhile.
+        Context* current = Internal::g_CurrentContext;
+        Internal::g_CurrentContext = context;
+        Internal::DestroyRendererBackend(*context);
+        Internal::g_CurrentContext = current == context ? nullptr : current;
         delete context;
     }
 
@@ -95,7 +105,7 @@ namespace Carbon
 
         context.Input.Update(io, context.Time);
         context.Text->BeginFrame(context.FrameCount, context.Scale.Factor);
-        context.Renderer->BeginFrame(context.FrameCount);
+        Internal::BeginRenderFrame(context);
 
         context.IsAnimatingThisFrame = context.Style.Advance(context.DeltaTime, context.ReduceMotion);
         context.Style.ResetWorkingValues();
@@ -137,6 +147,7 @@ namespace Carbon
         context.States.EndFrame(context.FrameCount);
         context.WasAnimatingLastFrame = context.IsAnimatingThisFrame;
         context.IsInFrame = false;
+        Internal::EndRenderFrame(context);
     }
 
     const DrawData& GetDrawData()

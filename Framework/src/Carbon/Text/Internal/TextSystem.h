@@ -91,6 +91,9 @@ namespace Carbon::Internal
         void GetCaretPositions(std::string_view line, const TextSpec& spec, std::vector<float>& positions);
 
         GlyphAtlas& GetAtlas() { return m_Atlas; }
+        /// Limits how large the atlas may grow, for renderer backends whose device has small textures. The size
+        /// is kept between the atlas's initial size and Carbon's own maximum.
+        void SetMaxAtlasSize(uint32_t size);
         size_t GetShapedLineCount() const { return m_ShapedLines.size(); }
         size_t GetCachedGlyphCount() const { return m_Glyphs.size(); }
 

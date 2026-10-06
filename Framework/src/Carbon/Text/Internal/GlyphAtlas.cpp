@@ -73,6 +73,19 @@ namespace Carbon::Internal
         m_DirtyMaxY = 0;
     }
 
+    bool GlyphAtlas::SetMaxSize(uint32_t maxSize)
+    {
+        m_MaxSize = std::max<uint32_t>(maxSize, 1);
+        if (m_Width <= m_MaxSize && m_Height <= m_MaxSize)
+            return false;
+
+        m_Width = std::min(m_Width, m_MaxSize);
+        m_Height = std::min(m_Height, m_MaxSize);
+        m_Pixels.assign(static_cast<size_t>(m_Width) * m_Height, 0);
+        Clear();
+        return true;
+    }
+
     void GlyphAtlas::ClearDirty()
     {
         m_DirtyMinY = 0;

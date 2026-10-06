@@ -1,5 +1,6 @@
 #include "Carbon/Text/Internal/TextSystem.h"
 
+#include <algorithm>
 #include <cmath>
 #include <limits>
 
@@ -135,6 +136,12 @@ namespace Carbon::Internal
                     ++it;
             }
         }
+    }
+
+    void TextSystem::SetMaxAtlasSize(uint32_t size)
+    {
+        if (m_Atlas.SetMaxSize(std::clamp(size, InitialAtlasSize, MaxAtlasSize)))
+            m_Glyphs.clear();
     }
 
     const ShapedLine& TextSystem::Shape(std::string_view line, const TextSpec& spec)

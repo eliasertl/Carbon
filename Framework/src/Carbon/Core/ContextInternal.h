@@ -15,6 +15,7 @@
 #include "Carbon/Interaction/InteractionInternal.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Overlay/OverlayInternal.h"
+#include "Carbon/Renderer/RenderStateInternal.h"
 #include "Carbon/Style/StyleInternal.h"
 #include "Carbon/Widgets/Internal/TextEditor.h"
 
@@ -22,7 +23,6 @@ namespace Carbon
 {
     namespace Internal
     {
-        class Renderer;
         class TextSystem;
     } // namespace Internal
 
@@ -40,7 +40,8 @@ namespace Carbon
         std::vector<ID> IDStack;
         DrawList Draw;
         std::unique_ptr<Internal::TextSystem> Text;
-        std::unique_ptr<Internal::Renderer> Renderer;
+        /// The renderer backend, if any, and what Carbon tracks for it.
+        Internal::RenderState Render;
 
         Internal::StateStorage States;
         Internal::StyleState Style;

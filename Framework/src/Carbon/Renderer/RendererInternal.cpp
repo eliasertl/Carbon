@@ -9,8 +9,7 @@
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Log.h"
 #include "Carbon/Renderer/Render.h"
-#include "Carbon/Text/Internal/GlyphAtlas.h"
-#include "Carbon/Text/Internal/TextSystem.h"
+#include "Carbon/Renderer/RenderStateInternal.h"
 
 namespace Carbon::Internal
 {
@@ -47,8 +46,6 @@ namespace Carbon::Internal
           m_DepthStencilFormat(depthStencilFormat),
           m_SampleCount(std::max<uint32_t>(sampleCount, 1))
     {
-        if (m_Device == nullptr)
-            return;
         m_Queue = m_Device.GetQueue();
         CreatePipeline();
     }
@@ -197,48 +194,32 @@ namespace Carbon::Internal
         return true;
     }
 
-    void Renderer::UploadAtlas(GlyphAtlas& atlas)
+    void Renderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
-        const bool needsTexture =
-            m_AtlasTexture == nullptr || m_AtlasWidth != atlas.GetWidth() || m_AtlasHeight != atlas.GetHeight();
-        if (needsTexture)
+        // A full update may come with a new size; the changed rows of a partial one fit the texture there is.
+        if (m_AtlasTexture == nullptr || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
         {
             wgpu::TextureDescriptor descriptor;
             descriptor.label = "Carbon glyph atlas";
-            descriptor.size = {atlas.GetWidth(), atlas.GetHeight(), 1};
+            descriptor.size = {update.Width, update.Height, 1};
             descriptor.format = wgpu::TextureFormat::R8Unorm;
             descriptor.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
             m_AtlasTexture = m_Device.CreateTexture(&descriptor);
             m_AtlasBindGroup = CreateTextureBindGroup(m_AtlasTexture.CreateView());
-            m_AtlasWidth = atlas.GetWidth();
-            m_AtlasHeight = atlas.GetHeight();
+            m_AtlasWidth = update.Width;
+            m_AtlasHeight = update.Height;
         }
-
-        // A new generation (the atlas grew or was cleared) needs everything; otherwise only the changed rows.
-        uint32_t firstRow = 0;
-        uint32_t lastRow = 0;
-        if (needsTexture || m_AtlasGeneration != atlas.GetGeneration())
-        {
-            lastRow = atlas.GetHeight();
-        }
-        else if (atlas.IsDirty())
-        {
-            firstRow = atlas.GetDirtyMinY();
-            lastRow = atlas.GetDirtyMaxY();
-        }
-        m_AtlasGeneration = atlas.GetGeneration();
-        atlas.ClearDirty();
-        if (lastRow <= firstRow)
+        if (update.RowCount == 0)
             return;
 
         wgpu::TexelCopyTextureInfo destination;
         destination.texture = m_AtlasTexture;
-        destination.origin = {0, firstRow, 0};
+        destination.origin = {0, update.FirstRow, 0};
         wgpu::TexelCopyBufferLayout layout;
-        layout.bytesPerRow = atlas.GetWidth();
-        layout.rowsPerImage = lastRow - firstRow;
-        const wgpu::Extent3D extent = {atlas.GetWidth(), lastRow - firstRow, 1};
-        const uint8_t* pixels = atlas.GetPixels().data() + static_cast<size_t>(firstRow) * atlas.GetWidth();
+        layout.bytesPerRow = update.Width;
+        layout.rowsPerImage = update.RowCount;
+        const wgpu::Extent3D extent = {update.Width, update.RowCount, 1};
+        const uint8_t* pixels = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * update.Width;
         m_Queue.WriteTexture(&destination, pixels, static_cast<size_t>(extent.width) * extent.height, &layout, &extent);
     }
 
@@ -256,23 +237,16 @@ namespace Carbon::Internal
         return m_Device.CreateBindGroup(&descriptor);
     }
 
-    void Renderer::Render(const DrawData& drawData, GlyphAtlas& atlas, const wgpu::RenderPassEncoder& pass)
+    void Renderer::Render(const DrawData& drawData)
     {
-        if (m_Device == nullptr)
-        {
-            if (!m_ReportedMissingDevice)
-                CB_LOG_ERROR("Renderer", "Render called on a context that was created without a device");
-            m_ReportedMissingDevice = true;
+        CB_VERIFY(m_Pass != nullptr, "The WebGPU renderer has no render pass to draw into");
+        if (m_Pass == nullptr)
             return;
-        }
+        const wgpu::RenderPassEncoder& pass = m_Pass;
 
         const float scale = drawData.ContentScale;
         const uint32_t targetWidth = static_cast<uint32_t>(std::lround(drawData.DisplaySize.X * scale));
         const uint32_t targetHeight = static_cast<uint32_t>(std::lround(drawData.DisplaySize.Y * scale));
-        if (drawData.Commands.empty() || targetWidth == 0 || targetHeight == 0)
-            return;
-
-        UploadAtlas(atlas);
 
         const uint64_t vertexBytes = drawData.Vertices.size_bytes();
         const uint64_t indexBytes = drawData.Indices.size_bytes();
@@ -341,7 +315,6 @@ namespace Carbon::Internal
                 HostTexture& texture = found->second;
                 if (texture.BindGroup == nullptr)
                     texture.BindGroup = CreateTextureBindGroup(texture.View);
-                texture.LastUsedFrame = m_FrameCount;
                 pass.SetBindGroup(1, texture.BindGroup);
             }
 
@@ -355,27 +328,26 @@ namespace Carbon::Internal
     {
         if (view == nullptr)
             return TextureID();
-        // The view's handle is unique while Carbon holds a reference to it.
+        // The view's handle is unique while Carbon holds a reference to it. Carbon's core decides how long the
+        // texture stays registered and calls ReleaseTexture when it is no longer used.
         const uint64_t key = reinterpret_cast<uintptr_t>(view.Get());
         HostTexture& texture = m_HostTextures[key];
         if (texture.View == nullptr)
             texture.View = view;
-        texture.LastUsedFrame = m_FrameCount;
-        return TextureID{key};
+        return RegisterHostTexture(key);
     }
 
-    void Renderer::BeginFrame(uint64_t frameCount)
+    void Renderer::ReleaseTexture(TextureID texture)
     {
-        // Entries last used in frame N are kept through frame N + 1 (so its Render call still finds them) and
-        // released at the start of N + 2.
-        for (auto it = m_HostTextures.begin(); it != m_HostTextures.end();)
-        {
-            if (frameCount > it->second.LastUsedFrame + 1)
-                it = m_HostTextures.erase(it);
-            else
-                ++it;
-        }
-        m_FrameCount = frameCount;
+        m_HostTextures.erase(texture.Value);
+    }
+
+    void InstallRenderer(Context& context, const wgpu::Device& device, wgpu::TextureFormat colorFormat,
+                         wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount)
+    {
+        InstallRendererBackend(context,
+                               std::make_unique<Renderer>(device, colorFormat, depthStencilFormat, sampleCount),
+                               &g_RendererBackendTag<Renderer>);
     }
 } // namespace Carbon::Internal
 
@@ -383,16 +355,21 @@ namespace Carbon
 {
     void Render(const wgpu::RenderPassEncoder& pass)
     {
-        Context& context = Internal::GetContext();
-        CB_VERIFY(!context.IsInFrame, "Render must be called after EndFrame");
-        if (context.IsInFrame)
-            return;
-        context.Renderer->Render(context.Draw.GetDrawData(), context.Text->GetAtlas(), pass);
+        Internal::Renderer* renderer = GetRendererBackend<Internal::Renderer>();
+        if (renderer != nullptr)
+            renderer->SetRenderPass(pass);
+        // Without a backend this reports that the context cannot render.
+        RenderDrawData();
+        if (renderer != nullptr)
+            renderer->SetRenderPass(nullptr);
     }
 
     TextureID GetTextureID(const wgpu::TextureView& view)
     {
-        return Internal::GetContext().Renderer->RegisterTexture(view);
+        Internal::Renderer* renderer = GetRendererBackend<Internal::Renderer>();
+        if (renderer == nullptr)
+            return RegisterHostTexture(reinterpret_cast<uintptr_t>(view.Get()));
+        return renderer->RegisterTexture(view);
     }
 
     void Image(const wgpu::TextureView& view, Vec2 size, const ImageOptions& options)

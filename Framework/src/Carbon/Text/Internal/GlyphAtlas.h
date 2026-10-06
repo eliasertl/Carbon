@@ -31,6 +31,11 @@ namespace Carbon::Internal
         /// Removes all glyphs but keeps the current size.
         void Clear();
 
+        /// Changes the size the atlas may grow to. An atlas that is larger already is cleared and shrunk to the
+        /// new maximum; returns true when that happened, because every region handed out so far is then invalid.
+        bool SetMaxSize(uint32_t maxSize);
+        uint32_t GetMaxSize() const { return m_MaxSize; }
+
         uint32_t GetWidth() const { return m_Width; }
         uint32_t GetHeight() const { return m_Height; }
         const std::vector<uint8_t>& GetPixels() const { return m_Pixels; }

@@ -6,44 +6,44 @@
 #include <webgpu/webgpu_cpp.h>
 
 #include "Carbon/Draw/DrawTypes.h"
+#include "Carbon/Renderer/RendererBackend.h"
+
+namespace Carbon
+{
+    struct Context;
+} // namespace Carbon
 
 namespace Carbon::Internal
 {
-    class GlyphAtlas;
-
-    /// Turns draw data into Dawn calls. This is the only class in Carbon that talks to the GPU.
-    ///
-    /// It always exists, even for a headless context (null device); then it only keeps the texture registry and
-    /// Render does nothing.
-    class Renderer
+    /// The renderer backend for WebGPU (Dawn): turns draw data into Dawn calls. This is the only class in Carbon
+    /// that talks to the GPU.
+    class Renderer : public RendererBackend
     {
     public:
         Renderer(const wgpu::Device& device, wgpu::TextureFormat colorFormat, wgpu::TextureFormat depthStencilFormat,
                  uint32_t sampleCount);
 
-        bool HasDevice() const { return m_Device != nullptr; }
+        std::string_view GetName() const override { return "WebGPU"; }
+        void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) override;
+        void Render(const DrawData& drawData) override;
+        void ReleaseTexture(TextureID texture) override;
 
-        /// Uploads the atlas and the frame's buffers, then records the draw commands into `pass`.
-        void Render(const DrawData& drawData, GlyphAtlas& atlas, const wgpu::RenderPassEncoder& pass);
+        /// The pass the next Render call records into; null afterwards.
+        void SetRenderPass(const wgpu::RenderPassEncoder& pass) { m_Pass = pass; }
 
         /// Registers a host texture for the current frame and returns its ID.
         TextureID RegisterTexture(const wgpu::TextureView& view);
-
-        /// Releases host textures that were not drawn during the previous frame.
-        void BeginFrame(uint64_t frameCount);
 
     private:
         struct HostTexture
         {
             wgpu::TextureView View;
             wgpu::BindGroup BindGroup;
-            uint64_t LastUsedFrame = 0;
         };
 
         void CreatePipeline();
         bool EnsureBuffer(wgpu::Buffer& buffer, uint64_t& capacity, uint64_t requiredSize, wgpu::BufferUsage usage,
                           const char* label);
-        void UploadAtlas(GlyphAtlas& atlas);
         wgpu::BindGroup CreateTextureBindGroup(const wgpu::TextureView& view) const;
 
     private:
@@ -69,12 +69,14 @@ namespace Carbon::Internal
 
         wgpu::Texture m_AtlasTexture;
         wgpu::BindGroup m_AtlasBindGroup;
-        uint32_t m_AtlasGeneration = 0;
         uint32_t m_AtlasWidth = 0;
         uint32_t m_AtlasHeight = 0;
 
+        wgpu::RenderPassEncoder m_Pass;
         std::unordered_map<uint64_t, HostTexture> m_HostTextures;
-        uint64_t m_FrameCount = 0;
-        bool m_ReportedMissingDevice = false;
     };
+
+    /// Installs a Renderer for `device` as the backend of `context`, which must be the current context.
+    void InstallRenderer(Context& context, const wgpu::Device& device, wgpu::TextureFormat colorFormat,
+                         wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount);
 } // namespace Carbon::Internal

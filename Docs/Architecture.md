@@ -321,6 +321,54 @@ float SquircleDistance(Vec2 point, Vec2 halfSize, float radius, float smoothing)
 Strokes are the difference of two squircles (outer shape minus the inset shape with `radius - width`), and focus
 rings are a stroke on the outset shape, so ring corners stay concentric with the control.
 
+### Renderer backend interface
+
+`Carbon/Renderer/RendererBackend.h` is the only contract between Carbon's core and a graphics API. A context has
+at most one backend; without one it is headless and still builds draw data.
+
+```cpp
+inline constexpr uint32_t RendererBackendVersion = 1;       // pinned by backends outside the repository
+
+struct RendererBackendCapabilities { uint32_t MaxTextureSize = 4096; };
+struct GlyphAtlasUpdate { span Pixels; uint32_t Width, Height, Generation, FirstRow, RowCount; bool IsFull; };
+
+class RendererBackend
+{
+public:
+    virtual ~RendererBackend();                                         // the shutdown
+    virtual std::string_view GetName() const = 0;
+    virtual RendererBackendCapabilities GetCapabilities() const;
+    virtual void BeginFrame(uint64_t frameCount);                       // from NewFrame; no GPU work
+    virtual void EndFrame();                                            // from EndFrame; no GPU work
+    virtual void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) = 0;
+    virtual void Render(const DrawData& drawData) = 0;
+    virtual void ReleaseTexture(TextureID texture) = 0;
+};
+
+bool InstallRendererBackend(std::unique_ptr<T> backend);   T* GetRendererBackend<T>();
+RendererBackend* GetRendererBackend();                     void RemoveRendererBackend();
+
+// Called by a backend's own functions:
+void RenderDrawData();        void FlushGlyphAtlas();      void InvalidateGlyphAtlas();
+TextureID RegisterHostTexture(uint64_t key);               void ReleaseHostTexture(uint64_t key);
+```
+
+- **Native objects never cross the interface.** A backend has functions of its own that take the host's device,
+  command buffer or render pass. Its render function stores the target and calls `RenderDrawData()`, which hands
+  over expired host textures, glyph-atlas changes and then the draw data.
+- **What is the same for every backend lives in core** (`Renderer/RendererBackend.cpp`, state in
+  `RenderStateInternal.h`): which atlas rows a backend has not seen yet (all of them for a new generation, after
+  install and after `InvalidateGlyphAtlas`), the registry of host textures, the check that rendering follows
+  `EndFrame`, and the error for rendering without a backend.
+- **Host textures.** `RegisterHostTexture(key)` marks a texture as used in the current frame; `EndFrame` marks
+  every texture the frame's commands draw. A texture last used in frame N expires at the start of frame N + 2.
+  The backend hears about it (`ReleaseTexture`) with the next `RenderDrawData` or `FlushGlyphAtlas`, never from
+  `NewFrame`: a backend may only touch the GPU inside calls its own functions make.
+- **Frames in flight.** `EndFrame` tells the backend that new draw data is final; every `Render` until the next
+  one receives the same data. A backend that must not overwrite buffers the GPU still reads advances its ring of
+  buffers once per frame, however often the frame is drawn.
+- **Limits.** `GetCapabilities().MaxTextureSize` caps the glyph atlas (at most 4096 either way).
+
 ### Renderer (Dawn)
 
 - One render pipeline, created for the host's `ColorFormat`, `DepthStencilFormat` and `SampleCount`. Premultiplied
@@ -337,7 +385,8 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
 - Host textures: `GetTextureID(view)` registers a `wgpu::TextureView` and returns an opaque `TextureID`. The
   renderer keeps the view and its bind group while the texture is registered or drawn, and releases them once a
   whole frame passes without either.
-- The renderer exists even without a device (headless context); it then only keeps the texture registry.
+- The renderer is a `RendererBackend`. It exists only for a context with a device; a headless context has no
+  backend.
 - GPU tests render offscreen and compare every pixel of a squircle with the CPU shape function, so the shader
   cannot drift from `Squircle.cpp` unnoticed. They skip on machines without an adapter.
 - `Render(pass)` sets its own viewport, scissor, pipeline and bind groups and does not restore the host's state;
@@ -740,6 +789,13 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 93 | Automatic labels use title-style capitalization: minor words (articles, conjunctions, short prepositions) inside a label stay lowercase | The HIG asks for title-style labels; "Launch At Login" reads like a machine wrote it |
 | 94 | The Reflection example's executable is called `Reflection`, its target `ReflectionExample` | Every example's executable is named after its folder; a target called `Reflection` would read like the library |
 | 95 | `Carbon::TextureFormat` names the formats of a host's render targets without a graphics API: the 8-bit RGBA and BGRA formats with their sRGB variants, RGB10A2, RGBA16Float, and the depth-stencil formats. Depth formats are named exactly (`Depth24Unorm`, not "at least 24 bits"); the sample count stays a `uint32_t` | Carbon is getting renderer backends for several APIs, and core headers must not include any of them. A Vulkan or Direct3D 12 pipeline needs the exact depth format of the pass; a backend whose API is vaguer (WebGPU's `Depth24Plus`) maps to its closest format. A number needs no type of its own |
+| 96 | Rendering goes through a public interface, `RendererBackend`, that core pushes into: a backend's own render function stores its native target and calls `RenderDrawData()`, and core calls `UpdateGlyphAtlas` and `Render`. No native handle is part of the interface | Each API needs different handles (a pass encoder, a command buffer, nothing at all), so they belong to the backend's own functions. Pushing keeps the order of operations, and everything in decision 97, in one place instead of in every backend |
+| 97 | Glyph-atlas tracking (generation, dirty rows, the first full update), the host-texture registry and the "render after `EndFrame`" check are core code; a backend only copies the rows it is given and drops a texture when told | Three backends would otherwise carry three copies of the same rules, and the rules are what hosts rely on |
+| 98 | A backend is called to do GPU work (`UpdateGlyphAtlas`, `Render`, `ReleaseTexture`) only from `RenderDrawData`, `FlushGlyphAtlas`, `ReleaseHostTexture` and its own destruction. `NewFrame` and `EndFrame` only notify it (`BeginFrame`, `EndFrame`) and queue expired textures | During `NewFrame` an OpenGL context need not be current, and a Direct3D 11 or Metal host may be on another thread than the one that renders |
+| 99 | A host texture counts as used when it is registered or when the frame's final draw data draws it (`EndFrame`), no longer when it is rendered | A host that builds frames without rendering them (a minimized window) would lose its textures, and the rule no longer depends on a backend |
+| 100 | The interface was checked against what later backends need, and has four things only they use: `RendererBackendCapabilities::MaxTextureSize` (OpenGL ES 3.0 and old Direct3D 9 hardware guarantee 2048, the atlas grew to 4096 unconditionally), `FlushGlyphAtlas` (Vulkan, Direct3D 12 render passes and Metal cannot upload where the frame is drawn, so a backend can offer an earlier call), `InvalidateGlyphAtlas` (a Direct3D 9 device reset or a lost OpenGL ES context loses the texture) and `RendererBackendVersion` (a backend outside the repository must not silently draw a new primitive kind wrong). Direct3D 12 descriptor heaps, frames in flight, root signatures and resource states, and nvrhi's command lists and framebuffers, are init-info fields, arguments of the backend's own functions or backend-internal state. OpenGL ES 3.0 has no texture buffers and Direct3D 9 no integer vertex attributes; both are served by the raw draw data, which a backend may repack (primitives in a float texture, or expanded into the vertices) | Adding a backend later must not change the interface, or every backend outside the repository breaks |
+| 101 | A context owns its one backend (`std::unique_ptr`); the destructor is the shutdown, and `DestroyContext` makes the context current while it runs. `GetRendererBackend<T>()` identifies the type by the address of a per-type tag recorded at install, not by name or RTTI | One owner and one way to shut down. A backend's functions need their object back safely: names can collide with a user's backend, and Carbon does not require RTTI. The tag is not `const` because linkers may merge identical constants |
+| 102 | A backend's device limit also shrinks an atlas that is already larger: it is cleared and rebuilt | Installing a backend after text was laid out must not leave an atlas the device cannot hold |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

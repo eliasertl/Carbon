@@ -40,6 +40,7 @@
 #include "Carbon/Layout/Stack.h"
 #include "Carbon/Overlay/Overlay.h"
 #include "Carbon/Renderer/Render.h"
+#include "Carbon/Renderer/RendererBackend.h"
 #include "Carbon/Renderer/TextureFormat.h"
 #include "Carbon/Style/Style.h"
 #include "Carbon/Style/StyleColor.h"
