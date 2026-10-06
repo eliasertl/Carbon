@@ -194,14 +194,8 @@ namespace Carbon::Internal
         BeginHStack({.Spacing = ValueSpacing, .Alignment = VerticalAlignment::Center});
         if (isSlider)
         {
-            float slider = static_cast<float>(*value);
-            const float step = spec.HasStep ? static_cast<float>(spec.Step) : (spec.IsInteger ? 1.0f : 0.0f);
-            if (Slider("##slider", &slider, static_cast<float>(spec.Min), static_cast<float>(spec.Max),
-                       {.Step = step, .ControlSize = options.ControlSize}))
-            {
-                *value = static_cast<double>(slider);
-                changed = true;
-            }
+            const double step = spec.HasStep ? spec.Step : (spec.IsInteger ? 1.0 : 0.0);
+            changed = Slider("##slider", value, spec.Min, spec.Max, {.Step = step, .ControlSize = options.ControlSize});
             ShowValue(*value, spec, valueWidth, TextAlignment::Leading);
         }
         else

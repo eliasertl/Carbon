@@ -287,6 +287,25 @@ namespace Gallery
         Text(std::format("{:.0f}", state.Steps), {.Secondary = true});
         EndRow();
 
+        BeginRow("Whole numbers");
+        Slider("Rating", &state.Rating, 1, 5, {.ShowsTicks = true, .Width = 220.0f});
+        Text(std::format("{} of 5", state.Rating), {.Secondary = true});
+        EndRow();
+
+        BeginRow("Logarithmic");
+        Slider("Frequency", &state.Frequency, 20.0, 20000.0, {.Width = 220.0f, .Scale = SliderScale::Logarithmic});
+        Text(std::format("{:.0f} Hz", state.Frequency), {.Secondary = true});
+        EndRow();
+
+        BeginRow("Vertical");
+        for (int band = 0; band < static_cast<int>(std::size(state.Equalizer)); band++)
+        {
+            PushID(band);
+            Slider("Band", &state.Equalizer[band], -12.0f, 12.0f, {.Axis = Axis::Vertical, .Height = 96.0f});
+            PopID();
+        }
+        EndRow();
+
         BeginRow("Sizes");
         Slider("Small", &state.Brightness, 0.0f, 1.0f, {.ControlSize = ControlSize::Small, .Width = 120.0f});
         Slider("Regular", &state.Brightness, 0.0f, 1.0f, {.Width = 120.0f});

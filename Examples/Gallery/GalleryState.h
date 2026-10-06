@@ -57,6 +57,9 @@ namespace Gallery
         float Volume = 0.62f;
         float Brightness = 0.8f;
         float Steps = 4.0f;
+        int Rating = 4;
+        double Frequency = 440.0;
+        float Equalizer[5] = {4.0f, 7.0f, 2.0f, -3.0f, 5.0f};
         std::string Name = "Ada Lovelace";
         std::string Email;
         std::string Password = "hunter2";

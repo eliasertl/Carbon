@@ -590,6 +590,146 @@ namespace Carbon
         Frame([] { EXPECT_FALSE(Slider("Null", nullptr, 0.0f, 1.0f)); });
         EXPECT_EQ(m_AssertMessages.size(), 1u);
         m_AssertMessages.clear();
+
+        // A logarithmic scale needs a positive range; nothing is drawn for a slider that is reported.
+        double positive = 1.0;
+        Frame([&] { EXPECT_FALSE(Slider("Log", &positive, 0.0, 10.0, {.Scale = SliderScale::Logarithmic})); });
+        ASSERT_EQ(m_AssertMessages.size(), 1u);
+        EXPECT_NE(m_AssertMessages[0].find("logarithmic"), std::string::npos) << m_AssertMessages[0];
+        EXPECT_TRUE(GetDrawData().Vertices.empty());
+        m_AssertMessages.clear();
+        int whole = 0;
+        Frame([&] { EXPECT_FALSE(Slider("Negative step", &whole, 0, 10, {.Step = -1.0})); });
+        EXPECT_EQ(m_AssertMessages.size(), 1u);
+        m_AssertMessages.clear();
+        Frame([&] { EXPECT_FALSE(Slider("Reversed", &whole, 10, 0)); });
+        EXPECT_EQ(m_AssertMessages.size(), 1u);
+    }
+
+    TEST_F(WidgetTests, IntSliderMovesInWholeSteps)
+    {
+        int value = 0;
+        int changes = 0;
+        SliderOptions options = {.ShowsTicks = true, .Width = 218.0f};
+        Rect rect;
+        const Builder build = [&]
+        {
+            changes += Slider("Count", &value, 0, 10, options) ? 1 : 0;
+            rect = GetItemRect();
+        };
+        Settle(build);
+        // 47 % of the way: 4.7 rounds to 5. Without a step an int slider steps by 1.
+        Click(Vec2(rect.X + 9.0f + 94.0f, rect.GetCenter().Y), build);
+        EXPECT_EQ(value, 5);
+        TapKey(Key::RightArrow, build);
+        EXPECT_EQ(value, 6);
+        EXPECT_EQ(changes, 2);
+
+        // A step is rounded to a whole number of at least 1; values are multiples of it from min.
+        options.Step = 2.6;
+        TapKey(Key::LeftArrow, build);
+        EXPECT_EQ(value, 3);
+        TapKey(Key::Home, build);
+        TapKey(Key::RightArrow, build);
+        TapKey(Key::RightArrow, build);
+        EXPECT_EQ(value, 6);
+        options.Step = 0.25;
+        TapKey(Key::RightArrow, build);
+        EXPECT_EQ(value, 7);
+    }
+
+    TEST_F(WidgetTests, DoubleSliderKeepsDoublePrecision)
+    {
+        double value = 0.0;
+        Rect rect;
+        const Builder build = [&]
+        {
+            Slider("Fine", &value, 0.0, 1.0, {.Step = 0.001, .Width = 218.0f});
+            rect = GetItemRect();
+        };
+        Settle(build);
+        Click(Vec2(rect.X + 9.0f + 100.0f, rect.GetCenter().Y), build);
+        EXPECT_DOUBLE_EQ(value, 0.5);
+        TapKey(Key::RightArrow, build);
+        EXPECT_DOUBLE_EQ(value, 0.501) << "a float slider would give 0.50099998712539673";
+    }
+
+    TEST_F(WidgetTests, VerticalSliderRunsFromBottomToTop)
+    {
+        float value = 0.0f;
+        Rect rect;
+        const Builder build = [&]
+        {
+            Slider("Level", &value, 0.0f, 100.0f, {.Axis = Axis::Vertical, .Height = 218.0f});
+            rect = GetItemRect();
+        };
+        Settle(build);
+        EXPECT_FLOAT_EQ(rect.Height, 218.0f) << "Height is the length of a vertical slider";
+        EXPECT_FLOAT_EQ(rect.Width, 24.0f) << "and it is as thick as a regular control";
+
+        // The knob travels 200 points up from 9 points above the bottom.
+        MoveMouse(Vec2(rect.GetCenter().X, rect.GetBottom() - 9.0f - 50.0f), build);
+        PressMouse(build);
+        EXPECT_FLOAT_EQ(value, 25.0f);
+        GetIO().AddMousePosEvent(rect.GetCenter().X + 60.0f, rect.GetBottom() - 9.0f - 150.0f); // off to the side
+        Frame(build);
+        EXPECT_FLOAT_EQ(value, 75.0f);
+        ReleaseMouse(build);
+
+        // Up increases, as do Right; Down and Left decrease.
+        TapKey(Key::UpArrow, build);
+        EXPECT_NEAR(value, 80.0f, 1e-4f);
+        TapKey(Key::DownArrow, build);
+        TapKey(Key::LeftArrow, build);
+        EXPECT_NEAR(value, 70.0f, 1e-4f);
+
+        // The filled part of the track runs from the bottom: the knob is drawn above its bottom end.
+        const DrawData& drawData = GetDrawData();
+        ASSERT_FALSE(drawData.Vertices.empty());
+    }
+
+    TEST_F(WidgetTests, LogarithmicSliderSpacesRatiosEvenly)
+    {
+        double value = 1.0;
+        Rect rect;
+        const Builder build = [&]
+        {
+            Slider("Frequency", &value, 10.0, 10000.0, {.Width = 218.0f, .Scale = SliderScale::Logarithmic});
+            rect = GetItemRect();
+        };
+        Settle(build);
+        // Three decades over 200 points: a third of the way is 100, two thirds 1,000. Pointer positions are
+        // floats, so the values are as exact as a float's seven digits.
+        MoveMouse(Vec2(rect.X + 9.0f + 200.0f / 3.0f, rect.GetCenter().Y), build);
+        PressMouse(build);
+        EXPECT_NEAR(value, 100.0, 100.0 * 1e-6);
+        GetIO().AddMousePosEvent(rect.X + 9.0f + 400.0f / 3.0f, rect.GetCenter().Y);
+        Frame(build);
+        EXPECT_NEAR(value, 1000.0, 1000.0 * 1e-6);
+        ReleaseMouse(build);
+
+        // Without a step, a key moves the knob by a twentieth of the track: by 10^0.15 here.
+        const double expected = value * std::pow(10.0, 0.15);
+        TapKey(Key::RightArrow, build);
+        EXPECT_NEAR(value, expected, expected * 1e-9);
+        TapKey(Key::End, build);
+        EXPECT_DOUBLE_EQ(value, 10000.0);
+
+        // A step quantizes the value, not the position.
+        value = 1234.0;
+        Frame(
+            [&]
+            {
+                Slider("Frequency", &value, 10.0, 10000.0,
+                       {.Step = 10.0, .Width = 218.0f, .Scale = SliderScale::Logarithmic});
+            });
+        TapKey(Key::RightArrow,
+               [&]
+               {
+                   Slider("Frequency", &value, 10.0, 10000.0,
+                          {.Step = 10.0, .Width = 218.0f, .Scale = SliderScale::Logarithmic});
+               });
+        EXPECT_DOUBLE_EQ(value, 1240.0);
     }
 
     // ---- Image ----------------------------------------------------------------------------------------------
