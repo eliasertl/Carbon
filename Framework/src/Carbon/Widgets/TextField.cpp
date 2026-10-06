@@ -46,6 +46,20 @@ namespace Carbon
             return offset;
         }
 
+        // Selects from `anchor` to `caret`, both moved back onto character boundaries inside the text.
+        void SelectRange(TextEditor& editor, const std::string& text, size_t anchor, size_t caret)
+        {
+            const auto toBoundary = [&](size_t offset)
+            {
+                offset = std::min(offset, text.size());
+                while (offset > 0 && offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xC0) == 0x80)
+                    offset--;
+                return offset;
+            };
+            editor.SetCaret(text, toBoundary(anchor), false);
+            editor.SetCaret(text, toBoundary(caret), true);
+        }
+
         // The character boundary whose caret position is closest to `x`.
         size_t HitTest(std::string_view display, const std::vector<float>& positions, float x)
         {
@@ -163,6 +177,13 @@ namespace Carbon
             {
                 editor.Reset(text);
                 edit.IsReloadPending = false;
+            }
+            // A selection asked for with SetTextFieldSelection before editing started, in this frame or the last.
+            if (edit.Owner == id && edit.PendingSelectionOwner == id)
+            {
+                if (context.FrameCount <= edit.PendingSelectionFrame + 1)
+                    SelectRange(editor, text, edit.PendingAnchor, edit.PendingCaret);
+                edit.PendingSelectionOwner = ID();
             }
 
             // What is on screen: the text itself, or one bullet per character.
@@ -442,5 +463,16 @@ namespace Carbon
         selection->Start = edit.Editor.GetSelectionStart();
         selection->End = edit.Editor.GetSelectionEnd();
         return true;
+    }
+
+    void SetTextFieldSelection(std::string_view label, const TextFieldSelection& selection)
+    {
+        Context& context = Internal::GetContext();
+        TextEditState& edit = context.TextEdit;
+        edit.PendingSelectionOwner = GetID(label);
+        edit.PendingSelectionFrame = context.FrameCount;
+        // The anchor is the end of the selection the caret is not at.
+        edit.PendingAnchor = selection.Caret == selection.Start ? selection.End : selection.Start;
+        edit.PendingCaret = selection.Caret;
     }
 } // namespace Carbon

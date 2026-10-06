@@ -91,4 +91,10 @@ namespace Carbon
     /// returns true while that field is being edited; returns false otherwise. Components built around a text
     /// field use it to act on keys at the ends of the text, such as Backspace with the caret at the start.
     bool GetTextFieldSelection(std::string_view label, TextFieldSelection* selection);
+
+    /// Sets the caret and selection of the text field `label` (at the current ID scope), as byte offsets into its
+    /// text; they are moved back onto character boundaries inside the text. Takes effect on the field's next call
+    /// while it is being edited, in this frame or the next, so it can be called in the frame that gives the field
+    /// focus: a component that turns into a field on a click selects the field's whole text this way.
+    void SetTextFieldSelection(std::string_view label, const TextFieldSelection& selection);
 } // namespace Carbon

@@ -74,6 +74,11 @@ byte offsets into its text (`Caret`, `Start`, `End`), and returns `false` while 
 Components built around a text field use it to act on keys at the ends of the text, such as Backspace with the
 caret at the start.
 
+`SetTextFieldSelection(label, selection)` sets them; offsets inside a character move back to its start. It takes
+effect on the field's next call while the field is being edited, in this frame or the next, so it can be called
+in the frame that gives the field focus: a [ScrubField](ScrubField.md) uses it to select its whole value when a
+click turns it into a field.
+
 ## Mouse
 
 | Action | Effect |

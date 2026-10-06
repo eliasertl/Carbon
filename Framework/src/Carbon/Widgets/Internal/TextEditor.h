@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstddef>
+#include <cstdint>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -101,6 +102,12 @@ namespace Carbon::Internal
         bool IsDragSelecting = false;
         /// The owner's text was replaced from outside: reset the editor on its next call. See ReloadTextField.
         bool IsReloadPending = false;
+        /// A selection for the field PendingSelectionOwner, set during PendingSelectionFrame and applied on the
+        /// field's next call once it is being edited. See SetTextFieldSelection.
+        ID PendingSelectionOwner;
+        uint64_t PendingSelectionFrame = 0;
+        size_t PendingAnchor = 0;
+        size_t PendingCaret = 0;
         /// The text of a field bound to a fixed buffer or to a callback, while that field runs. Its capacity is
         /// kept, so those fields do not allocate either.
         std::string BoundText;
