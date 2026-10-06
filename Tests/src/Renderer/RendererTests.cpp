@@ -1,4 +1,4 @@
-#include "Support/GpuTest.h"
+#include "Support/BackendTest.h"
 
 #include <cmath>
 
@@ -17,9 +17,9 @@ namespace Carbon
         }
     } // namespace
 
-    using RendererTests = GpuTest;
+    using RendererTests = BackendTest;
 
-    TEST_F(RendererTests, PixelAlignedRectHasCrispEdges)
+    TEST_P(RendererTests, PixelAlignedRectHasCrispEdges)
     {
         const Color red = Color::FromHex(0xFF3B30);
         const RenderedImage image = RenderFrame(64.0f, 48.0f, 1.0f, Color::White(), [&](DrawList& drawList)
@@ -36,7 +36,7 @@ namespace Carbon
         ExpectColorNear(image.GetPixel(20, 24), Color::White());
     }
 
-    TEST_F(RendererTests, ShaderMatchesTheCpuSquircleFunction)
+    TEST_P(RendererTests, ShaderMatchesTheCpuSquircleFunction)
     {
         // Black squircle on white: each pixel's darkness is the shader's coverage. It must match the CPU shape
         // function, which the unit tests verify, at fractional content scales too.
@@ -67,7 +67,7 @@ namespace Carbon
         }
     }
 
-    TEST_F(RendererTests, StrokeLiesInsideTheShape)
+    TEST_P(RendererTests, StrokeLiesInsideTheShape)
     {
         const Rect shape(10.0f, 10.0f, 60.0f, 40.0f);
         const RenderedImage image = RenderFrame(80.0f, 60.0f, 2.0f, Color::White(), [&](DrawList& drawList)
@@ -82,7 +82,7 @@ namespace Carbon
         ExpectColorNear(image.GetPixel(80, y), Color::White()); // center
     }
 
-    TEST_F(RendererTests, ClipRectBecomesAScissor)
+    TEST_P(RendererTests, ClipRectBecomesAScissor)
     {
         const Color blue = Color::FromHex(0x007AFF);
         const RenderedImage image = RenderFrame(64.0f, 64.0f, 1.0f, Color::White(),
@@ -101,7 +101,7 @@ namespace Carbon
         ExpectColorNear(image.GetPixel(24, 32), Color::White());
     }
 
-    TEST_F(RendererTests, LayersDrawBackToFrontAndAlphaBlends)
+    TEST_P(RendererTests, LayersDrawBackToFrontAndAlphaBlends)
     {
         const Color green = Color::FromHex(0x34C759);
         const Color red = Color::FromHex(0xFF3B30);
@@ -122,7 +122,7 @@ namespace Carbon
         ExpectColorNear(image.GetPixel(48, 8), Color(0.5f, 0.5f, 0.5f));
     }
 
-    TEST_F(RendererTests, TextIsRasterizedIntoTheAtlasAndDrawn)
+    TEST_P(RendererTests, TextIsRasterizedIntoTheAtlasAndDrawn)
     {
         TextSpec spec;
         spec.Size = 32.0f;
@@ -152,29 +152,17 @@ namespace Carbon
         EXPECT_TRUE(hasSolidInk);
     }
 
-    TEST_F(RendererTests, HostTexturesAreDrawnAndTinted)
+    TEST_P(RendererTests, HostTexturesAreDrawnAndTinted)
     {
         // A 2x2 texture: red, green / blue, white.
         const uint8_t texels[16] = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255};
-        wgpu::TextureDescriptor descriptor;
-        descriptor.size = {2, 2, 1};
-        descriptor.format = wgpu::TextureFormat::RGBA8Unorm;
-        descriptor.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-        const wgpu::Texture texture = m_Device.CreateTexture(&descriptor);
-        wgpu::TexelCopyTextureInfo destination;
-        destination.texture = texture;
-        wgpu::TexelCopyBufferLayout layout;
-        layout.bytesPerRow = 8;
-        layout.rowsPerImage = 2;
-        const wgpu::Extent3D extent = {2, 2, 1};
-        m_Device.GetQueue().WriteTexture(&destination, texels, sizeof(texels), &layout, &extent);
-        const wgpu::TextureView view = texture.CreateView();
+        const size_t texture = m_Harness->CreateTexture(2, 2, texels);
 
         const RenderedImage image =
             RenderFrame(96.0f, 48.0f, 1.0f, Color::Black(),
                         [&](DrawList& drawList)
                         {
-                            const TextureID id = GetTextureID(view);
+                            const TextureID id = m_Harness->GetTextureID(texture);
                             EXPECT_NE(id, TextureID());
                             drawList.AddImage(id, Rect(8.0f, 8.0f, 32.0f, 32.0f));
                             // The same texture, tinted: only the red channel survives.
@@ -195,7 +183,7 @@ namespace Carbon
         ExpectColorNear(image.GetPixel(80, 32), Color(1.0f, 0.0f, 0.0f)); // white texel becomes red
     }
 
-    TEST_F(RendererTests, BuffersGrowAndAreReusedAcrossFrames)
+    TEST_P(RendererTests, BuffersGrowAndAreReusedAcrossFrames)
     {
         // A small frame, a large frame (forcing the buffers to grow), then a small one again.
         const Color gray = Color(0.5f, 0.5f, 0.5f);
@@ -220,10 +208,12 @@ namespace Carbon
         ExpectColorNear(again.GetPixel(20, 20), Color::White());
     }
 
-    TEST_F(RendererTests, EmptyFrameLeavesTheTargetUntouched)
+    TEST_P(RendererTests, EmptyFrameLeavesTheTargetUntouched)
     {
         const Color background = Color::FromHex(0x123456);
         const RenderedImage image = RenderFrame(16.0f, 16.0f, 1.0f, background, [](DrawList&) {});
         ExpectColorNear(image.GetPixel(8, 8), background);
     }
+
+    CB_INSTANTIATE_BACKEND_TESTS(RendererTests);
 } // namespace Carbon

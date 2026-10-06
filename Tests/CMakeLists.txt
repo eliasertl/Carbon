@@ -18,14 +18,23 @@ add_executable(CarbonTests
     src/Layout/LayoutTests.cpp
     src/Layout/ScrollViewTests.cpp
     src/Overlay/OverlayTests.cpp
+    src/Renderer/BackendCompareTests.cpp
+    src/Renderer/BackendSmokeTests.cpp
     src/Renderer/RendererBackendTests.cpp
     src/Renderer/RendererTests.cpp
     src/Renderer/TextureFormatTests.cpp
     src/Style/StyleTests.cpp
     src/Style/ThemeTests.cpp
+    src/Support/BackendHarness.cpp
+    src/Support/BackendHarness.h
+    src/Support/BackendTest.cpp
+    src/Support/BackendTest.h
     src/Support/ContextTest.h
-    src/Support/GpuTest.cpp
-    src/Support/GpuTest.h
+    src/Support/ImageCompare.cpp
+    src/Support/ImageCompare.h
+    src/Support/TestScene.cpp
+    src/Support/TestScene.h
+    src/Support/WebGPUHarness.cpp
     src/Support/WidgetTest.h
     src/Text/GlyphAtlasTests.cpp
     src/Text/TextTests.cpp
@@ -34,7 +43,14 @@ add_executable(CarbonTests
 )
 
 target_include_directories(CarbonTests PRIVATE src)
-target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME})
+target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME} ${CARBON_DEPS_STB_NAME})
+# Tests that compare images write the images of a failure below <build>/Tests.
+target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_OUTPUT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}\"")
+
+# stb is third-party code: compiled separately, without Carbon's warning flags.
+add_library(CarbonTestsStb OBJECT src/Support/StbImageWrite.cpp)
+target_link_libraries(CarbonTestsStb PRIVATE ${CARBON_DEPS_STB_NAME})
+target_sources(CarbonTests PRIVATE $<TARGET_OBJECTS:CarbonTestsStb>)
 
 if(CARBON_BUILD_EXTENSIONS)
     target_sources(CarbonTests PRIVATE

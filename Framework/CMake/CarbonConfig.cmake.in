@@ -5,12 +5,15 @@
 #   find_package(Carbon CONFIG REQUIRED)                      # or: COMPONENTS Extensions Reflection
 #   target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Reflection)
 #
-# Carbon links Dawn through its public interface, so Dawn must be findable as well
-# (CMAKE_PREFIX_PATH or Dawn_DIR), unless the consuming project already defines its target.
+# Carbon_BACKENDS lists the renderer backends compiled into this package (for example "WebGPU"). Carbon links
+# each backend's graphics library through its public interface, so those must be findable as well: Dawn for
+# WebGPU (CMAKE_PREFIX_PATH or Dawn_DIR), unless the consuming project already defines its target.
 
 include(CMakeFindDependencyMacro)
 
-if(NOT TARGET @CARBON_DEPS_DAWN_NAME@)
+set(Carbon_BACKENDS "@CARBON_ENABLED_BACKENDS@")
+
+if("WebGPU" IN_LIST Carbon_BACKENDS AND NOT TARGET @CARBON_DEPS_DAWN_NAME@)
     # Dawn's package links Threads::Threads without looking for it.
     find_dependency(Threads)
     find_dependency(Dawn CONFIG)

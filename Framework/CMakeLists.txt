@@ -178,12 +178,25 @@ if(CARBON_FORCE_ASSERTS)
     target_compile_definitions(Carbon PUBLIC CB_FORCE_ASSERTS=1)
 endif()
 
-# Dawn types appear in Carbon's public headers, so it is a public dependency. FreeType and
-# HarfBuzz are implementation details; as static libraries they still reach the final link.
-target_link_libraries(Carbon
-    PUBLIC ${CARBON_DEPS_DAWN_NAME}
-    PRIVATE ${CARBON_DEPS_FREETYPE_NAME} ${CARBON_DEPS_HARFBUZZ_NAME}
-)
+# FreeType and HarfBuzz are implementation details; as static libraries they still reach the final link.
+target_link_libraries(Carbon PRIVATE ${CARBON_DEPS_FREETYPE_NAME} ${CARBON_DEPS_HARFBUZZ_NAME})
+
+# ---- Renderer backends ------------------------------------------------------------------------
+# Every enabled backend is compiled into Carbon. Its graphics API appears in the backend's public header, so the
+# API's library is a public dependency, and CARBON_HAS_BACKEND_<NAME> tells hosts and examples it is there.
+set(CARBON_ENABLED_BACKENDS "")
+if(CARBON_BACKEND_WEBGPU)
+    list(APPEND CARBON_ENABLED_BACKENDS WebGPU)
+    target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_WEBGPU=1)
+    target_link_libraries(Carbon PUBLIC ${CARBON_DEPS_DAWN_NAME})
+endif()
+if(CARBON_ENABLED_BACKENDS)
+    list(JOIN CARBON_ENABLED_BACKENDS ", " carbon_backend_text)
+else()
+    set(carbon_backend_text "none (headless only)")
+endif()
+message(STATUS "Carbon: renderer backends: ${carbon_backend_text}")
+set_property(TARGET Carbon PROPERTY CARBON_BACKENDS "${CARBON_ENABLED_BACKENDS}")
 
 carbon_configure_target(Carbon)
 

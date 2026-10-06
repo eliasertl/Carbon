@@ -120,7 +120,7 @@ if(CARBON_BUILD_TESTS)
     carbon_require_target(GOOGLETEST)
 endif()
 
-# ---- GLFW and stb (examples only) -------------------------------------------------------------
+# ---- GLFW (examples) --------------------------------------------------------------------------
 if(CARBON_BUILD_EXAMPLES)
     carbon_declare_dependency(GLFW glfw)
     if(NOT TARGET ${CARBON_DEPS_GLFW_NAME})
@@ -136,7 +136,10 @@ if(CARBON_BUILD_EXAMPLES)
         endif()
     endif()
     carbon_require_target(GLFW)
+endif()
 
+# ---- stb (examples write screenshots, tests write the images of failed comparisons) -----------
+if(CARBON_BUILD_EXAMPLES OR CARBON_BUILD_TESTS)
     # stb is header-only, so "building" it means wrapping the submodule in an interface target.
     carbon_declare_dependency(STB stb)
     if(NOT TARGET ${CARBON_DEPS_STB_NAME})
@@ -153,26 +156,49 @@ if(CARBON_BUILD_EXAMPLES)
     carbon_require_target(STB)
 endif()
 
-# ---- Dawn (always found, never built) ---------------------------------------------------------
+# ---- Renderer backends ------------------------------------------------------------------------
+# CARBON_BACKEND_<NAME> compiles a renderer backend into the Carbon library. Left unset, a backend is
+# enabled when its dependency is found (and the result is cached; pass -DCARBON_BACKEND_<NAME>=ON to
+# insist later). Set to ON, a missing dependency stops the configuration with an explanation.
+
+# Declares CARBON_BACKEND_<NAME> from what was found: FOUND is the result of looking for the dependency.
+function(carbon_declare_backend NAME FOUND DESCRIPTION)
+    if(NOT DEFINED CARBON_BACKEND_${NAME})
+        set(CARBON_BACKEND_${NAME} ${FOUND} CACHE BOOL "${DESCRIPTION}")
+    endif()
+endfunction()
+
+# ---- WebGPU: Dawn (found, never built) --------------------------------------------------------
 set(CARBON_DEPS_DAWN_NAME "dawn::webgpu_dawn" CACHE STRING "CMake target Carbon links for Dawn (WebGPU)")
-if(NOT TARGET ${CARBON_DEPS_DAWN_NAME})
+if(NOT TARGET ${CARBON_DEPS_DAWN_NAME} AND (NOT DEFINED CARBON_BACKEND_WEBGPU OR CARBON_BACKEND_WEBGPU))
     # Dawn's package links Threads::Threads without looking for it.
     find_package(Threads QUIET)
     find_package(Dawn CONFIG QUIET)
-    if(NOT TARGET ${CARBON_DEPS_DAWN_NAME})
-        message(FATAL_ERROR
-            "Carbon: could not find Dawn (target '${CARBON_DEPS_DAWN_NAME}').\n"
-            "Carbon does not build Dawn. Build and install it once, then point CMake at the install prefix:\n"
-            "  cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install-prefix>\n"
-            "or set Dawn_DIR to the folder that contains DawnConfig.cmake (<prefix>/lib/cmake/Dawn).\n"
-            "A parent project may also define the target itself before adding Carbon.\n"
-            "See Docs/Building.md, section \"Installing Dawn\".")
-    endif()
+endif()
+set(carbon_dawn_found OFF)
+if(TARGET ${CARBON_DEPS_DAWN_NAME})
+    set(carbon_dawn_found ON)
+endif()
+carbon_declare_backend(WEBGPU ${carbon_dawn_found} "Build the WebGPU renderer backend (needs Dawn)")
+if(CARBON_BACKEND_WEBGPU AND NOT carbon_dawn_found)
+    message(FATAL_ERROR
+        "Carbon: CARBON_BACKEND_WEBGPU is ON but Dawn was not found (target '${CARBON_DEPS_DAWN_NAME}').\n"
+        "Carbon does not build Dawn. Build and install it once, then point CMake at the install prefix:\n"
+        "  cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install-prefix>\n"
+        "or set Dawn_DIR to the folder that contains DawnConfig.cmake (<prefix>/lib/cmake/Dawn).\n"
+        "A parent project may also define the target itself before adding Carbon.\n"
+        "Without Dawn, configure with -DCARBON_BACKEND_WEBGPU=OFF.\n"
+        "See Docs/Building.md, section \"Installing Dawn\".")
+endif()
+# Until the WebGPU code moves into Backends/WebGPU, Carbon's core still includes Dawn.
+if(NOT CARBON_BACKEND_WEBGPU)
+    message(FATAL_ERROR
+        "Carbon: the WebGPU backend cannot be switched off yet; Carbon needs Dawn (see Docs/Building.md).")
 endif()
 
 # A static Dawn built for another MSVC runtime (Debug vs. Release) fails at link time with
 # LNK2038. Detect the common mismatch early and explain it.
-if(MSVC AND CMAKE_BUILD_TYPE)
+if(CARBON_BACKEND_WEBGPU AND MSVC AND CMAKE_BUILD_TYPE)
     get_target_property(CARBON_DAWN_CONFIGURATIONS ${CARBON_DEPS_DAWN_NAME} IMPORTED_CONFIGURATIONS)
     if(CARBON_DAWN_CONFIGURATIONS)
         set(CARBON_DAWN_IS_DEBUG OFF)

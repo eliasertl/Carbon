@@ -81,6 +81,12 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_INSTALL` | `ON` when Carbon is the top-level project | Generate install rules and the `CarbonConfig.cmake` package |
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
+| `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. For now Carbon cannot be built without it |
+
+The backend options are decided once, at the first configuration, and then cached: after installing a dependency
+later, pass `-DCARBON_BACKEND_<NAME>=ON`. CMake prints the enabled backends (`Carbon: renderer backends: ...`), a
+target that links `Carbon::Carbon` sees `CARBON_HAS_BACKEND_<NAME>` defined for each of them, and an installed
+package lists them in `Carbon_BACKENDS`.
 
 ## Dependency switches
 
@@ -166,8 +172,12 @@ antialiased edges, which the script ignores (it compares pixels with Pillow, `pi
 push to `main`, CI renders the screenshots on Windows and commits the images that changed, so the documentation
 follows the code. To add a screenshot, add a line to the list and reference the image from the page.
 
-`ctest` runs headless. Most tests need no GPU at all. The renderer tests create a real device and compare
-rendered pixels; on a machine without a WebGPU adapter they report as skipped.
+`ctest` runs headless. Most tests need no GPU at all. The renderer tests run once per compiled-in backend
+(`Backends/RendererTests.<Name>/WebGPU`): they create a device without a window, render offscreen and compare
+pixels, and fail on any warning or error Carbon or the API's validation reports. On a machine where a backend
+cannot create a device they report as skipped. `BackendCompareTests` renders a fixed scene in both themes at
+scale 1 and 2 with every backend and compares it with WebGPU's rendering; when it fails, the actual, reference and
+difference images are in `<build>/Tests/BackendCompare/`.
 
 On Windows, Dawn needs `d3dcompiler_47.dll` next to the executable (see
 [Integration](Integration.md#windows-d3dcompiler_47dll)). The examples and tests copy it from the Windows SDK;
