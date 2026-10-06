@@ -258,6 +258,34 @@ namespace Carbon
         EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
     }
 
+    TEST_F(AllocationTests, BufferAndCallbackTextFieldsDoNotAllocateInSteadyState)
+    {
+        char buffer[32] = "Fixed";
+        std::string stored = "Stored";
+        stored.reserve(64);
+        const auto build = [&]
+        {
+            BeginVStack({.Spacing = 12.0f, .Padding = 20.0f});
+            TextField("Buffer", buffer, {.Width = 200.0f});
+            TextField("Callback", stored, [&](std::string_view text) { stored = text; }, {.Width = 200.0f});
+            EndVStack();
+        };
+        // Neither field focused, then each focused in turn and typed into: the first frames may grow buffers.
+        CountAllocationsOfOneFrame(build, 5);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 5), 0u);
+        for (int field = 0; field < 2; field++)
+        {
+            GetIO().AddKeyEvent(Key::Tab, true);
+            CountAllocationsOfOneFrame(build, 2);
+            GetIO().AddKeyEvent(Key::Tab, false);
+            GetIO().AddInputCharactersUTF8("abc");
+            CountAllocationsOfOneFrame(build, 5);
+            EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        }
+        EXPECT_STREQ(buffer, "abc") << "tabbing in selected everything, so typing replaced it";
+        EXPECT_EQ(stored, "abc");
+    }
+
 #if defined(CARBON_TESTS_HAVE_EXTENSIONS)
     TEST_F(AllocationTests, ExtensionComponentsDoNotAllocateInSteadyState)
     {

@@ -43,9 +43,10 @@ namespace Carbon::Internal
         void MoveToEnd(const std::string& text, bool extendSelection);
 
         /// Replaces the selection with `inserted`. Line breaks and tabs become spaces and other control
-        /// characters are dropped. `maxLength` limits the text's length in characters (0 = unlimited).
-        /// Returns true when the text changed.
-        bool Insert(std::string& text, std::string_view inserted, size_t maxLength = 0);
+        /// characters are dropped. `maxLength` limits the text's length in characters and `maxBytes` its size in
+        /// bytes (0 = unlimited); what does not fit is cut off at a character boundary. Returns true when the text
+        /// changed.
+        bool Insert(std::string& text, std::string_view inserted, size_t maxLength = 0, size_t maxBytes = 0);
         /// Backspace and Delete: remove the selection, or the character (or word) next to the caret.
         bool DeleteBackward(std::string& text, bool byWord);
         bool DeleteForward(std::string& text, bool byWord);
@@ -82,6 +83,8 @@ namespace Carbon::Internal
         std::vector<Snapshot> m_UndoStack;
         std::vector<Snapshot> m_RedoStack;
         EditKind m_LastEdit = EditKind::None;
+        /// The sanitized text of the current Insert; kept so that typing does not allocate.
+        std::string m_Inserted;
     };
 
     /// The editing session of a context. Only one text field is edited at a time: the one with keyboard focus.
@@ -98,6 +101,9 @@ namespace Carbon::Internal
         bool IsDragSelecting = false;
         /// The owner's text was replaced from outside: reset the editor on its next call. See ReloadTextField.
         bool IsReloadPending = false;
+        /// The text of a field bound to a fixed buffer or to a callback, while that field runs. Its capacity is
+        /// kept, so those fields do not allocate either.
+        std::string BoundText;
         /// Scratch storage reused between frames.
         std::vector<float> CaretPositions;
         std::string SecureText;

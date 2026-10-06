@@ -1,9 +1,11 @@
 #pragma once
 
 #include <cstddef>
+#include <span>
 #include <string>
 #include <string_view>
 
+#include "Carbon/Core/FunctionRef.h"
 #include "Carbon/Layout/Size.h"
 #include "Carbon/Widgets/ControlSize.h"
 
@@ -59,6 +61,26 @@ namespace Carbon
     /// The label identifies the field and serves as its placeholder; put a Text next to the field for a
     /// visible title.
     bool TextField(std::string_view label, std::string* text, const TextFieldOptions& options = {});
+
+    /// A text field editing a zero-terminated UTF-8 string in a fixed buffer owned by the caller, such as a
+    /// `char name[64]` (arrays convert to the span by themselves). The text can take up all but the last byte,
+    /// which holds the terminating zero. Typing or pasting more is cut off at the last whole character that fits,
+    /// and nothing is written outside the buffer. Carbon never allocates for the buffer.
+    bool TextField(std::string_view label, std::span<char> buffer, const TextFieldOptions& options = {});
+
+    /// A text field for text the caller stores in its own way: `text` is the current text, and `setText` is
+    /// called with the new text, during this call, on frames the user changed it. The text passed to `setText`
+    /// is valid only during that call.
+    ///
+    /// ```cpp
+    /// Carbon::TextField("Title", document.GetTitle(), [&](std::string_view title) { document.SetTitle(title); });
+    /// ```
+    bool TextField(std::string_view label, std::string_view text, FunctionRef<void(std::string_view)> setText,
+                   const TextFieldOptions& options = {});
+
+    /// A std::string is passed by pointer. Without this, a string would turn into a fixed buffer of its current
+    /// size.
+    bool TextField(std::string_view label, std::string& text, const TextFieldOptions& options = {}) = delete;
 
     /// Tells the text field `label` (at the current ID scope) that its text was replaced from outside while it is
     /// being edited, for example by choosing an item of a combo box. On its next call the caret moves to the end

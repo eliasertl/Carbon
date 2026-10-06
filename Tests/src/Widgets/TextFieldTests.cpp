@@ -1,5 +1,8 @@
 #include "Support/WidgetTest.h"
 
+#include <algorithm>
+#include <cstring>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -659,5 +662,252 @@ namespace Carbon
         Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), Field());
         Type("!", Field());
         EXPECT_EQ(m_Text, "Hi!");
+    }
+
+    // ---- The other ways of passing the text: a fixed buffer and a callback ------------------------------------
+
+    TEST_F(TextEditorTests, ByteLimitCutsAtCharacterBoundaries)
+    {
+        Start("ab");
+        // Room for 3 more bytes: "c" and "ä" (2 bytes) fit, "€" (3 bytes) does not.
+        EXPECT_TRUE(m_Editor.Insert(m_Text, "c\xC3\xA4\xE2\x82\xAC", 0, 5));
+        EXPECT_EQ(m_Text, "abc\xC3\xA4");
+        EXPECT_FALSE(m_Editor.Insert(m_Text, "x", 0, 5)) << "a full text rejects typing";
+        EXPECT_EQ(m_Text, "abc\xC3\xA4");
+
+        // Replacing a selection makes its bytes available again.
+        m_Editor.SelectAll(m_Text);
+        EXPECT_TRUE(m_Editor.Insert(m_Text, "12345678", 0, 5));
+        EXPECT_EQ(m_Text, "12345");
+
+        // When nothing fits in place of a selection, the selection stays.
+        Start("\xE2\x82\xAC\xE2\x82\xAC"); // two 3-byte characters
+        m_Editor.SetCaret(m_Text, 3, false);
+        m_Editor.SetCaret(m_Text, 6, true);
+        EXPECT_FALSE(m_Editor.Insert(m_Text, "\xF0\x9F\x98\x80", 0, 6)); // a 4-byte character into 3 bytes
+        EXPECT_EQ(m_Text, "\xE2\x82\xAC\xE2\x82\xAC");
+    }
+
+    class TextFieldBufferTests : public TextFieldTests
+    {
+    protected:
+        // A buffer of 8 bytes inside a larger array whose remaining bytes must never change.
+        static constexpr size_t Capacity = 8;
+        static constexpr char Canary = '#';
+
+        void SetUp() override
+        {
+            TextFieldTests::SetUp();
+            std::fill(std::begin(m_Storage), std::end(m_Storage), Canary);
+            m_Storage[0] = '\0';
+        }
+
+        Builder BufferField()
+        {
+            return [this]
+            {
+                m_Changes += TextField("Name", std::span<char>(m_Storage, Capacity), m_Options) ? 1 : 0;
+                m_Rect = GetItemRect();
+            };
+        }
+
+        void FocusBufferAtEnd()
+        {
+            Settle(BufferField());
+            Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), BufferField());
+        }
+
+        bool IsCanaryIntact() const
+        {
+            return std::all_of(std::begin(m_Storage) + Capacity, std::end(m_Storage),
+                               [](char c) { return c == Canary; });
+        }
+
+        char m_Storage[Capacity + 8] = {};
+    };
+
+    TEST_F(TextFieldBufferTests, EditsTheBufferInPlaceAndKeepsItTerminated)
+    {
+        std::memcpy(m_Storage, "Ada", 4);
+        FocusBufferAtEnd();
+        Type("m", BufferField());
+        EXPECT_STREQ(m_Storage, "Adam");
+        EXPECT_EQ(m_Changes, 1);
+        TapKey(Key::Backspace, BufferField());
+        TapKey(Key::Backspace, BufferField());
+        EXPECT_STREQ(m_Storage, "Ad");
+        EXPECT_EQ(m_Changes, 3);
+        EXPECT_TRUE(IsCanaryIntact());
+
+        // A plain array converts to the span by itself.
+        char name[16] = "Grace";
+        bool changed = false;
+        Frame([&] { changed = TextField("Plain", name); });
+        EXPECT_FALSE(changed);
+        EXPECT_STREQ(name, "Grace");
+    }
+
+    TEST_F(TextFieldBufferTests, TypingPastTheCapacityIsRejected)
+    {
+        FocusBufferAtEnd();
+        Type("123456789012", BufferField());
+        EXPECT_STREQ(m_Storage, "1234567") << "seven bytes of text and the terminating zero";
+        EXPECT_TRUE(IsCanaryIntact());
+
+        // A full buffer ignores more typing without reporting a change.
+        const int changes = m_Changes;
+        Type("x", BufferField());
+        EXPECT_STREQ(m_Storage, "1234567");
+        EXPECT_EQ(m_Changes, changes);
+
+        // A multi-byte character that would not fit whole is not split.
+        TapKey(Key::Backspace, BufferField());
+        TapKey(Key::Backspace, BufferField());
+        Type("\xE2\x82\xAC\xE2\x82\xAC", BufferField()); // two 3-byte characters into 2 free bytes
+        EXPECT_STREQ(m_Storage, "12345");
+        Type("\xC3\xA4", BufferField()); // a 2-byte character fits
+        EXPECT_STREQ(m_Storage, "12345\xC3\xA4");
+        EXPECT_TRUE(IsCanaryIntact());
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(TextFieldBufferTests, PastingAndUndoStayInsideTheBuffer)
+    {
+        std::memcpy(m_Storage, "ab", 3);
+        FocusBufferAtEnd();
+        m_Clipboard = "a long text from the clipboard";
+        TapKey(Key::LeftCtrl, Key::V, BufferField());
+        EXPECT_STREQ(m_Storage, "aba lon");
+        TapKey(Key::LeftCtrl, Key::Z, BufferField());
+        EXPECT_STREQ(m_Storage, "ab");
+        TapKey(Key::LeftCtrl, Key::Y, BufferField());
+        EXPECT_STREQ(m_Storage, "aba lon");
+        EXPECT_TRUE(IsCanaryIntact());
+    }
+
+    TEST_F(TextFieldBufferTests, AnUnterminatedBufferIsReadUpToItsLastByteAndThenTerminated)
+    {
+        std::memset(m_Storage, 'x', Capacity); // no zero inside the buffer
+        Settle(BufferField());
+        EXPECT_EQ(std::string_view(m_Storage, Capacity), std::string_view("xxxxxxx\0", Capacity));
+        EXPECT_TRUE(IsCanaryIntact());
+    }
+
+    TEST_F(TextFieldBufferTests, AnEmptyBufferIsReported)
+    {
+        Frame([this] { TextField("Name", std::span<char>()); });
+        EXPECT_EQ(m_AssertMessages.size(), 1u);
+    }
+
+    TEST_F(TextFieldTests, CallbackFormReportsEachChangeOnce)
+    {
+        // Text the application stores in its own way: here, a vector of characters.
+        std::vector<char> stored = {'H', 'i'};
+        int calls = 0;
+        const Builder field = [&]
+        {
+            const std::string_view current(stored.data(), stored.size());
+            m_Changes += TextField(
+                             "Name", current,
+                             [&](std::string_view text)
+                             {
+                                 stored.assign(text.begin(), text.end());
+                                 calls++;
+                             },
+                             m_Options)
+                             ? 1
+                             : 0;
+            m_Rect = GetItemRect();
+        };
+        Settle(field);
+        EXPECT_EQ(calls, 0) << "nothing is set while nothing changes";
+
+        Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), field);
+        Type("!", field);
+        EXPECT_EQ(std::string_view(stored.data(), stored.size()), "Hi!");
+        EXPECT_EQ(calls, 1);
+        EXPECT_EQ(m_Changes, 1);
+
+        // Caret, selection and undo work as with a std::string.
+        TapKey(Key::LeftCtrl, Key::A, field);
+        Type("Bye", field);
+        EXPECT_EQ(std::string_view(stored.data(), stored.size()), "Bye");
+        // Replacing the selection and typing on are two steps, as with a std::string.
+        TapKey(Key::LeftCtrl, Key::Z, field);
+        TapKey(Key::LeftCtrl, Key::Z, field);
+        EXPECT_EQ(std::string_view(stored.data(), stored.size()), "Hi!");
+        EXPECT_EQ(calls, 4);
+
+        // The text may change from outside between frames; the field shows what it is given.
+        stored = {'N', 'e', 'w'};
+        Frame(field);
+        TapKey(Key::End, field);
+        TapKey(Key::Backspace, field);
+        EXPECT_EQ(std::string_view(stored.data(), stored.size()), "Ne");
+    }
+
+    TEST_F(TextFieldTests, CallbackFormAcceptsAFunction)
+    {
+        static std::string s_Stored;
+        s_Stored = "x";
+        struct Setter
+        {
+            static void Set(std::string_view text) { s_Stored = text; }
+        };
+        const Builder field = [&]
+        {
+            TextField("Name", s_Stored, &Setter::Set);
+            m_Rect = GetItemRect();
+        };
+        Settle(field);
+        Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), field);
+        Type("y", field);
+        EXPECT_EQ(s_Stored, "xy");
+    }
+
+    TEST_F(TextFieldTests, AllFormsShareOneImplementation)
+    {
+        // The same input gives the same text, caret and drawing whichever form holds the text.
+        char buffer[64] = "Hello";
+        std::string string = "Hello";
+        std::string stored = "Hello";
+        const auto drawsTheSame = [&](const Builder& field)
+        {
+            Settle(field);
+            Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), field);
+            Type(" there", field);
+            TapKey(Key::LeftShift, Key::LeftArrow, field);
+            TextFieldSelection selection;
+            EXPECT_TRUE(GetTextFieldSelection("Name", &selection));
+            EXPECT_EQ(selection.Start, 10u);
+            EXPECT_EQ(selection.End, 11u);
+            const size_t vertices = GetDrawData().Vertices.size();
+            TapKey(Key::Escape, field);
+            Settle(field);
+            return vertices;
+        };
+        const size_t a = drawsTheSame(
+            [&]
+            {
+                TextField("Name", &string);
+                m_Rect = GetItemRect();
+            });
+        const size_t b = drawsTheSame(
+            [&]
+            {
+                TextField("Name", buffer);
+                m_Rect = GetItemRect();
+            });
+        const size_t c = drawsTheSame(
+            [&]
+            {
+                TextField("Name", stored, [&](std::string_view text) { stored = text; });
+                m_Rect = GetItemRect();
+            });
+        EXPECT_EQ(string, "Hello there");
+        EXPECT_STREQ(buffer, "Hello there");
+        EXPECT_EQ(stored, "Hello there");
+        EXPECT_EQ(a, b);
+        EXPECT_EQ(a, c);
     }
 } // namespace Carbon

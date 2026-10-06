@@ -24,6 +24,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Core/Context.h
     src/Carbon/Core/ContextDescription.h
     src/Carbon/Core/EdgeInsets.h
+    src/Carbon/Core/FunctionRef.h
     src/Carbon/Core/Hash.h
     src/Carbon/Core/ID.h
     src/Carbon/Core/Log.h

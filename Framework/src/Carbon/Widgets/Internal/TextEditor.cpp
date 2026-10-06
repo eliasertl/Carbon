@@ -138,11 +138,11 @@ namespace Carbon::Internal
         SetCaret(text, text.size(), extendSelection);
     }
 
-    bool TextEditor::Insert(std::string& text, std::string_view inserted, size_t maxLength)
+    bool TextEditor::Insert(std::string& text, std::string_view inserted, size_t maxLength, size_t maxBytes)
     {
         // Sanitize: a single-line field has no line breaks or control characters.
-        std::string clean;
-        clean.reserve(inserted.size());
+        std::string& clean = m_Inserted;
+        clean.clear();
         size_t offset = 0;
         while (offset < inserted.size())
         {
@@ -154,18 +154,38 @@ namespace Carbon::Internal
                 AppendUTF8(clean, decoded.Codepoint);
         }
 
+        // Cut off what does not fit, at a character boundary.
+        const std::string_view selected = GetSelectedText(text);
+        size_t fits = clean.size();
         if (maxLength > 0)
         {
-            const size_t selected = CountCodepoints(GetSelectedText(text));
-            const size_t current = CountCodepoints(text) - selected;
+            const size_t current = CountCodepoints(text) - CountCodepoints(selected);
             const size_t room = current < maxLength ? maxLength - current : 0;
             size_t end = 0;
             for (size_t i = 0; i < room && end < clean.size(); i++)
                 end = NextCodepointOffset(clean, end);
-            clean.resize(end);
+            fits = std::min(fits, end);
         }
+        if (maxBytes > 0)
+        {
+            const size_t current = text.size() - selected.size();
+            const size_t room = current < maxBytes ? maxBytes - current : 0;
+            size_t end = 0;
+            while (end < fits)
+            {
+                const size_t next = NextCodepointOffset(clean, end);
+                if (next > room)
+                    break;
+                end = next;
+            }
+            fits = std::min(fits, end);
+        }
+        clean.resize(fits);
 
         if (clean.empty() && !HasSelection())
+            return false;
+        // Nothing fits in place of the selection: leave the text alone rather than only deleting.
+        if (clean.empty() && !inserted.empty())
             return false;
 
         RecordUndo(text, HasSelection() ? EditKind::Other : EditKind::Typing);

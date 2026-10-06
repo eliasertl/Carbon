@@ -20,6 +20,35 @@ if (Carbon::IsItemSubmitted())
 `TextField` edits the `std::string` you pass (UTF-8) and returns `true` on frames the text changed. The label
 identifies the field and serves as its placeholder; put a `Text` next to the field for a visible title.
 
+## Where the text lives
+
+Three forms take the text in different ways. They share one implementation, so they look and behave alike.
+
+```cpp
+// 1. A std::string, which grows as needed.
+Carbon::TextField("Name", &name);
+
+// 2. A fixed buffer you own: a char array, or any std::span<char>. Holds a zero-terminated UTF-8 string.
+char title[64] = "Untitled";
+Carbon::TextField("Title", title);
+
+// 3. Text stored your own way: pass the current text and a function that takes the new one.
+Carbon::TextField("Title", document.GetTitle(), [&](std::string_view text) { document.SetTitle(text); });
+```
+
+- **Buffer.** The text takes up at most all but the last byte, which holds the terminating zero. Typing or
+  pasting more is cut off at the last whole character that fits, so a multi-byte character is never split, and
+  nothing is written outside the span. When the buffer is full, more typing is ignored and the call returns
+  `false`. The buffer may lack a zero; then its last byte becomes one. Carbon never allocates for the buffer
+  (`MaxLength` still limits the characters).
+- **Callback.** The function is called during the `TextField` call, once, on frames the text changed; the
+  `std::string_view` it receives is valid during that call only. It is a `Carbon::FunctionRef`, a non-owning
+  reference like C++26's `std::function_ref`, so passing a lambda never allocates whatever it captures. A plain
+  function works too.
+
+A `std::string` is always passed by pointer; `TextField("Name", name)` with a string does not compile, because it
+would otherwise turn into a fixed buffer of the string's current size.
+
 ## Options
 
 | Field | Type | Default | Meaning |
@@ -80,7 +109,7 @@ Ctrl is the default shortcut modifier; see [Keyboard navigation](../KeyboardNavi
 - Text that is longer than the field scrolls to keep the caret visible.
 - Pasted line breaks and tabs become spaces; other control characters are dropped.
 - The focus ring shows whenever the field has focus, as on macOS.
-- The application may change the string at any time, also while the field is focused.
+- The application may change the text at any time, also while the field is focused.
 - Input method composition (IME) and right-to-left text are not supported in this version.
 - While a field is focused, `io.WantsTextInput()` is true and the caret blinks. The caret does not keep
   `IsAnimating()` true: it asks for a frame each time it changes, twice a second, which a host that renders on

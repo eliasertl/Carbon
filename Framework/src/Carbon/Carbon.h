@@ -13,6 +13,7 @@
 #include "Carbon/Core/Context.h"
 #include "Carbon/Core/ContextDescription.h"
 #include "Carbon/Core/EdgeInsets.h"
+#include "Carbon/Core/FunctionRef.h"
 #include "Carbon/Core/Hash.h"
 #include "Carbon/Core/ID.h"
 #include "Carbon/Core/Log.h"
