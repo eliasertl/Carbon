@@ -40,10 +40,11 @@ built with Carbon, include this notice and the text of its `OFL.txt` (installed 
 Phosphor Icons — Copyright (c) 2020-2021 Phosphor Icons. The MIT license requires the copyright and permission
 notice to be included with copies of the fonts; include `ThirdParty/Phosphor/LICENSE` when you redistribute.
 
-## Used only by the examples and tests (not part of the libraries)
+## Used only by the examples, tests and benchmarks (not part of the libraries)
 
 | Component | Version | License | License file |
 | --- | --- | --- | --- |
 | [GLFW](https://www.glfw.org) | 3.5.1 | zlib/libpng | `ThirdParty/GLFW/LICENSE.md` |
 | [stb](https://github.com/nothings/stb) (`stb_image_write.h` 1.16) | commit `2c980bb` | MIT or public domain (Unlicense) | `ThirdParty/Stb/LICENSE` |
 | [GoogleTest](https://github.com/google/googletest) | 1.18.0 | BSD 3-Clause | `ThirdParty/GoogleTest/LICENSE` |
+| [Google Benchmark](https://github.com/google/benchmark) | 1.9.5 | Apache License 2.0 | `ThirdParty/GoogleBenchmark/LICENSE` |

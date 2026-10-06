@@ -58,4 +58,6 @@ read it before changing public API.
 - Check visuals yourself: every example accepts `--screenshot <file.png>`, `--theme light|dark` and
   `--scale <factor>`. Look at the result and compare it with the HIG (macOS flavor) before calling it done.
 - Documentation is part of every milestone. New components get `Docs/Components/<Name>.md`.
+- Performance work is measured: `CarbonBenchmarks` and `Scripts/BuildMetrics.py` before and after, the numbers and
+  the keep rule in [Docs/Optimizations.md](Docs/Optimizations.md).
 - Decisions that deviate from or refine the plan are recorded in the decision log of Architecture.md.

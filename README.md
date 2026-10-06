@@ -137,6 +137,7 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Components](Docs/Components/README.md) — one page per component
 - [Custom components](Docs/CustomComponents.md) — the extension API, by example
 - [Reflection](Docs/Reflection.md) — interface from your own enums and structs: automatic reflection, the macros, limits
+- [Optimizations](Docs/Optimizations.md) — the benchmarks, what Carbon costs per frame and per build, and what was done about it
 
 ## License
 

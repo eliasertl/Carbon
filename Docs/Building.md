@@ -85,6 +85,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_BUILD_REFLECTION` | `ON` | Build the `CarbonReflection` library (skipped with a message when `CARBON_BUILD_EXTENSIONS` is `OFF`) |
 | `CARBON_BUILD_EXAMPLES` | `ON` when Carbon is the top-level project | Build the examples (needs GLFW and stb) |
 | `CARBON_BUILD_TESTS` | `ON` when Carbon is the top-level project | Build the unit tests (needs GoogleTest) |
+| `CARBON_BUILD_BENCHMARKS` | `ON` when Carbon is the top-level project | Build `CarbonBenchmarks` (needs Google Benchmark and `CARBON_BUILD_EXTENSIONS`; not built for the web). See [Optimizations](Optimizations.md) |
 | `CARBON_INSTALL` | `ON` when Carbon is the top-level project | Generate install rules and the `CarbonConfig.cmake` package |
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
@@ -102,7 +103,8 @@ package lists them in `Carbon_BACKENDS`.
 
 ## Dependency switches
 
-Every dependency `<NAME>` in `FREETYPE`, `HARFBUZZ`, `GOOGLETEST`, `GLFW`, `STB` has two variables:
+Every dependency `<NAME>` in `FREETYPE`, `HARFBUZZ`, `GOOGLETEST`, `GOOGLEBENCHMARK`, `GLFW`, `STB` has two
+variables:
 
 | Variable | Meaning |
 | --- | --- |
@@ -114,7 +116,8 @@ Every dependency `<NAME>` in `FREETYPE`, `HARFBUZZ`, `GOOGLETEST`, `GLFW`, `STB`
 | `FREETYPE` | `freetype` | `Carbon` | `Freetype` |
 | `HARFBUZZ` | `harfbuzz` | `Carbon` | `harfbuzz` |
 | `GOOGLETEST` | `GTest::gtest_main` | tests | `GTest` |
-| `GLFW` | `glfw` | examples, and the OpenGL backend's tests | `glfw3` |
+| `GOOGLEBENCHMARK` | `benchmark::benchmark` | benchmarks | `benchmark` |
+| `GLFW` | `glfw` | examples, and the OpenGL backend's tests and benchmarks | `glfw3` |
 | `STB` | `stb` | examples and tests | header search for `stb_image_write.h` |
 | `DAWN` | `dawn::webgpu_dawn` | `Carbon` (WebGPU backend) | `Dawn` (never built; only searched while `CARBON_BACKEND_WEBGPU` is not `OFF`) |
 
@@ -233,6 +236,19 @@ difference images are in `<build>/Tests/BackendCompare/`.
 On Windows, Dawn needs `d3dcompiler_47.dll` next to the executable (see
 [Renderer backends](Backends.md#webgpu)). The examples and tests copy it from the Windows SDK;
 set `CARBON_D3DCOMPILER_DLL` to its path if CMake cannot find it.
+
+## Benchmarks
+
+`CarbonBenchmarks` measures steady-state frames of the headless core (frame time, heap allocations, draw data) and
+the render function of each backend that is compiled in. Use a Release build:
+
+```sh
+cmake --build Build/Release --target CarbonBenchmarks
+python Scripts/Benchmarks.py --out Scratch/Benchmarks.json     # every benchmark, median of 3 repetitions
+```
+
+[Optimizations](Optimizations.md) describes the scenarios, the options and the numbers, and
+`Scripts/BuildMetrics.py`, which measures what building and testing cost.
 
 ## Using Carbon from a parent project
 

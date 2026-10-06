@@ -48,15 +48,25 @@ def run(command, **options):
     return seconds
 
 
-def read_ninja_seconds(build, since=0):
-    """Adds up the durations of the build steps in .ninja_log, from line `since` on. Returns (seconds, lines)."""
-    lines = (build / ".ninja_log").read_text(encoding="utf-8", errors="replace").splitlines()
-    total = 0
-    for line in lines[since:]:
+def read_ninja_log(build):
+    """The last entry of every output in .ninja_log: output -> (start, end, modification time)."""
+    entries = {}
+    for line in (build / ".ninja_log").read_text(encoding="utf-8", errors="replace").splitlines():
         fields = line.split("\t")
         if len(fields) >= 4 and fields[0].isdigit():
-            total += int(fields[1]) - int(fields[0])
-    return total / 1000.0, len(lines)
+            entries[fields[3]] = (int(fields[0]), int(fields[1]), fields[2])
+    return entries
+
+
+def read_ninja_seconds(build, before=None):
+    """Adds up the durations of the build steps in .ninja_log: all of them, or the ones that ran since `before`
+    (an earlier read_ninja_log). Ninja rewrites its log now and then, so entries are compared, not counted."""
+    before = before or {}
+    total = 0
+    for output, entry in read_ninja_log(build).items():
+        if before.get(output) != entry:
+            total += entry[1] - entry[0]
+    return total / 1000.0
 
 
 def remove_tree(path):
@@ -88,7 +98,7 @@ def measure_configuration(arguments, source, work, build_type, steps):
             remove_tree(build)
             result["configure_s"].append(configure(arguments, source, build, build_type))
             result["clean_build_s"].append(run(["cmake", "--build", str(build)]))
-            result["clean_build_cpu_s"].append(read_ninja_seconds(build)[0])
+            result["clean_build_cpu_s"].append(read_ninja_seconds(build))
             print(f"  {build_type} clean build {index + 1}: {result['clean_build_s'][-1]:.1f} s "
                   f"({result['clean_build_cpu_s'][-1]:.0f} CPU s)", flush=True)
     elif not (build / "build.ninja").exists():
@@ -102,9 +112,9 @@ def measure_configuration(arguments, source, work, build_type, steps):
         for index in range(arguments.runs):
             time.sleep(1.1)  # file times have a resolution of up to a second
             os.utime(log_header)
-            lines = read_ninja_seconds(build)[1]
+            before = read_ninja_log(build)
             result["touch_log_h_s"].append(run(["cmake", "--build", str(build)]))
-            result["touch_log_h_cpu_s"].append(read_ninja_seconds(build, lines)[0])
+            result["touch_log_h_cpu_s"].append(read_ninja_seconds(build, before))
             print(f"  {build_type} rebuild after touching Log.h {index + 1}: {result['touch_log_h_s'][-1]:.1f} s",
                   flush=True)
 
@@ -118,9 +128,9 @@ def measure_configuration(arguments, source, work, build_type, steps):
                 patch = int(pattern.search(original).group(2)) + index + 1
                 lists.write_text(pattern.sub(lambda match: match.group(1) + str(patch), original), encoding="utf-8",
                                  newline="\n")
-                lines = read_ninja_seconds(build)[1]
+                before = read_ninja_log(build)
                 result["version_change_s"].append(run(["cmake", "--build", str(build)]))
-                result["version_change_cpu_s"].append(read_ninja_seconds(build, lines)[0])
+                result["version_change_cpu_s"].append(read_ninja_seconds(build, before))
                 print(f"  {build_type} rebuild after a version change {index + 1}: "
                       f"{result['version_change_s'][-1]:.1f} s", flush=True)
         finally:
