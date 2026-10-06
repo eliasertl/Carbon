@@ -39,7 +39,8 @@ Framework/src/Carbon/
 ├── Overlay/              floating surfaces above the interface: stacking, pointer capture, focus scopes
 ├── Widgets/              Text, Button, Toggle, Slider, TextField, Image, Separator, Tooltip, ControlSize,
 │                         ControlFeedback (hover and pressed feedback shared by all controls)
-├── Renderer/             the only folder that calls Dawn: Renderer, pipeline, WGSL, buffers, textures
+├── Renderer/             the only folder that calls Dawn: Renderer, pipeline, WGSL, buffers, textures; and
+│                         TextureFormat, the API-neutral names of render-target formats
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -632,6 +633,12 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | M9 Reflect | `Carbon::Reflect` for enums and structs, `ReflectOptions`, field mapping, both layouts | Widget tests (change detection), zero allocations, screenshots in both themes at scale 1 and 2 |
 | M10 Gallery page | "Reflection" page: five sections, each a code box above the generated UI | Screenshots vs. HIG |
 | M11 Example and docs | `Examples/Reflection` settings window, `Docs/Reflection.md`, `Docs/Components/Reflect.md`, packaging (`find_package(Carbon COMPONENTS Reflection)`) | Package test; CI green |
+| M12 Backend-neutral types | `Carbon::TextureFormat` and its queries | Unit tests |
+| M13 Backend interface | `RendererBackend`, install and remove, core dispatch; the Dawn renderer behind the interface | Headless tests with a recording backend; renderer tests unchanged |
+| M14 Backend build and tests | `CARBON_BACKEND_*` options, conditional dependencies, backend test harness, smoke and pixel-comparison tests | Tests on WebGPU |
+| M15 WebGPU backend | Renderer and WGSL in `Backends/WebGPU/`, `WebGPU*` API, graphics-free core, `WebGPUMinimalIntegration`, `Docs/Backends.md` | Screenshots unchanged; isolation test |
+| M16 Vulkan backend | `Backends/Vulkan/`, GLSL 450 compiled to SPIR-V at build time, `VulkanMinimalIntegration` | Smoke and pixel comparison against WebGPU; validation layers clean |
+| M17 OpenGL backend | `Backends/OpenGL/`, GLSL 330, private function table, `OpenGLMinimalIntegration` | Smoke and pixel comparison against WebGPU |
 
 ## 16. Decision log
 
@@ -732,6 +739,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 92 | Every field of a struct is reached with a comma fold, never with `|` or `||` | Fields must be drawn in order, every frame; `|` leaves the order of evaluation unspecified |
 | 93 | Automatic labels use title-style capitalization: minor words (articles, conjunctions, short prepositions) inside a label stay lowercase | The HIG asks for title-style labels; "Launch At Login" reads like a machine wrote it |
 | 94 | The Reflection example's executable is called `Reflection`, its target `ReflectionExample` | Every example's executable is named after its folder; a target called `Reflection` would read like the library |
+| 95 | `Carbon::TextureFormat` names the formats of a host's render targets without a graphics API: the 8-bit RGBA and BGRA formats with their sRGB variants, RGB10A2, RGBA16Float, and the depth-stencil formats. Depth formats are named exactly (`Depth24Unorm`, not "at least 24 bits"); the sample count stays a `uint32_t` | Carbon is getting renderer backends for several APIs, and core headers must not include any of them. A Vulkan or Direct3D 12 pipeline needs the exact depth format of the pass; a backend whose API is vaguer (WebGPU's `Depth24Plus`) maps to its closest format. A number needs no type of its own |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

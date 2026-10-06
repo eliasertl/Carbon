@@ -51,6 +51,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Layout/Stack.h
     src/Carbon/Overlay/Overlay.h
     src/Carbon/Renderer/Render.h
+    src/Carbon/Renderer/TextureFormat.h
     src/Carbon/Style/Style.h
     src/Carbon/Style/StyleColor.h
     src/Carbon/Style/StyleVar.h
@@ -115,6 +116,7 @@ set(CARBON_SOURCES
     src/Carbon/Layout/Stack.cpp
     src/Carbon/Overlay/Overlay.cpp
     src/Carbon/Renderer/RendererInternal.cpp
+    src/Carbon/Renderer/TextureFormat.cpp
     src/Carbon/Style/Style.cpp
     src/Carbon/Style/Theme.cpp
     src/Carbon/Text/Font.cpp

@@ -19,6 +19,7 @@ add_executable(CarbonTests
     src/Layout/ScrollViewTests.cpp
     src/Overlay/OverlayTests.cpp
     src/Renderer/RendererTests.cpp
+    src/Renderer/TextureFormatTests.cpp
     src/Style/StyleTests.cpp
     src/Style/ThemeTests.cpp
     src/Support/ContextTest.h
