@@ -295,6 +295,13 @@ namespace Carbon
         return shape;
     }
 
+    void DrawList::HideSince(size_t vertexCount)
+    {
+        // Colors are packed with alpha in the top byte.
+        for (size_t i = vertexCount; i < m_Vertices.size(); i++)
+            m_Vertices[i].Color &= 0x00FFFFFFu;
+    }
+
     void DrawList::ResolveDeferredSquircle(const DeferredShape& shape, const Rect& rect, float radius, float smoothing)
     {
         if (!shape.IsValid || rect.IsEmpty() || static_cast<size_t>(shape.FirstVertex) + 4 > m_Vertices.size())

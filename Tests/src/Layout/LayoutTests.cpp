@@ -2,7 +2,10 @@
 
 #include <cmath>
 #include <format>
+#include <functional>
+#include <iterator>
 #include <source_location>
+#include <vector>
 
 namespace Carbon
 {
@@ -28,6 +31,28 @@ namespace Carbon
         Rect Item(float width, float height, const ItemOptions& options = {})
         {
             return AllocateItem(Vec2(width, height), options);
+        }
+
+        /// Whether everything the last frame drew is transparent (or nothing was drawn).
+        bool IsHidden() const
+        {
+            for (const DrawVertex& vertex : GetDrawData().Vertices)
+            {
+                if ((vertex.Color >> 24) != 0)
+                    return false;
+            }
+            return true;
+        }
+
+        /// Whether everything the last frame drew is fully opaque.
+        bool IsFullyOpaque() const
+        {
+            for (const DrawVertex& vertex : GetDrawData().Vertices)
+            {
+                if ((vertex.Color >> 24) != 255)
+                    return false;
+            }
+            return !GetDrawData().Vertices.empty();
         }
     };
 
@@ -548,9 +573,10 @@ namespace Carbon
             return drawData.Vertices.empty() ? 0 : int(drawData.Vertices[0].Color >> 24);
         };
 
-        // Frame 1: measurements are missing, so the centered item would be misplaced. Nothing is drawn.
+        // Frame 1: measurements are missing, so the centered item was misplaced: the narrow item was centered
+        // against itself before the wide one came. Nothing is visible.
         Frame(build);
-        EXPECT_TRUE(GetDrawData().Vertices.empty());
+        EXPECT_TRUE(IsHidden());
         EXPECT_TRUE(IsAnimating());
 
         // Frame 2 onwards: in place, fading in.
@@ -567,6 +593,127 @@ namespace Carbon
         Settle(build);
         EXPECT_EQ(getAlpha(), 255);
         EXPECT_FALSE(IsAnimating());
+    }
+
+    TEST_F(LayoutTests, ANewStackWhoseLayoutNeedsNoMeasurementsIsDrawnInItsFirstFrame)
+    {
+        const auto build = [&]
+        {
+            // Leading alignment; a background, whose size is only known at End; a nested row whose tallest item
+            // comes first, so centering is right as soon as it is placed; a separator after the widest item.
+            BeginVStack({.Spacing = 4.0f, .Padding = 8.0f, .Background = Color::Black()});
+            GetDrawList().AddRect(Item(40.0f, 20.0f), Color::White());
+            BeginHStack({.Spacing = 4.0f});
+            GetDrawList().AddRect(Item(30.0f, 24.0f), Color::White());
+            GetDrawList().AddRect(Item(30.0f, 10.0f), Color::White());
+            EndHStack();
+            GetDrawList().AddRect(Item(120.0f, 10.0f), Color::White());
+            GetDrawList().AddRect(Item(10.0f, 1.0f, {.Width = Size::Fill()}), Color::White());
+            EndVStack();
+        };
+
+        Frame(build);
+        const std::vector<DrawVertex> first(GetDrawData().Vertices.begin(), GetDrawData().Vertices.end());
+        ASSERT_FALSE(first.empty());
+        EXPECT_TRUE(IsFullyOpaque()) << "drawn at once, without a fade";
+
+        // The second frame does not fade either, and nothing moves: the first frame was already the final one.
+        Frame(build);
+        EXPECT_TRUE(IsFullyOpaque());
+        Settle(build);
+        const DrawData& settled = GetDrawData();
+        ASSERT_EQ(settled.Vertices.size(), first.size());
+        for (size_t i = 0; i < first.size(); i++)
+        {
+            EXPECT_EQ(first[i].Position, settled.Vertices[i].Position) << "vertex " << i;
+            EXPECT_EQ(first[i].Color, settled.Vertices[i].Color) << "vertex " << i;
+        }
+        EXPECT_FALSE(IsAnimating());
+    }
+
+    TEST_F(LayoutTests, ANewStackIsHiddenOnlyWhenItsFirstFrameWouldBeWrong)
+    {
+        // Each case puts something in the wrong place when the stack's own measurements are missing.
+        const std::function<void()> wrongs[] = {
+            // A narrow item centered before a wider one.
+            [&]
+            {
+                BeginVStack({.Alignment = Alignment::Center});
+                GetDrawList().AddRect(Item(40.0f, 10.0f), Color::White());
+                GetDrawList().AddRect(Item(120.0f, 10.0f), Color::White());
+                EndVStack();
+            },
+            // A full-width item before a wider one.
+            [&]
+            {
+                BeginVStack();
+                GetDrawList().AddRect(Item(10.0f, 1.0f, {.Width = Size::Fill()}), Color::White());
+                GetDrawList().AddRect(Item(120.0f, 10.0f), Color::White());
+                EndVStack();
+            },
+            // A spacer in a stack of given width shares free space that is not measured yet.
+            [&]
+            {
+                BeginHStack({.Width = 300.0f});
+                Spacer();
+                GetDrawList().AddRect(Item(40.0f, 10.0f), Color::White());
+                EndHStack();
+            },
+            // Justified content is offset by free space, too.
+            [&]
+            {
+                BeginHStack({.Justify = Alignment::Trailing, .Width = 300.0f});
+                GetDrawList().AddRect(Item(40.0f, 10.0f), Color::White());
+                EndHStack();
+            },
+        };
+        for (size_t i = 0; i < std::size(wrongs); i++)
+        {
+            // A new context each time, so that the stack is new.
+            TearDown();
+            SetUp();
+            Frame(wrongs[i]);
+            EXPECT_TRUE(IsHidden()) << "case " << i;
+            Frame(wrongs[i]);
+            EXPECT_FALSE(IsFullyOpaque()) << "case " << i << " fades in";
+            Settle(wrongs[i]);
+            EXPECT_TRUE(IsFullyOpaque()) << "case " << i;
+        }
+    }
+
+    TEST_F(LayoutTests, OnlyTheNewStackThatWouldBeWrongIsHidden)
+    {
+        bool showDetails = false;
+        size_t outerVertices = 0;
+        const auto build = [&]
+        {
+            BeginVStack();
+            GetDrawList().AddRect(Item(100.0f, 10.0f), Color::White());
+            if (showDetails)
+            {
+                // Right at once: leading alignment.
+                BeginVStack();
+                GetDrawList().AddRect(Item(50.0f, 10.0f), Color::White());
+                outerVertices = GetDrawList().GetVertices().size();
+                // Wrong at first: a narrow item centered before a wide one.
+                BeginVStack({.Alignment = Alignment::Center});
+                GetDrawList().AddRect(Item(20.0f, 10.0f), Color::White());
+                GetDrawList().AddRect(Item(60.0f, 10.0f), Color::White());
+                EndVStack();
+                EndVStack();
+            }
+            EndVStack();
+        };
+        Settle(build);
+        showDetails = true;
+        Frame(build);
+        const DrawData& drawData = GetDrawData();
+        ASSERT_EQ(drawData.Vertices.size(), outerVertices + 8u);
+        for (size_t i = 0; i < drawData.Vertices.size(); i++)
+            EXPECT_EQ(drawData.Vertices[i].Color >> 24, i < outerVertices ? 255u : 0u) << "vertex " << i;
+
+        Settle(build);
+        EXPECT_TRUE(IsFullyOpaque());
     }
 
     TEST_F(LayoutTests, AConditionalSiblingDoesNotDisturbOtherStacks)

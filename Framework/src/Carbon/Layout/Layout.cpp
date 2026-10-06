@@ -171,6 +171,70 @@ namespace Carbon::Internal
             grid.NextVerticalFactor.reset();
         }
 
+        bool FitsMain(const LayoutFrame& frame)
+        {
+            return frame.Axis == Axis::Horizontal ? frame.FitsWidth : frame.FitsHeight;
+        }
+
+        bool FitsCross(const LayoutFrame& frame)
+        {
+            return frame.Axis == Axis::Horizontal ? frame.FitsHeight : frame.FitsWidth;
+        }
+
+        // ---- The first frame of a new container ----------------------------------------------------------------
+        //
+        // A new container has no measurements, so whatever depends on them is laid out against zero: alignment
+        // across an axis that fits the content, items that fill such an axis, and flexible items along an axis of
+        // given length. Instead of hiding every new container for a frame, the container is drawn and the
+        // placements of its items are checked; only when one was wrong is the container hidden at End, and it
+        // fades in from the next frame. Across a fitting axis the container's extent grows with each item, so a
+        // stack whose largest item comes first is right at once.
+
+        void GrowCross(LayoutFrame& frame, float cross)
+        {
+            if (frame.Axis == Axis::Horizontal)
+                frame.Inner.Height = std::max(frame.Inner.Height, cross);
+            else
+                frame.Inner.Width = std::max(frame.Inner.Width, cross);
+        }
+
+        // Called before an item is placed in a container whose first frame is checked. `isDrawn` is false for items
+        // that draw nothing (spacers) or that are hidden in this frame anyway.
+        void CheckFirstFramePlacement(LayoutFrame& parent, const GridFrame* grid, const ItemFlow& flow, bool isDrawn)
+        {
+            if (!parent.ChecksFirstFrame || parent.HasCursorOverride || grid != nullptr)
+                return;
+            // Along an axis of given length, flexible items share free space computed from measurements.
+            if (flow.IsFlexible && !FitsMain(parent))
+                parent.IsProvisional = true;
+            if (!isDrawn || !FitsCross(parent))
+                return;
+            if (!flow.FillsCross)
+                GrowCross(parent, GetCross(flow.Size, parent.Axis));
+            if (flow.FillsCross || parent.CrossFactor != 0.0f)
+                parent.MinUsedCross = std::min(parent.MinUsedCross, GetCross(parent.Inner.GetSize(), parent.Axis));
+        }
+
+        // A new container whose own layout is known to need measurements before anything is placed in it: it is
+        // hidden for its first frame, as before. `flow` is how it is placed in `parent`.
+        bool NeedsMeasurementsToDraw(const ContainerDescription& description, const LayoutFrame& parent,
+                                     const GridFrame* grid, const ItemFlow& flow)
+        {
+            // Overlays are placed from their measured size; grid columns are measured.
+            if (description.IsFloating || description.Kind == ContainerKind::Grid ||
+                description.Kind == ContainerKind::GridRow || grid != nullptr)
+                return true;
+            // Justified content is offset by free space computed from the content's measured length.
+            const bool fitsMain =
+                (description.Axis == Axis::Horizontal ? description.Width : description.Height).Mode == SizeMode::Fit;
+            if (!fitsMain && !description.IsScrolling && description.JustifyFactor != 0.0f)
+                return true;
+            // Aligned across its parent's axis by its own size, which is not known before End.
+            const Size crossSize = parent.Axis == Axis::Horizontal ? description.Height : description.Width;
+            return !parent.HasCursorOverride && parent.CrossFactor != 0.0f && !flow.FillsCross &&
+                   crossSize.Mode == SizeMode::Fit;
+        }
+
         // Advances the cursor past an item and adds it to the container's measurements.
         void CommitItem(LayoutFrame& parent, GridFrame* grid, Vec2 origin, const ItemFlow& flow)
         {
@@ -345,7 +409,8 @@ namespace Carbon::Internal
         ContainerRecord* record = GetState<ContainerRecord>(id, StateLifetime::Transient, &created);
         if (record->LastFrame == context.FrameCount)
         {
-            if (description.CallSite != nullptr)
+            // The second container from the call site is the one to report; later ones need not look again.
+            if (description.CallSite != nullptr && record->Occurrences == 1)
                 ReportRepeatedCallSite(context, description.Kind, *description.CallSite);
             const uint64_t occurrence = record->Occurrences++;
             id = ID{HashCombine(description.Id.Value, occurrence)};
@@ -385,6 +450,13 @@ namespace Carbon::Internal
             flow = ResolveItem(parent, grid, description.Width, description.Height, record->ContentSize + padding);
         }
 
+        // Whether a new container can be drawn in its first frame (see CheckFirstFramePlacement).
+        const bool isParentAppearing = parent.IsAppearing && !description.IsFloating;
+        const bool hidesFirstFrame =
+            created && !isParentAppearing && NeedsMeasurementsToDraw(description, parent, grid, flow);
+        if (!description.IsFloating)
+            CheckFirstFramePlacement(layout.Frames.back(), grid, flow, !hidesFirstFrame);
+
         LayoutFrame frame;
         frame.Kind = description.Kind;
         frame.Axis = description.Axis;
@@ -405,13 +477,18 @@ namespace Carbon::Internal
         frame.FillsParentCell = flow.FillsCell;
         StartFlow(frame, *record, description.JustifyFactor, description.IsScrolling, description.ScrollOffset);
 
-        // A container seen for the first time lays out with empty measurements, so it is hidden for that frame
-        // and fades in afterwards. Nested new containers fade together with the outermost one.
+        // A container seen for the first time lays out with empty measurements. When that is known to put its
+        // content in the wrong place, it is hidden for that frame and fades in afterwards; otherwise it is drawn
+        // and checked (see CheckFirstFramePlacement). Nested new containers fade together with the outermost one;
+        // a floating container has left its parent's opacity behind, so it always fades in on its own.
         record->AppearTime = created ? 0.0f : std::min(record->AppearTime + context.DeltaTime, AppearFadeDuration);
-        // A floating container has left its parent's opacity behind, so it always fades in on its own.
-        const bool isParentAppearing = parent.IsAppearing && !description.IsFloating;
         frame.IsAppearing = isParentAppearing;
-        if (!isParentAppearing && record->AppearTime < AppearFadeDuration)
+        if (created && !hidesFirstFrame && !isParentAppearing)
+        {
+            frame.ChecksFirstFrame = true;
+            frame.FirstVertex = context.Draw.GetVertices().size();
+        }
+        else if (!isParentAppearing && record->AppearTime < AppearFadeDuration)
         {
             const float opacity = created ? 0.0f : Ease(Easing::EaseOut, record->AppearTime / AppearFadeDuration);
             context.Draw.PushOpacity(opacity);
@@ -457,6 +534,21 @@ namespace Carbon::Internal
         if (frame.HasOpacity)
             context.Draw.PopOpacity();
 
+        // A new container that was drawn stays visible only if everything in it was placed right.
+        if (frame.ChecksFirstFrame)
+        {
+            const bool isProvisional = frame.IsProvisional || frame.MinUsedCross < frame.CrossExtent - SettleTolerance;
+            if (isProvisional)
+            {
+                context.Draw.HideSince(frame.FirstVertex);
+                context.IsAnimatingThisFrame = true;
+            }
+            else
+            {
+                frame.Record->AppearTime = AppearFadeDuration;
+            }
+        }
+
         if (frame.IsFloating)
             return rect;
 
@@ -467,7 +559,12 @@ namespace Carbon::Internal
         flow.FillsCross = frame.FillsParentCross;
         flow.FillsCell = frame.FillsParentCell;
         flow.FitWidth = frame.Record->ContentSize.X + frame.Padding.GetHorizontal();
-        CommitItem(parent, FindGrid(layout, parent), frame.Origin, flow);
+        GridFrame* grid = FindGrid(layout, parent);
+        // Items after it are aligned against its final size.
+        if (parent.ChecksFirstFrame && !parent.HasCursorOverride && grid == nullptr && FitsCross(parent) &&
+            !flow.FillsCross)
+            GrowCross(parent, GetCross(size, parent.Axis));
+        CommitItem(parent, grid, frame.Origin, flow);
         return rect;
     }
 
@@ -531,6 +628,7 @@ namespace Carbon
         LayoutFrame& frame = context.Layout.Frames.back();
         Internal::GridFrame* grid = Internal::FindGrid(context.Layout, frame);
         const Internal::ItemFlow flow = Internal::ResolveItem(frame, grid, options.Width, options.Height, size);
+        Internal::CheckFirstFramePlacement(frame, grid, flow, true);
         const Vec2 origin = Internal::PlaceItem(context, frame, grid, flow.Size);
         Internal::CommitItem(frame, grid, origin, flow);
         return Rect(origin, flow.Size);
@@ -597,6 +695,7 @@ namespace Carbon
             flow.Size = Internal::MakeVec(frame.Axis, flow.FlexMinimum + frame.FlexUnit * flow.FlexWeight, 0.0f);
         }
         Internal::GridFrame* grid = Internal::FindGrid(context.Layout, frame);
+        Internal::CheckFirstFramePlacement(frame, grid, flow, false);
         const Vec2 origin = Internal::PlaceItem(context, frame, grid, flow.Size);
         Internal::CommitItem(frame, grid, origin, flow);
     }

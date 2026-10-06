@@ -142,10 +142,31 @@ This is invisible in practice:
 
 - Leading and top alignment never need measurements, and a fitting stack reports its true size to its parent
   within the same frame.
-- A stack that appears for the first time is hidden for exactly one frame and then fades in over about a tenth
-  of a second, by which time its measurements exist.
+- A stack that appears for the first time is drawn in that frame, at its final size, whenever its first layout
+  did not need its own measurements (see below). Otherwise it is hidden for exactly one frame and then fades in
+  over about a tenth of a second, by which time its measurements exist.
 - When content changes size, dependent positions follow one frame later. `Carbon::IsAnimating()` returns true
   until the layout has settled, so a host that renders on demand knows to render another frame.
+
+### The first frame of a new stack
+
+A new stack has no measurements yet. Carbon draws it anyway and checks, item by item, whether any placement used
+a measurement the stack does not have. Its size is never the problem: a stack that fits its content knows that
+size when it ends, and its background is drawn with it. Only these placements can be wrong in the first frame:
+
+| In a new stack | Wrong when |
+| --- | --- |
+| Items centered or trailing-aligned across an axis that fits the content | A larger item comes after a smaller one. The stack grows with each item, so if the largest comes first, or all are the same size, it is right. |
+| Items that `Fill` across an axis that fits the content (a `Separator`) | A larger item comes after it |
+| `Spacer` or `Fill` along an axis of given length (`Fixed` or `Fill`) | Always: the free space is measured |
+| `Justify` other than leading along an axis of given length | Always |
+| A new fitting stack placed off-leading across its parent's axis (centered in an `HStack`, for instance) | Always: it is aligned by its own size, which is known only at its end |
+| A new grid or grid row; an overlay | Always: column widths and overlay sizes are measured |
+
+When nothing was wrong the stack stays as drawn, with no fade. When something was, everything it drew is made
+transparent at its end, and it fades in from the next frame as before; a new stack inside one that is drawn is
+judged on its own, so only the part that would be wrong waits. A stack whose cross axis has a fixed size never
+depends on its own measurement there. Frames of a settled layout skip the check.
 
 ## Identity
 

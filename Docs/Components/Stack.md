@@ -20,6 +20,11 @@ Carbon::EndVStack();
 Every `Begin` needs its `End`; forgetting one is reported at the end of the frame. The full model (sizes, free
 space, the one frame of latency, identity) is explained in [Layout](../Layout.md).
 
+A stack that appears is drawn in its first frame at its final size when its layout did not depend on its own
+measurements, as with leading alignment or a row of equally tall controls; otherwise it is hidden for that one
+frame and fades in. [The first frame of a new stack](../Layout.md#the-first-frame-of-a-new-stack) lists the
+cases.
+
 ## VStackOptions and HStackOptions
 
 | Field | Type | Default | Meaning |

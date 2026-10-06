@@ -1,6 +1,8 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
+#include <limits>
 #include <optional>
 #include <source_location>
 #include <vector>
@@ -134,7 +136,20 @@ namespace Carbon::Internal
         DeferredShape Background;
         float BackgroundRadius = 0.0f;
         bool HasOpacity = false;
+        /// Hidden for its first frame or fading in; containers inside it do not fade on their own.
         bool IsAppearing = false;
+
+        // A container seen for the first time is drawn in that frame when its layout turns out not to depend on
+        // measurements it does not have yet. While it is open, placements that would be wrong are noted here.
+        /// The container is new and drawn; its first frame is being checked.
+        bool ChecksFirstFrame = false;
+        /// A placement used a measurement that was missing: the container is hidden at End and fades in.
+        bool IsProvisional = false;
+        /// The draw list's vertex count at Begin: everything drawn since belongs to the container.
+        size_t FirstVertex = 0;
+        /// The least extent across the axis that a drawn item was aligned or stretched against. When the content
+        /// ends up wider than that, the item is in the wrong place.
+        float MinUsedCross = std::numeric_limits<float>::infinity();
     };
 
     /// A scroll view that is open during the frame; parallel to its LayoutFrame.

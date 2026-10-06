@@ -93,6 +93,11 @@ namespace Carbon
         void ResolveDeferredSquircle(const DeferredShape& shape, const Rect& rect, float radius,
                                      float smoothing = DefaultCornerSmoothing);
 
+        /// Makes everything drawn since a GetVertices().size() mark fully transparent, in every layer. The layout
+        /// uses it to hide a container after the fact, when its first frame turns out to have been laid out from
+        /// measurements it did not have yet.
+        void HideSince(size_t vertexCount);
+
         std::span<const DrawVertex> GetVertices() const { return m_Vertices; }
         std::span<const DrawPrimitive> GetPrimitives() const { return m_Primitives; }
         std::span<const DrawIndex> GetIndices(DrawLayer layer, uint32_t depth = 0) const;
