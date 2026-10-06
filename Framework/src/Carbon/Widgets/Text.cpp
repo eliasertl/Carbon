@@ -48,8 +48,13 @@ namespace Carbon
         const Rect rect =
             AllocateItem(Vec2(options.Width.Mode == SizeMode::Fit ? size.X : spec.MaxWidth, size.Y), item);
 
-        const StyleColor role = options.Secondary ? StyleColor::SecondaryLabel : StyleColor::Label;
-        context.Draw.AddText(rect.GetMin(), text, spec, Resolve(options.Color, role));
+        // The text has been measured, so its extent is known: a paragraph that is scrolled out of view is not
+        // shaped and broken into lines a second time. Glyphs may overhang their line by a fraction of the size.
+        if (context.Draw.GetClipRect().Intersects(rect.Expand(spec.Size)))
+        {
+            const StyleColor role = options.Secondary ? StyleColor::SecondaryLabel : StyleColor::Label;
+            context.Draw.AddText(rect.GetMin(), text, spec, Resolve(options.Color, role));
+        }
         SetStaticLastItem(rect);
     }
 

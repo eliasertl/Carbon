@@ -285,6 +285,21 @@ namespace Carbon::Internal
     void TextSystem::Draw(DrawList& drawList, Vec2 position, std::string_view text, const TextSpec& spec, Color color)
     {
         const FontMetrics metrics = GetMetrics(spec);
+
+        // Text outside the clip rectangle is rejected here, before it is hashed, shaped and broken into lines:
+        // in a long scrolling list that is most of the text. Lines run downwards from `position`, so text that
+        // starts below the clip rectangle is out, and so is text that ends above it when its number of lines is
+        // known without breaking them. The margin is the one DrawGlyphs allows for glyphs that overhang their line.
+        const Rect& clipRect = drawList.GetClipRect();
+        if (position.Y - spec.Size >= clipRect.GetBottom())
+            return;
+        if (spec.MaxWidth <= 0.0f || !spec.Wraps)
+        {
+            const float lineCount = static_cast<float>(1 + std::count(text.begin(), text.end(), '\n'));
+            if (position.Y + metrics.LineHeight * lineCount + spec.Size <= clipRect.Y)
+                return;
+        }
+
         const float alignment =
             spec.Alignment == TextAlignment::Center ? 0.5f : (spec.Alignment == TextAlignment::Trailing ? 1.0f : 0.0f);
         float y = position.Y;

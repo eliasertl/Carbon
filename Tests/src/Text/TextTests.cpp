@@ -223,6 +223,32 @@ namespace Carbon
         EXPECT_EQ(text.GetShapedLineCount(), before + 2);
     }
 
+    TEST_F(TextTests, TextOutsideTheClipRectangleIsNotShaped)
+    {
+        Internal::TextSystem& text = GetTextSystem();
+        const TextSpec spec = GetTextSpec(TextStyle::Body);
+        NewFrame();
+        DrawList& drawList = GetDrawList();
+        const size_t before = text.GetShapedLineCount();
+
+        // The display is 800 x 600 points. Text below it, and single or several lines above it, are rejected
+        // before they are shaped.
+        drawList.AddText(Vec2(10.0f, 700.0f), "Below the display", spec, Color::Black());
+        drawList.AddText(Vec2(10.0f, -100.0f), "Above the display", spec, Color::Black());
+        drawList.AddText(Vec2(10.0f, -200.0f), "Two lines\nabove the display", spec, Color::Black());
+        drawList.PushClipRect(Rect(0.0f, 100.0f, 800.0f, 50.0f));
+        drawList.AddText(Vec2(10.0f, 10.0f), "Above the clip rectangle", spec, Color::Black());
+        drawList.AddText(Vec2(10.0f, 300.0f), "Below the clip rectangle", spec, Color::Black());
+        drawList.PopClipRect();
+        EXPECT_EQ(text.GetShapedLineCount(), before);
+
+        // Text that reaches into view is drawn: here the last of many lines.
+        drawList.AddText(Vec2(10.0f, -40.0f), "First\nSecond\nThird\nFourth", spec, Color::Black());
+        EXPECT_GT(text.GetShapedLineCount(), before);
+        EndFrame();
+        EXPECT_FALSE(GetDrawData().Vertices.empty());
+    }
+
     TEST_F(TextTests, StaleShapedLinesAreEvicted)
     {
         Internal::TextSystem& text = GetTextSystem();
