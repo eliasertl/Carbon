@@ -33,6 +33,10 @@ namespace Carbon::Internal
         float AppearTime;
         /// The last frame that used this record; detects several containers from one call site.
         uint64_t LastFrame;
+        /// How many containers have been opened from this record's call site during LastFrame. The next one
+        /// derives its ID from this count, so a loop of containers costs one more lookup each, not one per
+        /// container before it.
+        uint32_t Occurrences;
     };
 
     /// The most columns a grid can have.

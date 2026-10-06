@@ -301,14 +301,19 @@ namespace Carbon::Internal
         LayoutState& layout = context.Layout;
 
         // A call site inside a loop opens several containers with the same ID; each one after the first gets an
-        // ID derived from its position in that sequence.
+        // ID derived from its position in that sequence. The first one's record counts them.
         ID id = description.Id;
         bool created = false;
         ContainerRecord* record = GetState<ContainerRecord>(id, StateLifetime::Transient, &created);
-        for (uint64_t occurrence = 1; record->LastFrame == context.FrameCount; occurrence++)
+        if (record->LastFrame == context.FrameCount)
         {
+            const uint64_t occurrence = record->Occurrences++;
             id = ID{HashCombine(description.Id.Value, occurrence)};
             record = GetState<ContainerRecord>(id, StateLifetime::Transient, &created);
+        }
+        else
+        {
+            record->Occurrences = 1;
         }
         record->LastFrame = context.FrameCount;
 
