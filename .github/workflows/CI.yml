@@ -117,7 +117,7 @@ jobs:
           cmake --install dawn-build --prefix dawn-install
 
   # A web build: Carbon compiled with Emscripten, the OpenGL ES backend for WebGL 2, the tests in Node and the
-  # example pages (OpenGLESMinimal, OpenGLESGallery, OpenGLESCustomComponent, Reflection) as an artifact. It needs
+  # example pages (OpenGLES/Minimal, Gallery, CustomComponent and Reflection) as an artifact. It needs
   # no Dawn.
   emscripten:
     name: Emscripten (WebGL 2)
@@ -324,26 +324,26 @@ jobs:
         shell: bash
         run: |
           mkdir -p Screenshots
-          Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Light.png --page selection
-          Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Dark.png --page charts --theme dark
-          Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Menu.png --page menus --show menu --scale 2
-          Build/Examples/Minimal/WebGPUMinimal --screenshot Screenshots/WebGPUMinimal.png
-          Build/Examples/Minimal/VulkanMinimal --screenshot Screenshots/VulkanMinimal.png || true
-          Build/Examples/Gallery/VulkanGallery --screenshot Screenshots/VulkanGallery.png --page images || true
+          Build/Examples/WebGPU/Gallery --screenshot Screenshots/WebGPUGallery-Light.png --page selection
+          Build/Examples/WebGPU/Gallery --screenshot Screenshots/WebGPUGallery-Dark.png --page charts --theme dark
+          Build/Examples/WebGPU/Gallery --screenshot Screenshots/WebGPUGallery-Menu.png --page menus --show menu --scale 2
+          Build/Examples/WebGPU/Minimal --screenshot Screenshots/WebGPUMinimal.png
+          Build/Examples/Vulkan/Minimal --screenshot Screenshots/VulkanMinimal.png || true
+          Build/Examples/Vulkan/Gallery --screenshot Screenshots/VulkanGallery.png --page images || true
           if [ "$RUNNER_OS" = "Windows" ]; then
-            Build/Examples/Minimal/DX11Minimal --screenshot Screenshots/DX11Minimal.png
-            Build/Examples/Gallery/DX11Gallery --screenshot Screenshots/DX11Gallery.png --page images
-            Build/Examples/Minimal/DX9Minimal --screenshot Screenshots/DX9Minimal.png || true
-            Build/Examples/Gallery/DX9Gallery --screenshot Screenshots/DX9Gallery.png --page images || true
+            Build/Examples/DX11/Minimal --screenshot Screenshots/DX11Minimal.png
+            Build/Examples/DX11/Gallery --screenshot Screenshots/DX11Gallery.png --page images
+            Build/Examples/DX9/Minimal --screenshot Screenshots/DX9Minimal.png || true
+            Build/Examples/DX9/Gallery --screenshot Screenshots/DX9Gallery.png --page images || true
           fi
           if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a Build/Examples/Minimal/OpenGLMinimal --screenshot Screenshots/OpenGLMinimal.png
-            xvfb-run -a Build/Examples/Minimal/OpenGLESMinimal --screenshot Screenshots/OpenGLESMinimal.png
-            xvfb-run -a Build/Examples/Gallery/OpenGLGallery --screenshot Screenshots/OpenGLGallery.png --page images
-            xvfb-run -a Build/Examples/Gallery/OpenGLESGallery --screenshot Screenshots/OpenGLESGallery.png --page images
+            xvfb-run -a Build/Examples/OpenGL/Minimal --screenshot Screenshots/OpenGLMinimal.png
+            xvfb-run -a Build/Examples/OpenGLES/Minimal --screenshot Screenshots/OpenGLESMinimal.png
+            xvfb-run -a Build/Examples/OpenGL/Gallery --screenshot Screenshots/OpenGLGallery.png --page images
+            xvfb-run -a Build/Examples/OpenGLES/Gallery --screenshot Screenshots/OpenGLESGallery.png --page images
           fi
-          Build/Examples/CustomComponent/WebGPUCustomComponent --screenshot Screenshots/WebGPUCustomComponent.png
-          Build/Examples/CustomTitleBar/WebGPUCustomTitleBar --screenshot Screenshots/WebGPUCustomTitleBar.png
+          Build/Examples/WebGPU/CustomComponent --screenshot Screenshots/WebGPUCustomComponent.png
+          Build/Examples/WebGPU/CustomTitleBar --screenshot Screenshots/WebGPUCustomTitleBar.png
 
       - name: Upload screenshots
         if: always()

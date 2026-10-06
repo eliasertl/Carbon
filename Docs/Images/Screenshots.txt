@@ -3,71 +3,72 @@
 #
 #   <image>  <example>  <options>
 #
-# Examples are named <Backend><Example>; the documentation shows the WebGPU builds. Options are those of the
-# examples (Docs/Building.md): --page, --show, --theme, --size, --pointer, --click, --right-click, --crop, and for
-# the Gallery --section <key>[,<key>...] with --extend <left>,<top>,<right>,<bottom>.
+# Examples are named <Backend>/<Example>, their path under Examples in the build tree; the documentation shows the
+# WebGPU builds. Options are those of the examples (Docs/Building.md): --page, --show, --theme, --size, --pointer,
+# --click, --right-click, --crop, and for the Gallery --section <key>[,<key>...] with
+# --extend <left>,<top>,<right>,<bottom>.
 # A section's key is its title in lower case without spaces or punctuation. With --section, pointer positions are
 # relative to the section's box. The scale is 2 unless --scale is given.
 
 # ---- README, integration and custom components ----------------------------------------------------------------
-Gallery-Light.png                 WebGPUGallery  --page selection
-Gallery-Dark.png                  WebGPUGallery  --page selection --theme dark
-Gallery-Lists-Light.png           WebGPUGallery  --page lists
-Gallery-Charts-Dark.png           WebGPUGallery  --page charts --theme dark
-WebGPUMinimal-Light.png           WebGPUMinimal
-CustomComponent-Light.png         WebGPUCustomComponent
-CustomTitleBar-Dark.png           WebGPUCustomTitleBar  --theme dark --pointer 878x20
+Gallery-Light.png                 WebGPU/Gallery  --page selection
+Gallery-Dark.png                  WebGPU/Gallery  --page selection --theme dark
+Gallery-Lists-Light.png           WebGPU/Gallery  --page lists
+Gallery-Charts-Dark.png           WebGPU/Gallery  --page charts --theme dark
+WebGPUMinimal-Light.png           WebGPU/Minimal
+CustomComponent-Light.png         WebGPU/CustomComponent
+CustomTitleBar-Dark.png           WebGPU/CustomTitleBar  --theme dark --pointer 878x20
 
 # ---- Core components --------------------------------------------------------------------------------------------
-Components/Text.png               WebGPUGallery  --page typography --section typography
-Components/Icon.png               WebGPUGallery  --page icons --section icons
-Components/Button.png             WebGPUGallery  --page buttons --section buttons
-Components/Tooltip.png            WebGPUGallery  --page buttons --section buttons --pointer 210x28
-Components/Toggle.png             WebGPUGallery  --page toggles --section toggles
-Components/Slider.png             WebGPUGallery  --page sliders --section sliders
-Components/TextField.png          WebGPUGallery  --page textfields --section textfields
-Components/TextArea.png           WebGPUGallery  --page textfields --section textarea
-Components/Image.png              WebGPUGallery  --page images --section imagesandseparators
-Components/Stack.png              WebGPUGallery  --page layout --section layout
-Components/Grid.png               WebGPUGallery  --page layout --section grid
-Components/ScrollView.png         WebGPUGallery  --page layout --section scrollview
+Components/Text.png               WebGPU/Gallery  --page typography --section typography
+Components/Icon.png               WebGPU/Gallery  --page icons --section icons
+Components/Button.png             WebGPU/Gallery  --page buttons --section buttons
+Components/Tooltip.png            WebGPU/Gallery  --page buttons --section buttons --pointer 210x28
+Components/Toggle.png             WebGPU/Gallery  --page toggles --section toggles
+Components/Slider.png             WebGPU/Gallery  --page sliders --section sliders
+Components/TextField.png          WebGPU/Gallery  --page textfields --section textfields
+Components/TextArea.png           WebGPU/Gallery  --page textfields --section textarea
+Components/Image.png              WebGPU/Gallery  --page images --section imagesandseparators
+Components/Stack.png              WebGPU/Gallery  --page layout --section layout
+Components/Grid.png               WebGPU/Gallery  --page layout --section grid
+Components/ScrollView.png         WebGPU/Gallery  --page layout --section scrollview
 
 # ---- Extension components ---------------------------------------------------------------------------------------
-Components/Sidebar.png            WebGPUGallery  --page buttons --crop 0,0,210,520
-Components/TabView.png            WebGPUGallery  --page navigation --section tabview
-Components/SplitView.png          WebGPUGallery  --page navigation --section splitview
-Components/SegmentedControl.png   WebGPUGallery  --page selection --section segmentedcontrol
-Components/RadioGroup.png         WebGPUGallery  --page selection --section radiobuttons
-Components/PopUpButton.png        WebGPUGallery  --page selection --section popupandpulldownbuttons --click 229x24 --extend 0,30,0,40
-Components/PullDownButton.png     WebGPUGallery  --page selection --section popupandpulldownbuttons --click 216x60 --extend 0,0,0,90
-Components/ComboBox.png           WebGPUGallery  --page selection --section combobox
-Components/TokenField.png         WebGPUGallery  --page selection --section tokenfield
-Components/Stepper.png            WebGPUGallery  --page selection --section stepper
-Components/NumberField.png        WebGPUGallery  --page selection --section numberfield
-Components/ScrubField.png         WebGPUGallery  --page selection --section scrubfield --pointer 224x28
-Components/ColorWell.png          WebGPUGallery  --page selection --section colorwell --click 199x24 --extend 0,0,0,146
-Components/SearchField.png        WebGPUGallery  --page selection --section searchfield
-Components/DatePicker.png         WebGPUGallery  --page dates --section datepicker --show datepicker --extend 0,0,0,140
-Components/DatePickerCalendar.png WebGPUGallery  --page dates --section calendar
-Components/MenuBar.png            WebGPUGallery  --page menus --section menubar --click 42x27 --extend 0,0,0,170
-Components/Menu.png               WebGPUGallery  --page menus --section menu --show menu --extend 0,0,0,270
-Components/ContextMenu.png        WebGPUGallery  --page menus --section contextmenu --right-click 300x40 --extend 0,0,0,80
-Components/Popover.png            WebGPUGallery  --page menus --section popover --size 1040x1000 --show popover --extend 0,0,0,60
-Components/Toolbar.png            WebGPUGallery  --page toolbars --section displaymodes
-Components/Alert.png              WebGPUGallery  --page dialogs --show alert --theme dark --size 920x520
-Components/Sheet.png              WebGPUGallery  --page dialogs --show sheet --size 920x600
-Components/Notification.png       WebGPUGallery  --page notifications --show notification --pointer 800x70 --crop 640,0,400,150
-Components/ProgressIndicator.png  WebGPUGallery  --page progress --section progressbar,spinner
-Components/List.png               WebGPUGallery  --page lists --section list
-Components/Table.png              WebGPUGallery  --page lists --section table
-Components/OutlineView.png        WebGPUGallery  --page hierarchies --section outlineview
-Components/ColumnView.png         WebGPUGallery  --page hierarchies --section columnview
-Components/PathControl.png        WebGPUGallery  --page hierarchies --section pathcontrol
-Components/Chart.png              WebGPUGallery  --page charts --section linechart,barchart --theme dark
+Components/Sidebar.png            WebGPU/Gallery  --page buttons --crop 0,0,210,520
+Components/TabView.png            WebGPU/Gallery  --page navigation --section tabview
+Components/SplitView.png          WebGPU/Gallery  --page navigation --section splitview
+Components/SegmentedControl.png   WebGPU/Gallery  --page selection --section segmentedcontrol
+Components/RadioGroup.png         WebGPU/Gallery  --page selection --section radiobuttons
+Components/PopUpButton.png        WebGPU/Gallery  --page selection --section popupandpulldownbuttons --click 229x24 --extend 0,30,0,40
+Components/PullDownButton.png     WebGPU/Gallery  --page selection --section popupandpulldownbuttons --click 216x60 --extend 0,0,0,90
+Components/ComboBox.png           WebGPU/Gallery  --page selection --section combobox
+Components/TokenField.png         WebGPU/Gallery  --page selection --section tokenfield
+Components/Stepper.png            WebGPU/Gallery  --page selection --section stepper
+Components/NumberField.png        WebGPU/Gallery  --page selection --section numberfield
+Components/ScrubField.png         WebGPU/Gallery  --page selection --section scrubfield --pointer 224x28
+Components/ColorWell.png          WebGPU/Gallery  --page selection --section colorwell --click 199x24 --extend 0,0,0,146
+Components/SearchField.png        WebGPU/Gallery  --page selection --section searchfield
+Components/DatePicker.png         WebGPU/Gallery  --page dates --section datepicker --show datepicker --extend 0,0,0,140
+Components/DatePickerCalendar.png WebGPU/Gallery  --page dates --section calendar
+Components/MenuBar.png            WebGPU/Gallery  --page menus --section menubar --click 42x27 --extend 0,0,0,170
+Components/Menu.png               WebGPU/Gallery  --page menus --section menu --show menu --extend 0,0,0,270
+Components/ContextMenu.png        WebGPU/Gallery  --page menus --section contextmenu --right-click 300x40 --extend 0,0,0,80
+Components/Popover.png            WebGPU/Gallery  --page menus --section popover --size 1040x1000 --show popover --extend 0,0,0,60
+Components/Toolbar.png            WebGPU/Gallery  --page toolbars --section displaymodes
+Components/Alert.png              WebGPU/Gallery  --page dialogs --show alert --theme dark --size 920x520
+Components/Sheet.png              WebGPU/Gallery  --page dialogs --show sheet --size 920x600
+Components/Notification.png       WebGPU/Gallery  --page notifications --show notification --pointer 800x70 --crop 640,0,400,150
+Components/ProgressIndicator.png  WebGPU/Gallery  --page progress --section progressbar,spinner
+Components/List.png               WebGPU/Gallery  --page lists --section list
+Components/Table.png              WebGPU/Gallery  --page lists --section table
+Components/OutlineView.png        WebGPU/Gallery  --page hierarchies --section outlineview
+Components/ColumnView.png         WebGPU/Gallery  --page hierarchies --section columnview
+Components/PathControl.png        WebGPU/Gallery  --page hierarchies --section pathcontrol
+Components/Chart.png              WebGPU/Gallery  --page charts --section linechart,barchart --theme dark
 
 # ---- Reflection ---------------------------------------------------------------------------------------------------
-Components/Reflect.png            WebGPUGallery  --page reflection --section metadata --size 1040x1300
-Reflection-Structs-Light.png      WebGPUGallery  --page reflection --section structs
-Reflection-Enums-Dark.png         WebGPUGallery  --page reflection --section enumstyles --theme dark
-Reflection-Example-Light.png      Reflection  --page audio
-Reflection-Example-Dark.png       Reflection  --page general --theme dark
+Components/Reflect.png            WebGPU/Gallery  --page reflection --section metadata --size 1040x1300
+Reflection-Structs-Light.png      WebGPU/Gallery  --page reflection --section structs
+Reflection-Enums-Dark.png         WebGPU/Gallery  --page reflection --section enumstyles --theme dark
+Reflection-Example-Light.png      WebGPU/Reflection  --page audio
+Reflection-Example-Dark.png       WebGPU/Reflection  --page general --theme dark

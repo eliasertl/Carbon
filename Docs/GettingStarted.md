@@ -23,17 +23,17 @@ use the configuration your Dawn install was built for.
 Then look around:
 
 ```sh
-Build/Examples/Gallery/WebGPUGallery              # every component; try the Dark and Reduce Motion switches
-Build/Examples/Gallery/VulkanGallery --theme dark --page charts   # the same on another backend
-Build/Examples/Minimal/WebGPUMinimal
-Build/Examples/CustomComponent/WebGPUCustomComponent
-Build/Examples/CustomTitleBar/WebGPUCustomTitleBar  # a window whose title bar is drawn by Carbon
-Build/Examples/Reflection/Reflection               # a settings window generated from a struct
+Build/Examples/WebGPU/Gallery                              # every component; try the Dark and Reduce Motion switches
+Build/Examples/Vulkan/Gallery --theme dark --page charts   # the same on another backend
+Build/Examples/WebGPU/Minimal
+Build/Examples/WebGPU/CustomComponent
+Build/Examples/WebGPU/CustomTitleBar                       # a window whose title bar is drawn by Carbon
+Build/Examples/WebGPU/Reflection                           # a settings window generated from a struct
 ```
 
 (With a Visual Studio generator the executables are in a configuration subfolder, for example
-`Build/Examples/Gallery/Release/WebGPUGallery.exe`. Each example exists once per backend that was built,
-named `<Backend><Example>`.)
+`Build/Examples/WebGPU/Release/Gallery.exe`. Each example exists once per backend that was built, in a folder
+named after the backend: `Build/Examples/<Backend>/<Example>`.)
 
 ## 2. Add Carbon to your project
 

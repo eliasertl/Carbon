@@ -4,15 +4,22 @@
 #   --scale <factor>
 #   --size <width>x<height>
 #
-# Each example is built once per renderer backend, named <Backend><Example>: WebGPUGallery, VulkanGallery, ...,
-# DX9CustomTitleBar. The <Backend>Minimal examples spell out one backend's integration each; the others are written
+# Each example is built once per renderer backend, as the target <Backend><Example> (WebGPUGallery, VulkanGallery,
+# ..., DX9CustomTitleBar) and the executable Examples/<Backend>/<Example> of the build tree: Examples/WebGPU/Gallery,
+# Examples/Vulkan/Gallery. The Minimal examples spell out one backend's integration each; the others are written
 # once against Examples/Common and link the graphics device of their backend. In a browser (Emscripten) there is
 # only the OpenGL ES backend, over WebGL 2, and no CustomTitleBar: a page has no window to move.
+set(carbon_examples_binary_dir "${CMAKE_CURRENT_BINARY_DIR}")
 add_subdirectory(Common)
 
-# Settings every example executable gets: warnings, Dawn's runtime next to WebGPU ones, and a web page in a browser.
-function(carbon_configure_example target backend)
+# Settings every example executable gets: warnings, its place in the build tree (Examples/<backend>/<name>), Dawn's
+# runtime next to WebGPU ones, and a web page in a browser.
+function(carbon_configure_example target backend name)
     carbon_configure_target(${target})
+    set_target_properties(${target} PROPERTIES
+        OUTPUT_NAME ${name}
+        RUNTIME_OUTPUT_DIRECTORY "${carbon_examples_binary_dir}/${backend}"
+    )
     if(backend STREQUAL "WebGPU")
         carbon_copy_dawn_runtime(${target})
     endif()
@@ -32,7 +39,7 @@ endfunction()
 
 # carbon_add_backend_examples(<Name> SOURCES <files>... [LIBRARIES <targets>...] [DEFINITIONS <definitions>...]
 #                             [NO_WEB])
-# Makes the executable <Backend><Name> for every backend in CARBON_EXAMPLE_BACKENDS. An example's sources do not
+# Makes the target <Backend><Name>, built as Examples/<Backend>/<Name>, for every backend in CARBON_EXAMPLE_BACKENDS. An example's sources do not
 # depend on the backend, so they are compiled once, into the object library <Name>Objects, and linked into every
 # executable with the device of its backend.
 function(carbon_add_backend_examples name)
@@ -52,7 +59,7 @@ function(carbon_add_backend_examples name)
         set(target ${backend}${name})
         add_executable(${target} $<TARGET_OBJECTS:${objects}>)
         target_link_libraries(${target} PRIVATE CarbonExample${backend} CarbonExampleBase ${arg_LIBRARIES})
-        carbon_configure_example(${target} ${backend})
+        carbon_configure_example(${target} ${backend} ${name})
     endforeach()
 endfunction()
 

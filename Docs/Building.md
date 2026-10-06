@@ -161,7 +161,7 @@ emcmake cmake -S . -B Build/Web -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build Build/Web
 ctest --test-dir Build/Web                             # the tests run in Node
 python -m http.server --directory Build/Web/Examples
-# then open http://localhost:8000/Gallery/OpenGLESGallery.html or Minimal/OpenGLESMinimal.html
+# then open http://localhost:8000/OpenGLES/Gallery.html or OpenGLES/Minimal.html
 ```
 
 What changes in a web build:
@@ -183,8 +183,8 @@ What changes in a web build:
 - **Tests** run in Node (`-sNODERAWFS`). Node has no canvas, so the GPU tests are not instantiated there; the rest
   of the suite runs as on the desktop, as four CTest entries (`CarbonTests.Part1` to `Part4`) instead of one per
   test, because every start of the executable compiles the module again.
-- The examples are built for the OpenGL ES backend only: `OpenGLESMinimal`, `OpenGLESGallery`,
-  `OpenGLESCustomComponent` and `Reflection`. CustomTitleBar is left out, since a page has no window to move.
+- The examples are built for the OpenGL ES backend only, into `Examples/OpenGLES`: `Minimal`, `Gallery`,
+  `CustomComponent` and `Reflection`. CustomTitleBar is left out, since a page has no window to move.
 
 ## Examples and tests
 
@@ -192,8 +192,8 @@ Every example accepts `--screenshot <file.png>` (render a settled frame offscree
 `--theme light|dark`, `--scale <factor>` and `--size <width>x<height>`:
 
 ```sh
-Build/Examples/Minimal/WebGPUMinimal --theme dark
-Build/Examples/Minimal/WebGPUMinimal --screenshot shot.png --scale 2
+Build/Examples/WebGPU/Minimal --theme dark
+Build/Examples/WebGPU/Minimal --screenshot shot.png --scale 2
 ```
 
 For screenshots of states that need input, and of parts of a window, there are more options:

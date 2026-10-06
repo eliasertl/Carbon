@@ -44,11 +44,14 @@ def read_manifest():
 
 
 def find_example(build, example):
-    # Examples are built once per backend into the folder of their sources: Examples/Gallery/WebGPUGallery.
-    for directory, _, files in os.walk(os.path.join(build, 'Examples')):
-        for name in (example + '.exe', example):
-            if name in files:
-                return os.path.abspath(os.path.join(directory, name))
+    # Examples are built into Examples/<Backend>/<Example> of the build tree (WebGPU/Gallery), with a multi-config
+    # generator one folder deeper (WebGPU/Release/Gallery.exe).
+    backend, name = os.path.split(example)
+    folder = os.path.join(build, 'Examples', backend)
+    for directory, _, files in os.walk(folder):
+        for candidate in (name + '.exe', name):
+            if candidate in files:
+                return os.path.abspath(os.path.join(directory, candidate))
     sys.exit(f'{example} was not found in {build}; build the examples first')
 
 
