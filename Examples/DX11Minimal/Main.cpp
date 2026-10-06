@@ -128,18 +128,29 @@ namespace
             height = m_Height;
         }
 
-        /// Resizes the swap chain's buffers to the window's framebuffer, when that changed.
-        void Resize(int width, int height)
+        /// Resizes the swap chain's buffers to the window's framebuffer, when that changed. False when the swap
+        /// chain could not be resized, which leaves no render target to draw into.
+        bool Resize(int width, int height)
         {
             if (IsOffscreen() || (width == m_Width && height == m_Height))
-                return;
+                return m_TargetView != nullptr;
+            // Every reference to the buffers goes before they are resized: the view is still bound to the context
+            // from the previous frame, and a flip-model swap chain refuses to resize while it is.
+            m_Context->OMSetRenderTargets(0, nullptr, nullptr);
             m_TargetView.Reset();
             m_Target.Reset();
-            m_SwapChain->ResizeBuffers(0, static_cast<UINT>(width), static_cast<UINT>(height), DXGI_FORMAT_UNKNOWN, 0);
-            m_SwapChain->GetBuffer(0, IID_PPV_ARGS(&m_Target));
-            m_Device->CreateRenderTargetView(m_Target.Get(), nullptr, &m_TargetView);
+            const HRESULT result = m_SwapChain->ResizeBuffers(0, static_cast<UINT>(width), static_cast<UINT>(height),
+                                                              DXGI_FORMAT_UNKNOWN, 0);
+            if (FAILED(result) || FAILED(m_SwapChain->GetBuffer(0, IID_PPV_ARGS(&m_Target))) ||
+                FAILED(m_Device->CreateRenderTargetView(m_Target.Get(), nullptr, &m_TargetView)))
+            {
+                std::fprintf(stderr, "The swap chain could not be resized to %d x %d (0x%08lX)\n", width, height,
+                             static_cast<unsigned long>(result));
+                return false;
+            }
             m_Width = width;
             m_Height = height;
+            return true;
         }
 
         /// Binds the render target and clears it to `clear`.
@@ -377,7 +388,11 @@ int main(int argc, char** argv)
                     glfwWaitEvents(); // minimized
                     continue;
                 }
-                host.Resize(framebufferWidth, framebufferHeight);
+                if (!host.Resize(framebufferWidth, framebufferHeight))
+                {
+                    exitCode = 1;
+                    break;
+                }
             }
             else if (frameIndex == Example::ScreenshotWarmupFrames)
             {
