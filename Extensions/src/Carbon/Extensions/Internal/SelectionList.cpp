@@ -1,7 +1,11 @@
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
+
+#include "Carbon/Extensions/Internal/BuildState.h"
+#include "Carbon/Extensions/Internal/RowClipping.h"
 
 namespace Carbon::Internal
 {
@@ -12,10 +16,23 @@ namespace Carbon::Internal
         constexpr float RevealMargin = 4.0f;
         constexpr AnimationSpec HighlightSpring = AnimationSpec::Spring(0.28f, 0.9f);
 
+        struct SelectionListState;
+
         // The list whose rows are being added.
         struct SelectionListBuild
         {
             ID Id;
+            /// The list's remembered state, looked up once per frame.
+            SelectionListState* State;
+            /// The visible area: rows outside of it are neither hit-tested nor drawn.
+            Rect Clip;
+            /// The distance between two rows.
+            float Spacing;
+            /// Rows declared with ClipSelectionListRows that follow the ones that were added; their space is
+            /// reserved when the list ends.
+            int TrailingRows;
+            float TrailingHeight;
+            int TrailingSelected;
             /// The scroll view's name, to scroll it after it has been ended.
             char Name[MaxNameLength + 1];
             size_t NameLength;
@@ -61,9 +78,39 @@ namespace Carbon::Internal
             bool HasHoveredRow;
         };
 
+        BuildState<SelectionListBuild> s_Build("Carbon.SelectionList.Build");
+
         SelectionListBuild& GetBuild()
         {
-            return *GetState<SelectionListBuild>(HashID("Carbon.SelectionList.Build"), StateLifetime::Persistent);
+            return s_Build.Get();
+        }
+
+        bool IsRowVisible(const SelectionListBuild& build, float height)
+        {
+            const float top = GetContentScale().Snap(GetCursorPos().Y);
+            return top < build.Clip.GetBottom() && top + height > build.Clip.Y;
+        }
+
+        // Reserves the space of `count` rows that are not added one by one, and keeps the bookkeeping of the
+        // rows as if they had been: their ordinals, and the selection when it is the row at `selected`.
+        void SkipRows(SelectionListBuild& build, int count, float height, int selected)
+        {
+            if (count <= 0)
+                return;
+            const Rect block = ReserveRows(count, height, build.Spacing);
+            const bool hasSelection = selected >= 0 && selected < count;
+            if (hasSelection)
+            {
+                const float offset = GetRowPitch(height, build.Spacing) * static_cast<float>(selected);
+                build.SelectedRect = Rect(block.X, block.Y + offset, block.Width, height);
+                build.HasSelection = true;
+            }
+            if (!IsDisabled())
+            {
+                if (hasSelection)
+                    build.SelectedOrdinal = build.Count + selected;
+                build.Count += count;
+            }
         }
     } // namespace
 
@@ -82,7 +129,9 @@ namespace Carbon::Internal
         build.HasBorder = description.HasBorder;
         build.SelectedOrdinal = -1;
         build.RequestedOrdinal = -1;
+        build.TrailingSelected = -1;
         build.IsOpen = true;
+        build.Spacing = description.Scroll.Spacing.value_or(GetStyleVar(StyleVar::Spacing));
 
         BeginScrollView(id, description.Scroll);
 
@@ -94,6 +143,7 @@ namespace Carbon::Internal
         build.ContentOrigin = GetCursorPos();
 
         DrawList& drawList = GetDrawList();
+        build.Clip = drawList.GetClipRect();
         const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);
         const float pixel = GetContentScale().GetPixelSize();
         if (description.Background.has_value())
@@ -123,7 +173,8 @@ namespace Carbon::Internal
 
         // A row under the pointer is tinted. One tint per list is enough: it moves with the pointer and fades
         // when the pointer leaves. Its place, like the highlight's, is known after the rows.
-        const SelectionListState& state = *GetState<SelectionListState>(listID, StateLifetime::Persistent);
+        build.State = GetState<SelectionListState>(listID, StateLifetime::Persistent);
+        const SelectionListState& state = *build.State;
         const float hover =
             Animate(HashID("##rowhover", listID), state.HasHoveredRow ? 1.0f : 0.0f, AnimationSpec::Fade(0.12f));
         build.Hover = drawList.AddDeferredSquircle(
@@ -137,19 +188,29 @@ namespace Carbon::Internal
         CB_VERIFY(build.IsOpen, "Rows must be added between the Begin and End calls of their list");
         if (!build.IsOpen)
             return row;
-        SelectionListState& state = *GetState<SelectionListState>(build.Id, StateLifetime::Persistent);
+        SelectionListState& state = *build.State;
 
+        row.IsVisible = IsRowVisible(build, height);
         ItemOptions item;
         item.Width = Size::Fill();
         row.Bounds = AllocateItem(Vec2(0.0f, height), item);
 
-        ButtonBehaviorOptions behavior;
-        behavior.Focusable = false;
-        behavior.Disabled = isDisabled;
-        row.Interaction = ButtonBehavior(id, row.Bounds, behavior);
-        row.Clicked = row.Interaction.Clicked;
-        if (row.Clicked)
-            SetFocus(build.Id);
+        if (row.IsVisible)
+        {
+            ButtonBehaviorOptions behavior;
+            behavior.Focusable = false;
+            behavior.Disabled = isDisabled;
+            row.Interaction = ButtonBehavior(id, row.Bounds, behavior);
+            row.Clicked = row.Interaction.Clicked;
+            if (row.Clicked)
+                SetFocus(build.Id);
+        }
+        else
+        {
+            // Nothing can point at a row outside the visible area. Whatever follows it must not take the row
+            // before it for the last item.
+            SetLastItem(id, row.Bounds, row.Interaction);
+        }
 
         if (!isDisabled && !IsDisabled())
         {
@@ -175,6 +236,36 @@ namespace Carbon::Internal
             build.HasHoveredRow = true;
         }
         return row;
+    }
+
+    bool IsNextSelectionListRowVisible(float height)
+    {
+        return IsRowVisible(GetBuild(), height);
+    }
+
+    RowRange ClipSelectionListRows(int count, float height, int selected)
+    {
+        SelectionListBuild& build = GetBuild();
+        RowRange range;
+        CB_VERIFY(build.IsOpen, "Rows must be declared between the Begin and End calls of their list");
+        if (!build.IsOpen || count <= 0)
+            return range;
+
+        range = GetVisibleRows(count, height, build.Spacing, build.Clip);
+        // The row the keyboard moved to reports being picked, so it is added wherever it is. The rows between
+        // it and the visible ones come along; they are outside the visible area and cost little.
+        const int pending = build.State->PendingOrdinal - 1 - build.Count;
+        if (pending >= 0 && pending < count)
+        {
+            range.First = std::min(range.First, pending);
+            range.End = std::max(range.End, pending + 1);
+        }
+
+        SkipRows(build, range.First, height, selected);
+        build.TrailingRows = count - range.End;
+        build.TrailingHeight = height;
+        build.TrailingSelected = selected >= range.End ? selected - range.End : -1;
+        return range;
     }
 
     Rect GetSelectionListContentRect()
@@ -206,7 +297,9 @@ namespace Carbon::Internal
         CB_VERIFY(build.IsOpen, "A list was ended that was never begun");
         if (!build.IsOpen)
             return;
-        SelectionListState& state = *GetState<SelectionListState>(build.Id, StateLifetime::Persistent);
+        SelectionListState& state = *build.State;
+        SkipRows(build, build.TrailingRows, build.TrailingHeight, build.TrailingSelected);
+        build.TrailingRows = 0;
 
         DrawList& drawList = GetDrawList();
         const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);

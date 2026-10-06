@@ -48,6 +48,28 @@ no selection at all the application's choice. For rows with several columns see 
 - All rows are submitted every frame; rows outside the visible area are not drawn. For very long lists, submit
   only the rows near the visible range and reserve the rest of the height with a `Spacer`.
 
+## Long lists
+
+An item that is scrolled out of view costs little: it takes its space, but it is not hit-tested, its label is not
+hashed or shaped and nothing is drawn. For tens of thousands of items and more, submit only the ones that are
+needed. `ClipListItems(count, selectedItem)` declares how many items the list has and returns the range to submit:
+the items in view and, after the arrow keys, Home or End moved the selection, the item they moved to.
+
+```cpp
+Carbon::BeginList("files", { .Height = 200.0f });
+const Carbon::RowRange items = Carbon::ClipListItems(int(names.size()), selected);
+for (int i = items.First; i < items.End; i++)
+{
+    if (Carbon::ListItem(names[i], i == selected))
+        selected = i;
+}
+Carbon::EndList();
+```
+
+The list reserves the space of the other items, so it scrolls and reacts to the keyboard as if all of them were
+submitted. Call it once, right after `BeginList`, and submit exactly the items of the range, in order. The items
+that are left out count as enabled. [Table](Table.md#long-tables) has the same for its rows.
+
 ## Keyboard
 
 | Key | Effect |

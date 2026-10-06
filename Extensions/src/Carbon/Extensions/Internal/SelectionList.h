@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "Carbon/Extension.h"
+#include "Carbon/Extensions/RowRange.h"
 
 namespace Carbon::Internal
 {
@@ -38,6 +39,9 @@ namespace Carbon::Internal
         bool IsEmphasized = false;
         /// Position among the rows that can be picked (enabled rows), or -1 for a disabled row.
         int Ordinal = -1;
+        /// False for a row that is scrolled out of the list's visible area. It takes its space and can report
+        /// being picked by the keyboard, but it has no pointer interaction and needs no drawing.
+        bool IsVisible = true;
         Carbon::Interaction Interaction;
     };
 
@@ -45,7 +49,17 @@ namespace Carbon::Internal
     void BeginSelectionList(std::string_view id, const SelectionListDescription& description);
     void EndSelectionList();
     /// Adds a row that spans the list's width. Disabled rows cannot be picked and are skipped by the keyboard.
+    /// A row outside the visible area costs little: it is neither hit-tested nor drawn (see SelectionRow).
     SelectionRow SelectionListRow(ID id, float height, bool isSelected, bool isDisabled);
+    /// Whether the next row, `height` points tall, will be inside the visible area. A component whose row ID is
+    /// the hash of a label asks first and passes an invalid ID for a row that is not: it needs none.
+    bool IsNextSelectionListRowVisible(float height);
+    /// For many rows of one height: declares `count` rows at once and returns the ones to add with
+    /// SelectionListRow, in order. Those are the visible rows and the row the keyboard is moving to. The space
+    /// of the rows before them is reserved here, that of the rows after them when the list ends. `selected` is
+    /// the index of the selected row among the `count`, or -1; the selection is tracked even when that row is
+    /// not added. The rows that are left out count as enabled.
+    RowRange ClipSelectionListRows(int count, float height, int selected);
     /// The area of the list being built, without its padding.
     Rect GetSelectionListContentRect();
     /// The ID of the list being built: the one that takes focus.

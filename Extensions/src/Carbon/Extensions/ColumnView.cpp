@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/BuildState.h"
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
 namespace Carbon
@@ -48,9 +49,11 @@ namespace Carbon
             bool IsFocusPending;
         };
 
+        Internal::BuildState<ColumnViewBuild> s_Build("Carbon.ColumnView.Build");
+
         ColumnViewBuild& GetBuild()
         {
-            return *GetState<ColumnViewBuild>(HashID("Carbon.ColumnView.Build"), StateLifetime::Persistent);
+            return s_Build.Get();
         }
 
         ColumnViewState& GetViewState()
@@ -212,6 +215,23 @@ namespace Carbon
         build.ColumnCount++;
     }
 
+    RowRange ClipColumnViewItems(int count, int selectedItem, bool selectedHasChildren)
+    {
+        ColumnViewBuild& build = GetBuild();
+        CB_VERIFY(build.IsInColumn,
+                  "ClipColumnViewItems must be called between BeginColumnViewColumn and EndColumnViewColumn");
+        if (!build.IsInColumn)
+            return RowRange();
+        const RowRange range = Internal::ClipSelectionListRows(count, build.Options.RowHeight, selectedItem);
+        // A selected item that is not submitted is still where the arrow keys start from.
+        if (selectedItem >= 0 && selectedItem < count && (selectedItem < range.First || selectedItem >= range.End))
+        {
+            build.SelectedOrdinals[build.ColumnCount] = selectedItem;
+            build.SelectedHasChildren = selectedHasChildren;
+        }
+        return range;
+    }
+
     bool ColumnViewItem(std::string_view label, bool isSelected, const ColumnViewItemOptions& options)
     {
         ColumnViewBuild& build = GetBuild();
@@ -220,7 +240,9 @@ namespace Carbon
         if (!build.IsInColumn)
             return false;
 
-        const ID id = GetID(label);
+        // An item that is scrolled out of view needs no ID, which would mean hashing its label.
+        const bool isVisible = Internal::IsNextSelectionListRowVisible(build.Options.RowHeight);
+        const ID id = isVisible ? GetID(label) : ID();
         PushDisabled(options.Disabled);
         const Internal::SelectionRow row =
             Internal::SelectionListRow(id, build.Options.RowHeight, isSelected, options.Disabled);
@@ -228,6 +250,11 @@ namespace Carbon
         {
             build.SelectedOrdinals[build.ColumnCount] = row.Ordinal;
             build.SelectedHasChildren = options.HasChildren;
+        }
+        if (!row.IsVisible)
+        {
+            PopDisabled();
+            return row.Clicked;
         }
 
         DrawList& drawList = GetDrawList();

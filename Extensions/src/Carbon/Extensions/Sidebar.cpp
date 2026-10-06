@@ -54,6 +54,11 @@ namespace Carbon
 
         PushDisabled(options.Disabled);
         const Internal::SelectionRow row = Internal::SelectionListRow(id, RowHeight, isSelected, options.Disabled);
+        if (!row.IsVisible)
+        {
+            PopDisabled();
+            return row.Clicked;
+        }
 
         DrawList& drawList = GetDrawList();
         const Color onAccent = GetStyleColor(StyleColor::OnAccent);

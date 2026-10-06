@@ -1,5 +1,6 @@
 // Rows: Table, List, OutlineView and ColumnView with 1,000 to 100,000 rows of which about 30 are visible, scrolled
-// to the top and to the middle. Each row is submitted every frame, as an application with a plain loop does.
+// to the top and to the middle. Each row is submitted every frame, as an application with a plain loop does; the
+// "Clipped" variants submit the rows that ClipTableRows, ClipListItems and ClipColumnViewItems ask for.
 
 #include <format>
 #include <string>
@@ -71,7 +72,7 @@ namespace Carbon::Benchmarks
             return static_cast<int>(GetRowOffset(state) / RowHeight) + 3;
         }
 
-        void Table(benchmark::State& state)
+        void RunTable(benchmark::State& state, bool isClipped)
         {
             const int rowCount = static_cast<int>(state.range(0));
             const RowData& data = GetRowData(static_cast<size_t>(rowCount));
@@ -88,7 +89,8 @@ namespace Carbon::Benchmarks
             {
                 BeginVStack({.Padding = 20.0f, .Width = Size::Fill(), .Height = Size::Fill()});
                 BeginTable("table", s_Columns, {.Height = ViewHeight});
-                for (int i = 0; i < rowCount; i++)
+                const RowRange rows = isClipped ? ClipTableRows(rowCount, selected) : RowRange{0, rowCount};
+                for (int i = rows.First; i < rows.End; i++)
                 {
                     const size_t index = static_cast<size_t>(i);
                     TableRow(i, i == selected);
@@ -109,7 +111,17 @@ namespace Carbon::Benchmarks
             frame.Measure(state, build);
         }
 
-        void List(benchmark::State& state)
+        void Table(benchmark::State& state)
+        {
+            RunTable(state, false);
+        }
+
+        void TableClipped(benchmark::State& state)
+        {
+            RunTable(state, true);
+        }
+
+        void RunList(benchmark::State& state, bool isClipped)
         {
             const int rowCount = static_cast<int>(state.range(0));
             const RowData& data = GetRowData(static_cast<size_t>(rowCount));
@@ -121,7 +133,8 @@ namespace Carbon::Benchmarks
             {
                 BeginVStack({.Padding = 20.0f, .Width = Size::Fill(), .Height = Size::Fill()});
                 BeginList("list", {.Height = ViewHeight});
-                for (int i = 0; i < rowCount; i++)
+                const RowRange rows = isClipped ? ClipListItems(rowCount, selected) : RowRange{0, rowCount};
+                for (int i = rows.First; i < rows.End; i++)
                 {
                     const size_t index = static_cast<size_t>(i);
                     ListItem(data.Names[index], i == selected, {.Icon = Icons::File, .Detail = data.Sizes[index]});
@@ -131,6 +144,16 @@ namespace Carbon::Benchmarks
             };
             Prepare(frame, build, [&] { SetScrollOffset("list", Vec2(0.0f, offset)); });
             frame.Measure(state, build);
+        }
+
+        void List(benchmark::State& state)
+        {
+            RunList(state, false);
+        }
+
+        void ListClipped(benchmark::State& state)
+        {
+            RunList(state, true);
         }
 
         // Folders of nine files each, all expanded: `rows` counts folders and files.
@@ -174,7 +197,7 @@ namespace Carbon::Benchmarks
         }
 
         // One long column of folders with one selected, and its 30 children in the next column.
-        void ColumnView(benchmark::State& state)
+        void RunColumnView(benchmark::State& state, bool isClipped)
         {
             const int rowCount = static_cast<int>(state.range(0));
             const RowData& data = GetRowData(static_cast<size_t>(rowCount));
@@ -187,7 +210,8 @@ namespace Carbon::Benchmarks
                 BeginVStack({.Padding = 20.0f, .Width = Size::Fill(), .Height = Size::Fill()});
                 BeginColumnView("columns", {.Height = ViewHeight, .ColumnWidth = 320.0f});
                 BeginColumnViewColumn();
-                for (int i = 0; i < rowCount; i++)
+                const RowRange rows = isClipped ? ClipColumnViewItems(rowCount, selected, true) : RowRange{0, rowCount};
+                for (int i = rows.First; i < rows.End; i++)
                 {
                     ColumnViewItem(data.Groups[static_cast<size_t>(i)], i == selected,
                                    {.Icon = Icons::Folder, .HasChildren = true});
@@ -213,6 +237,16 @@ namespace Carbon::Benchmarks
             frame.Measure(state, build);
         }
 
+        void ColumnView(benchmark::State& state)
+        {
+            RunColumnView(state, false);
+        }
+
+        void ColumnViewClipped(benchmark::State& state)
+        {
+            RunColumnView(state, true);
+        }
+
         void ApplyRowArguments(benchmark::Benchmark* benchmark)
         {
             benchmark->ArgNames({"rows", "middle"});
@@ -228,4 +262,7 @@ namespace Carbon::Benchmarks
     CB_FRAME_BENCHMARK(List)->Name("Rows/List")->Apply(ApplyRowArguments);
     CB_FRAME_BENCHMARK(OutlineView)->Name("Rows/OutlineView")->Apply(ApplyRowArguments);
     CB_FRAME_BENCHMARK(ColumnView)->Name("Rows/ColumnView")->Apply(ApplyRowArguments);
+    CB_FRAME_BENCHMARK(TableClipped)->Name("Rows/TableClipped")->Apply(ApplyRowArguments);
+    CB_FRAME_BENCHMARK(ListClipped)->Name("Rows/ListClipped")->Apply(ApplyRowArguments);
+    CB_FRAME_BENCHMARK(ColumnViewClipped)->Name("Rows/ColumnViewClipped")->Apply(ApplyRowArguments);
 } // namespace Carbon::Benchmarks

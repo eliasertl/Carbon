@@ -67,6 +67,13 @@ the selection; Carbon remembers which items are expanded, also while they are no
 - Titles that do not fit their column end with an ellipsis.
 - Rows, selection highlight, hover tint and scrolling behave as in a [List](List.md).
 
+## Long outlines
+
+An item that is scrolled out of view costs little: it takes its space and keeps its place in the hierarchy, but
+it is not hit-tested, its cells are not shaped and nothing is drawn. An outline has no counterpart to
+[`ClipTableRows`](Table.md#long-tables), because which items exist depends on which are expanded: your code still
+walks every expanded item. [Optimizations](../Optimizations.md#rows) has the numbers for 100,000 of them.
+
 ## Keyboard
 
 | Key | Effect |

@@ -32,6 +32,7 @@ Carbon::EndTable();
 | --- | --- |
 | `BeginTable(id, columns, options)` / `EndTable()` | The table. At most 16 columns. |
 | `TableRow(id, isSelected)` | Starts the next row; its cells follow. Returns `true` when the user picks the row. The ID is a number or a string, unique within the table. |
+| `ClipTableRows(count, selectedRow)` | For long tables: declares the number of rows and returns the range to submit. See [Long tables](#long-tables) |
 | `TableCell(text, options)` | The next cell, as text |
 | `BeginTableCell()` / `EndTableCell()` | The next cell with content of your own, laid out like in an `HStack` |
 
@@ -71,6 +72,33 @@ selection.
 - A click on a widget inside a cell goes to the widget, not to the row.
 - A row with fewer cells than columns leaves the rest empty; more cells than columns is reported as an error.
 - Columns are not resizable or sortable by the user. To sort, reorder your data; the header is not interactive.
+
+## Long tables
+
+A row that is scrolled out of view costs little: it takes its space, but it is not hit-tested, its text cells are
+not shaped and nothing is drawn. A plain loop over all rows is therefore fine for thousands of rows. The loop
+itself, and the widgets you put into cells, still run for every row, so for tens of thousands of rows and more
+submit only the rows that are needed:
+
+```cpp
+Carbon::BeginTable("files", columns, { .Height = 240.0f });
+const Carbon::RowRange rows = Carbon::ClipTableRows(int(files.size()), selected);
+for (int i = rows.First; i < rows.End; i++)
+{
+    if (Carbon::TableRow(i, i == selected))
+        selected = i;
+    Carbon::TableCell(files[i].Name);
+    Carbon::TableCell(files[i].Size, { .Secondary = true });
+}
+Carbon::EndTable();
+```
+
+`ClipTableRows` returns the rows in view and, after the arrow keys, Home or End moved the selection, the row they
+moved to. The table reserves the space of all the others, so it scrolls, draws and reacts to the keyboard as if
+every row were submitted, and a frame costs the same for a thousand rows as for a million. Call it once, right
+after `BeginTable`, and submit exactly the rows of the range, in order. Pass the index of the selected row (or -1)
+so that the keyboard can move on from a selection that is not among the submitted rows. See
+[Optimizations](../Optimizations.md#rows) for the numbers.
 
 ## Keyboard
 

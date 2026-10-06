@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/BuildState.h"
 #include "Carbon/Extensions/Internal/ColumnLayout.h"
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
@@ -27,14 +28,18 @@ namespace Carbon
             Rect Row;
             float RowHeight;
             bool IsRowEmphasized;
+            /// The current row is inside the visible area: its text cells are drawn.
+            bool IsRowVisible;
             bool ShowsAlternatingRows;
             /// A row is open: its ID is on the ID stack, so that the widgets in its cells are its own.
             bool HasRow;
         };
 
+        Internal::BuildState<TableBuild> s_Build("Carbon.Table.Build");
+
         TableBuild& GetBuild()
         {
-            return *GetState<TableBuild>(HashID("Carbon.Table.Build"), StateLifetime::Persistent);
+            return s_Build.Get();
         }
 
         // The rectangle of the next cell of the current row, without its padding. Empty when the row is full.
@@ -87,6 +92,15 @@ namespace Carbon
         }
     }
 
+    RowRange ClipTableRows(int count, int selectedRow)
+    {
+        TableBuild& build = GetBuild();
+        const RowRange range = Internal::ClipSelectionListRows(count, build.RowHeight, selectedRow);
+        // Every other row is tinted, counted from the first row of the table.
+        build.RowIndex += range.First;
+        return range;
+    }
+
     void EndTable()
     {
         if (GetBuild().HasRow)
@@ -113,9 +127,10 @@ namespace Carbon
         build.Row = row.Bounds;
         build.NextColumn = 0;
         build.IsRowEmphasized = row.IsEmphasized;
+        build.IsRowVisible = row.IsVisible;
 
         // The selected row has its highlight; every other one of the others is tinted.
-        if (build.ShowsAlternatingRows && !isSelected && build.RowIndex % 2 == 1)
+        if (row.IsVisible && build.ShowsAlternatingRows && !isSelected && build.RowIndex % 2 == 1)
         {
             GetDrawList().AddSquircle(row.Bounds, GetStyleColor(StyleColor::ControlFill).WithOpacity(0.35f), 5.0f,
                                       GetStyleVar(StyleVar::CornerSmoothing));
@@ -137,7 +152,8 @@ namespace Carbon
             return;
         const TextAlignment alignment = build.Columns[build.NextColumn].Alignment;
         build.NextColumn++;
-        Internal::DrawCellText(cell, text, options, alignment, build.IsRowEmphasized);
+        if (build.IsRowVisible)
+            Internal::DrawCellText(cell, text, options, alignment, build.IsRowEmphasized);
     }
 
     void BeginTableCell()

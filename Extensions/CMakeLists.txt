@@ -22,6 +22,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/ProgressIndicator.h
     src/Carbon/Extensions/PullDownButton.h
     src/Carbon/Extensions/RadioGroup.h
+    src/Carbon/Extensions/RowRange.h
     src/Carbon/Extensions/SearchField.h
     src/Carbon/Extensions/SegmentedControl.h
     src/Carbon/Extensions/Sheet.h
@@ -37,8 +38,10 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
 
 # Helpers shared by several components; not installed.
 set(CARBON_EXTENSIONS_INTERNAL_HEADERS
+    src/Carbon/Extensions/Internal/BuildState.h
     src/Carbon/Extensions/Internal/ColumnLayout.h
     src/Carbon/Extensions/Internal/MenuInternal.h
+    src/Carbon/Extensions/Internal/RowClipping.h
     src/Carbon/Extensions/Internal/SelectionList.h
 )
 
@@ -74,6 +77,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Toolbar.cpp
     src/Carbon/Extensions/Extensions.cpp
     src/Carbon/Extensions/Internal/ColumnLayout.cpp
+    src/Carbon/Extensions/Internal/RowClipping.cpp
     src/Carbon/Extensions/Internal/SelectionList.cpp
 )
 

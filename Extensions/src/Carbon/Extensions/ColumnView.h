@@ -4,6 +4,7 @@
 #include <string_view>
 
 #include "Carbon/Extension.h"
+#include "Carbon/Extensions/RowRange.h"
 
 namespace Carbon
 {
@@ -60,6 +61,22 @@ namespace Carbon
     /// Starts the next column; add its items with ColumnViewItem.
     void BeginColumnViewColumn();
     void EndColumnViewColumn();
+    /// For a column with many items: declares that the current column has `count` items and returns the ones to
+    /// submit in this frame, which are the visible ones and, after the arrow keys moved the selection, the item
+    /// they moved to. The column reserves the space of all the others:
+    ///
+    ///     Carbon::BeginColumnViewColumn();
+    ///     const Carbon::RowRange items = Carbon::ClipColumnViewItems(count, selected, isSelectedAFolder);
+    ///     for (int i = items.First; i < items.End; i++)
+    ///         if (Carbon::ColumnViewItem(names[i], i == selected, { .HasChildren = isFolder[i] }))
+    ///             selected = i;
+    ///     Carbon::EndColumnViewColumn();
+    ///
+    /// Call it once, right after BeginColumnViewColumn, and submit exactly the items of the range, in order.
+    /// `selectedItem` is the index of the column's selected item, or -1, and `selectedHasChildren` whether that
+    /// item contains others: the keyboard moves on from there even while the item is not among the submitted
+    /// ones. The items that are left out count as enabled.
+    RowRange ClipColumnViewItems(int count, int selectedItem = -1, bool selectedHasChildren = false);
     /// An item of the current column. Pass whether it is selected. Returns true when the user picks it, by click
     /// or keyboard.
     bool ColumnViewItem(std::string_view label, bool isSelected, const ColumnViewItemOptions& options = {});

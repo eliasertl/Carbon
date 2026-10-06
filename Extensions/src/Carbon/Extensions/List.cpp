@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/BuildState.h"
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
 namespace Carbon
@@ -19,9 +20,11 @@ namespace Carbon
             float RowHeight;
         };
 
+        Internal::BuildState<ListBuild> s_Build("Carbon.List.Build");
+
         ListBuild& GetBuild()
         {
-            return *GetState<ListBuild>(HashID("Carbon.List.Build"), StateLifetime::Persistent);
+            return s_Build.Get();
         }
     } // namespace
 
@@ -47,14 +50,24 @@ namespace Carbon
         Internal::EndSelectionList();
     }
 
+    RowRange ClipListItems(int count, int selectedItem)
+    {
+        return Internal::ClipSelectionListRows(count, GetBuild().RowHeight, selectedItem);
+    }
+
     bool ListItem(std::string_view label, bool isSelected, const ListItemOptions& options)
     {
+        const float rowHeight = GetBuild().RowHeight;
+        // An item that is scrolled out of view takes its space and can be picked by the keyboard. It needs no
+        // ID, which would mean hashing its label, and no drawing.
+        if (!Internal::IsNextSelectionListRowVisible(rowHeight))
+            return Internal::SelectionListRow(ID(), rowHeight, isSelected, options.Disabled).Clicked;
+
         const ID id = GetID(label);
         const std::string_view title = GetDisplayLabel(label);
 
         PushDisabled(options.Disabled);
-        const Internal::SelectionRow row =
-            Internal::SelectionListRow(id, GetBuild().RowHeight, isSelected, options.Disabled);
+        const Internal::SelectionRow row = Internal::SelectionListRow(id, rowHeight, isSelected, options.Disabled);
 
         DrawList& drawList = GetDrawList();
         const Color onAccent = GetStyleColor(StyleColor::OnAccent);

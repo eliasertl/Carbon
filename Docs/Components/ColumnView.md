@@ -81,6 +81,15 @@ scrolls, and handles the keyboard.
 - Selected items are highlighted in every column: in the selection color in the column with keyboard focus, gray
   in the others.
 
+## Long columns
+
+An item that is scrolled out of view costs little: it takes its space, but it is not hit-tested or drawn. For a
+column of tens of thousands of items, submit only the ones that are needed: call
+`ClipColumnViewItems(count, selectedItem, selectedHasChildren)` right after `BeginColumnViewColumn` and add the
+items of the `RowRange` it returns, in order. It works like [`ClipListItems`](List.md#long-lists);
+`selectedHasChildren` tells the column whether the right arrow may move on from a selected item that is not among
+the submitted ones.
+
 ## Keyboard
 
 | Key | Effect |

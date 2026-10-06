@@ -228,6 +228,121 @@ namespace Carbon
         EXPECT_FALSE(m_AssertMessages.empty());
     }
 
+    TEST_F(ListTests, RowsOutOfViewAreNotInteractive)
+    {
+        Settle(Interface());
+        // The seventh row lies below the list's 110 points. Its place on the display belongs to nobody.
+        Click(Vec2(150.0f, 5.0f + 24.0f * 6.0f + 12.0f), Interface());
+        EXPECT_EQ(m_Selected, 0);
+    }
+
+    // A list of 100,000 items of which the application submits only the ones ClipListItems asks for.
+    class ClippedListTests : public WidgetTest
+    {
+    protected:
+        static constexpr int Count = 100000;
+        // The list's content is its rows and 10 points of padding; 110 points of it are visible.
+        static constexpr float MaxOffset = 24.0f * Count + 10.0f - 110.0f;
+
+        Builder Interface()
+        {
+            return [this]
+            {
+                BeginList("list", {.Width = 300.0f, .Height = 110.0f});
+                const RowRange items = ClipListItems(Count, m_Selected);
+                m_Range = items;
+                for (int i = items.First; i < items.End; i++)
+                {
+                    PushID(i);
+                    if (ListItem("Row", i == m_Selected))
+                        m_Selected = i;
+                    if (i == m_Watched)
+                        m_WatchedRect = GetItemRect();
+                    PopID();
+                }
+                EndList();
+            };
+        }
+
+        void ScrollTo(float offset)
+        {
+            Frame(
+                [&]
+                {
+                    SetScrollOffset("list", Vec2(0.0f, offset));
+                    Interface()();
+                });
+            Settle(Interface(), 60);
+        }
+
+        int m_Selected = -1;
+        int m_Watched = 0;
+        RowRange m_Range;
+        Rect m_WatchedRect;
+    };
+
+    TEST_F(ClippedListTests, OnlyTheVisibleItemsAreSubmitted)
+    {
+        Settle(Interface());
+        EXPECT_EQ(m_Range.First, 0);
+        // Four rows and part of a fifth are visible, and one more is asked for on either side.
+        EXPECT_GE(m_Range.End, 5);
+        EXPECT_LE(m_Range.End, 7);
+        EXPECT_EQ(m_WatchedRect, Rect(5.0f, 5.0f, 290.0f, 24.0f));
+    }
+
+    TEST_F(ClippedListTests, ScrollsAsIfEveryItemWereThere)
+    {
+        Settle(Interface());
+        ScrollTo(1.0e9f);
+        EXPECT_FLOAT_EQ(GetScrollOffset("list").Y, MaxOffset);
+        EXPECT_EQ(m_Range.End, Count);
+        EXPECT_GE(m_Range.First, Count - 7);
+
+        // An item in the middle sits where it would with every item before it submitted.
+        m_Watched = 50000;
+        ScrollTo(24.0f * 50000.0f);
+        EXPECT_LE(m_Range.First, 50000);
+        EXPECT_GT(m_Range.End, 50000);
+        EXPECT_FLOAT_EQ(m_WatchedRect.Y, 5.0f);
+        EXPECT_FLOAT_EQ(m_WatchedRect.Height, 24.0f);
+    }
+
+    TEST_F(ClippedListTests, KeyboardMovesTheSelectionAndRevealsIt)
+    {
+        Settle(Interface());
+        Click(Vec2(150.0f, 5.0f + 12.0f), Interface());
+        EXPECT_EQ(m_Selected, 0);
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 1);
+
+        TapKey(Key::End, Interface());
+        EXPECT_EQ(m_Selected, Count - 1);
+        Settle(Interface(), 60);
+        EXPECT_NEAR(GetScrollOffset("list").Y, MaxOffset, 1.5f);
+
+        TapKey(Key::Home, Interface());
+        EXPECT_EQ(m_Selected, 0);
+        Settle(Interface(), 60);
+        EXPECT_NEAR(GetScrollOffset("list").Y, 0.0f, 1.5f);
+    }
+
+    TEST_F(ClippedListTests, KeyboardStartsFromASelectionThatIsNotSubmitted)
+    {
+        Settle(Interface());
+        Click(Vec2(150.0f, 5.0f + 12.0f), Interface());
+        // The application selects an item far away; the list stays where it is and still has the focus.
+        m_Selected = 70000;
+        Settle(Interface());
+        EXPECT_LT(m_Range.End, 70000);
+
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 70001);
+        Settle(Interface(), 60);
+        // The new selection has been scrolled to the bottom edge of the visible area.
+        EXPECT_NEAR(GetScrollOffset("list").Y, 24.0f * 70002.0f + 10.0f - 110.0f, 6.0f);
+    }
+
     // ---- Table --------------------------------------------------------------------------------------------------
 
     class TableTests : public WidgetTest
@@ -294,6 +409,41 @@ namespace Carbon
         Settle(Interface());
         EXPECT_NEAR(m_Cells[0][1].GetCenter().Y, 3.0f + 12.0f, 0.5f);
         EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 100.0f + 8.0f, 0.5f);
+    }
+
+    TEST_F(TableTests, ClippedRowsKeepTheirPlace)
+    {
+        // 1,000 rows, of which the ones in view are submitted: a row is where it would be among all of them.
+        const TableColumn columns[] = {{.Title = "Name"}};
+        RowRange range;
+        Rect rowRect;
+        const auto build = [&]
+        {
+            BeginTable("table", columns, {.Width = 400.0f, .Height = 200.0f});
+            range = ClipTableRows(1000, 501);
+            for (int i = range.First; i < range.End; i++)
+            {
+                TableRow(i, i == 501);
+                if (i == 500)
+                    rowRect = GetItemRect();
+                TableCell("Name");
+            }
+            EndTable();
+        };
+        Settle(build);
+        Frame(
+            [&]
+            {
+                PushID("table");
+                SetScrollOffset("##rows", Vec2(0.0f, 24.0f * 500.0f));
+                PopID();
+                build();
+            });
+        Settle(build, 60);
+        EXPECT_LE(range.First, 500);
+        EXPECT_LT(range.End - range.First, 12);
+        // Header 24, then 3 points of padding above the rows; row 500 is the first one in view.
+        EXPECT_FLOAT_EQ(rowRect.Y, 24.0f + 3.0f);
     }
 
     TEST_F(TableTests, ClickingARowPicksIt)

@@ -3,6 +3,7 @@
 #include <string_view>
 
 #include "Carbon/Extension.h"
+#include "Carbon/Extensions/RowRange.h"
 
 namespace Carbon
 {
@@ -44,6 +45,21 @@ namespace Carbon
     void BeginList(std::string_view id, const ListOptions& options = {});
     void EndList();
 
+    /// For a list with many items: declares that the list has `count` items and returns the ones to submit in
+    /// this frame, which are the visible ones and, after the arrow keys moved the selection, the item they moved
+    /// to. The list reserves the space of all the others, so a frame costs the same however long the list is:
+    ///
+    ///     Carbon::BeginList("files", { .Height = 200.0f });
+    ///     const Carbon::RowRange items = Carbon::ClipListItems(count, selected);
+    ///     for (int i = items.First; i < items.End; i++)
+    ///         if (Carbon::ListItem(names[i], i == selected))
+    ///             selected = i;
+    ///     Carbon::EndList();
+    ///
+    /// Call it once, right after BeginList, and submit exactly the items of the range, in order. `selectedItem`
+    /// is the index of the selected item, or -1: the keyboard moves the selection from there even while that item
+    /// is not among the submitted ones. The items that are left out count as enabled.
+    RowRange ClipListItems(int count, int selectedItem = -1);
     /// One row. Pass whether it is selected. Returns true when the user picks it, by click or keyboard: make it
     /// the selection (or toggle it, for a list that allows several).
     bool ListItem(std::string_view label, bool isSelected, const ListItemOptions& options = {});

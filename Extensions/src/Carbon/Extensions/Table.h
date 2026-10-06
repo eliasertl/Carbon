@@ -5,6 +5,7 @@
 #include <string_view>
 
 #include "Carbon/Extension.h"
+#include "Carbon/Extensions/RowRange.h"
 
 namespace Carbon
 {
@@ -62,6 +63,25 @@ namespace Carbon
     bool TableRow(int64_t id, bool isSelected = false);
     bool TableRow(std::string_view id, bool isSelected = false);
 
+    /// For a table with many rows: declares that the table has `count` rows and returns the ones to submit in
+    /// this frame, which are the visible rows and, after the arrow keys moved the selection, the row they moved
+    /// to. The table reserves the space of all the others, so it scrolls as if every row were there, and a frame
+    /// costs the same whether the table has a thousand rows or a million:
+    ///
+    ///     Carbon::BeginTable("files", columns, { .Height = 240.0f });
+    ///     const Carbon::RowRange rows = Carbon::ClipTableRows(count, selected);
+    ///     for (int i = rows.First; i < rows.End; i++)
+    ///     {
+    ///         if (Carbon::TableRow(i, i == selected))
+    ///             selected = i;
+    ///         Carbon::TableCell(files[i].Name);
+    ///     }
+    ///     Carbon::EndTable();
+    ///
+    /// Call it once, right after BeginTable, and submit exactly the rows of the range, in order. `selectedRow` is
+    /// the index of the selected row, or -1: the keyboard moves the selection from there even while that row is
+    /// not among the submitted ones.
+    RowRange ClipTableRows(int count, int selectedRow = -1);
     /// The next cell of the current row, as text. Text that does not fit is cut off with an ellipsis.
     void TableCell(std::string_view text, const TableCellOptions& options = {});
 

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Carbon/Extensions/Internal/BuildState.h"
 #include "Carbon/Extensions/Internal/ColumnLayout.h"
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
@@ -44,6 +45,8 @@ namespace Carbon
             bool HasFrame;
             bool ShowsAlternatingRows;
             bool IsRowEmphasized;
+            /// The current item is inside the visible area: its cells are drawn.
+            bool IsRowVisible;
             bool IsOpen;
         };
 
@@ -56,9 +59,11 @@ namespace Carbon
             bool CollapseDescendants;
         };
 
+        Internal::BuildState<OutlineBuild> s_Build("Carbon.OutlineView.Build");
+
         OutlineBuild& GetBuild()
         {
-            return *GetState<OutlineBuild>(HashID("Carbon.OutlineView.Build"), StateLifetime::Persistent);
+            return s_Build.Get();
         }
 
         // A chevron that points right when collapsed and down when expanded, turning in between.
@@ -153,9 +158,12 @@ namespace Carbon
             return result;
 
         const ID id = GetID(label);
-        const std::string_view title = GetDisplayLabel(label);
         const int depth = build.Depth;
-        ExpansionState& expansion = *GetState<ExpansionState>(HashID("##expansion", id), StateLifetime::Persistent);
+        // Only an item that can contain others remembers whether it is expanded.
+        ExpansionState leafExpansion = {};
+        ExpansionState& expansion =
+            options.HasChildren ? *GetState<ExpansionState>(HashID("##expansion", id), StateLifetime::Persistent)
+                                : leafExpansion;
         if (!expansion.IsKnown)
         {
             expansion.IsExpanded = options.IsInitiallyExpanded;
@@ -169,13 +177,14 @@ namespace Carbon
             Internal::SelectionListRow(id, build.RowHeight, isSelected, options.Disabled);
         build.Row = row.Bounds;
         build.IsRowEmphasized = row.IsEmphasized;
+        build.IsRowVisible = row.IsVisible;
         build.NextColumn = 1;
         if (depth < MaxDepth)
             build.Ordinals[depth] = row.Ordinal;
         result.Picked = row.Clicked;
         result.Activated = row.Interaction.DoubleClicked;
 
-        if (build.ShowsAlternatingRows && !isSelected && build.RowIndex % 2 == 1)
+        if (row.IsVisible && build.ShowsAlternatingRows && !isSelected && build.RowIndex % 2 == 1)
         {
             GetDrawList().AddSquircle(row.Bounds, GetStyleColor(StyleColor::ControlFill).WithOpacity(0.35f), 5.0f,
                                       GetStyleVar(StyleVar::CornerSmoothing));
@@ -189,7 +198,7 @@ namespace Carbon
         const float indent = IndentWidth * static_cast<float>(std::min(depth, MaxDepth));
         const Rect disclosure(row.Bounds.X + indent, row.Bounds.Y, DisclosureWidth, row.Bounds.Height);
         bool isDisclosureHovered = false;
-        if (options.HasChildren)
+        if (options.HasChildren && row.IsVisible)
         {
             ButtonBehaviorOptions behavior;
             behavior.Focusable = false;
@@ -252,7 +261,18 @@ namespace Carbon
         }
         result.IsExpanded = options.HasChildren && expansion.IsExpanded;
 
+        // An item that is scrolled out of view takes its space and keeps its place in the hierarchy; there is
+        // nothing to draw.
+        if (!row.IsVisible)
+        {
+            PopDisabled();
+            PushID(id);
+            build.Depth++;
+            return result;
+        }
+
         // Drawing: disclosure triangle, icon and title, within the first column.
+        const std::string_view title = GetDisplayLabel(label);
         const Color onAccent = GetStyleColor(StyleColor::OnAccent);
         const float centerY = row.Bounds.GetCenter().Y;
         if (options.HasChildren)
@@ -307,6 +327,8 @@ namespace Carbon
         if (!hasColumn)
             return;
         const ColumnLayout& column = build.Columns[build.NextColumn++];
+        if (!build.IsRowVisible)
+            return;
         const Rect cell(build.Row.X + column.X + CellPadding, build.Row.Y,
                         std::max(column.Width - CellPadding * 2.0f, 0.0f), build.Row.Height);
         Internal::DrawCellText(cell, text, options, column.Alignment, build.IsRowEmphasized);
