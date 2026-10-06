@@ -31,7 +31,10 @@ namespace
 
     void Row(std::string_view title, int* rating, const Example::StarRatingOptions& options = {})
     {
+        // Every row's stack is begun from this line: the title gives each its own identity.
+        PushID(title);
         BeginHStack({.Spacing = 12.0f, .Width = Size::Fill()});
+        PopID();
         Text(title, {.Width = 90.0f});
         // The custom component is called exactly like a built-in one.
         Example::StarRating(title, rating, options);

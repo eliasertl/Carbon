@@ -7,6 +7,7 @@
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Hash.h"
+#include "Carbon/Core/Log.h"
 #include "Carbon/Core/State.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Layout/Stack.h"
@@ -228,6 +229,43 @@ namespace Carbon::Internal
             frame.Cursor = frame.ContentStart;
         }
 
+        std::string_view GetBeginFunctionName(ContainerKind kind)
+        {
+            switch (kind)
+            {
+                case ContainerKind::HStack:
+                    return "BeginHStack";
+                case ContainerKind::Grid:
+                    return "BeginGrid";
+                case ContainerKind::GridRow:
+                    return "BeginGridRow";
+                default:
+                    return "BeginVStack";
+            }
+        }
+
+        // Several containers begun from one call site inside the same container and ID scope during one frame share
+        // an identity and are told apart only by their order: what a helper function or a loop without PushID
+        // does. Their measurements then move to another container whenever one before it disappears. Reported
+        // once per call site, with the fix.
+        void ReportRepeatedCallSite(Context& context, ContainerKind kind, const std::source_location& location)
+        {
+            const uint64_t key = HashCombine(reinterpret_cast<uintptr_t>(location.file_name()),
+                                             (static_cast<uint64_t>(location.line()) << 32) | location.column());
+            std::vector<uint64_t>& reported = context.Layout.ReportedCallSites;
+            if (std::find(reported.begin(), reported.end(), key) != reported.end())
+                return;
+            reported.push_back(key);
+            const std::string_view function = GetBeginFunctionName(kind);
+            CB_LOG_WARNING("Layout",
+                           "{}:{}: {} was called more than once from this line inside the same container during one "
+                           "frame, from a loop or from a function called several times. These containers share an "
+                           "identity and are told apart only by their order, so their layout moves to another one "
+                           "when one before it disappears. Give each its own identity: put PushID(key) / PopID() "
+                           "around each call, or pass a unique .ID in the options of {}.",
+                           location.file_name(), location.line(), function, function);
+        }
+
         bool StoreMeasurements(const LayoutFrame& frame, ContainerRecord& record)
         {
             const Vec2 content = MakeVec(frame.Axis, frame.MainExtent, frame.CrossExtent);
@@ -307,6 +345,8 @@ namespace Carbon::Internal
         ContainerRecord* record = GetState<ContainerRecord>(id, StateLifetime::Transient, &created);
         if (record->LastFrame == context.FrameCount)
         {
+            if (description.CallSite != nullptr)
+                ReportRepeatedCallSite(context, description.Kind, *description.CallSite);
             const uint64_t occurrence = record->Occurrences++;
             id = ID{HashCombine(description.Id.Value, occurrence)};
             record = GetState<ContainerRecord>(id, StateLifetime::Transient, &created);
@@ -471,12 +511,13 @@ namespace Carbon::Internal
         return 0.0f;
     }
 
-    ID GetCallSiteID(Context& context, const char* file, uint32_t line, uint32_t column)
+    void SetCallSiteID(Context& context, ContainerDescription& description, const std::source_location& location)
     {
         uint64_t hash = HashCombine(context.Layout.Frames.back().Id.Value, context.IDStack.back().Value);
-        hash = HashCombine(hash, reinterpret_cast<uintptr_t>(file));
-        hash = HashCombine(hash, (static_cast<uint64_t>(line) << 32) | column);
-        return ID{hash == 0 ? 1 : hash};
+        hash = HashCombine(hash, reinterpret_cast<uintptr_t>(location.file_name()));
+        hash = HashCombine(hash, (static_cast<uint64_t>(location.line()) << 32) | location.column());
+        description.Id = ID{hash == 0 ? 1 : hash};
+        description.CallSite = &location;
     }
 } // namespace Carbon::Internal
 

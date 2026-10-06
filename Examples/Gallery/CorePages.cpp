@@ -65,6 +65,9 @@ namespace Gallery
     void BeginSection(std::string_view title, std::string_view description)
     {
         s_IsCapturing = !s_CapturedSections.empty() && IsCaptured(title);
+        // Every section's stacks are begun from these lines, so the title tells them apart. The ID is pushed only
+        // around the Begin calls: the widgets in the section keep their IDs.
+        PushID(title);
         BeginVStack({.Spacing = 6.0f, .Width = Size::Fill()});
         Text(title, {.Style = TextStyle::Headline});
         if (!description.empty())
@@ -75,6 +78,7 @@ namespace Gallery
                      .Padding = 16.0f,
                      .Width = Size::Fill(),
                      .Background = GetStyleColor(StyleColor::SecondaryBackground)});
+        PopID();
     }
 
     void EndSection()
@@ -91,7 +95,9 @@ namespace Gallery
 
     void BeginRow(std::string_view label)
     {
+        PushID(label);
         BeginHStack({.Spacing = 12.0f, .Width = Size::Fill()});
+        PopID();
         Text(label, {.Secondary = true, .Width = LabelColumn});
     }
 
@@ -342,13 +348,17 @@ namespace Gallery
     {
         BeginSection("Layout", "Stacks, spacers and fill sizes. No positions are computed by hand.");
         const Color box = GetStyleColor(StyleColor::ControlFill);
+        // Chips repeat their labels ("1", "2", "1"), so a running count gives each chip's stack its identity.
+        int chipCount = 0;
         const auto chip = [&](std::string_view label, Size width = Size::Fit())
         {
+            PushID(chipCount++);
             BeginHStack({.Padding = EdgeInsets(10.0f, 5.0f),
                          .Justify = Alignment::Center,
                          .Width = width,
                          .Background = box,
                          .CornerRadius = 6.0f});
+            PopID();
             Text(label, {.Style = TextStyle::Subheadline});
             EndHStack();
         };
@@ -405,7 +415,7 @@ namespace Gallery
         };
         for (const auto& planet : Planets)
         {
-            BeginGridRow();
+            BeginGridRow({.ID = planet[0]});
             for (std::string_view cell : planet)
                 chip(cell, Size::Fill());
             EndGridRow();

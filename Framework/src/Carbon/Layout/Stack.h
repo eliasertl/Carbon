@@ -27,8 +27,8 @@ namespace Carbon
         std::optional<Color> Background = {};
         /// Corner radius of the background; the theme's GroupCornerRadius when not set.
         std::optional<float> CornerRadius = {};
-        /// A stable identity. Only needed when the same call site creates several stacks whose order changes;
-        /// by default a stack is identified by where in the source it is called from.
+        /// A stable identity. By default a stack is identified by where in the source it is begun; a line that
+        /// begins several stacks in one container (a loop, a helper function) needs this or a PushID around each.
         std::string_view ID = {};
     };
 
@@ -45,6 +45,7 @@ namespace Carbon
         Size Height = Size::Fit();
         std::optional<Color> Background = {};
         std::optional<float> CornerRadius = {};
+        /// A stable identity; see VStackOptions::ID.
         std::string_view ID = {};
     };
 
@@ -60,7 +61,8 @@ namespace Carbon
     };
 
     /// Starts a stack that lays its items out top to bottom. Every Begin needs a matching End.
-    /// Leave `location` alone: it identifies the stack by its call site.
+    /// Leave `location` alone: it identifies the stack by its call site. A call site that begins several stacks in
+    /// one container during a frame is reported once through the log; give each an ID (PushID or `ID`).
     void BeginVStack(const VStackOptions& options = {},
                      const std::source_location& location = std::source_location::current());
     void EndVStack();

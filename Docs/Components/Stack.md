@@ -31,7 +31,7 @@ space, the one frame of latency, identity) is explained in [Layout](../Layout.md
 | `Width`, `Height` | `Size` | `Fit` | |
 | `Background` | `Color` | none | A squircle behind the stack: a grouped box |
 | `CornerRadius` | `float` | theme's `GroupCornerRadius` (10) | Corner radius of the background |
-| `ID` | `std::string_view` | call site | A stable identity; see [Layout](../Layout.md#identity) |
+| `ID` | `std::string_view` | call site | A stable identity; see [Identity](#identity) |
 
 A grouped box, as in System Settings:
 
@@ -57,6 +57,26 @@ Carbon::Spacer({ .Length = 24.0f });       // a fixed gap
 | `Weight` | `float` | 1 | Share of the free space relative to other spacers and `Fill` items |
 
 A spacer only has free space to take when its stack's size along the axis is fixed or `Fill`.
+
+## Identity
+
+A stack is identified by the line that begins it, so **one line may begin only one stack per container and ID
+scope** in a frame. A loop, or a helper function called several times, breaks that rule; Carbon then tells the
+stacks apart by their order and logs a warning from `Layout` once, naming the file, the line and the fix. Give
+each stack its own identity with `PushID(key)` / `PopID()` around the call, or with `.ID`. In a helper, pushing
+the ID around the `Begin` call alone keeps the IDs of the widgets inside unchanged:
+
+```cpp
+void BeginRow(std::string_view label)
+{
+    Carbon::PushID(label);
+    Carbon::BeginHStack();
+    Carbon::PopID();
+    // ...
+}
+```
+
+[Layout](../Layout.md#identity) explains why.
 
 ## Keyboard
 

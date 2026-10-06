@@ -41,6 +41,8 @@ namespace Carbon
     {
         /// Where the cells of this row sit vertically; the grid's VerticalAlignment when not set.
         std::optional<Carbon::VerticalAlignment> Alignment = {};
+        /// A stable identity, as for stacks. By default a row is identified by its call site.
+        std::string_view ID = {};
     };
 
     /// Options of the next cell of a grid row.

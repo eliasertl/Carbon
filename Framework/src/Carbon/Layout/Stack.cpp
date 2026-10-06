@@ -7,11 +7,13 @@ namespace Carbon
 {
     namespace
     {
-        ID GetStackID(Context& context, std::string_view explicitID, const std::source_location& location)
+        void SetStackID(Context& context, Internal::ContainerDescription& description, std::string_view explicitID,
+                        const std::source_location& location)
         {
-            if (!explicitID.empty())
-                return GetID(explicitID);
-            return Internal::GetCallSiteID(context, location.file_name(), location.line(), location.column());
+            if (explicitID.empty())
+                Internal::SetCallSiteID(context, description, location);
+            else
+                description.Id = GetID(explicitID);
         }
 
         void AddBackground(Context& context, Internal::LayoutFrame& frame, const std::optional<Color>& color,
@@ -30,7 +32,7 @@ namespace Carbon
         Internal::ContainerDescription description;
         description.Kind = Internal::ContainerKind::VStack;
         description.Axis = Axis::Vertical;
-        description.Id = GetStackID(context, options.ID, location);
+        SetStackID(context, description, options.ID, location);
         description.Width = options.Width;
         description.Height = options.Height;
         description.Padding = options.Padding;
@@ -52,7 +54,7 @@ namespace Carbon
         Internal::ContainerDescription description;
         description.Kind = Internal::ContainerKind::HStack;
         description.Axis = Axis::Horizontal;
-        description.Id = GetStackID(context, options.ID, location);
+        SetStackID(context, description, options.ID, location);
         description.Width = options.Width;
         description.Height = options.Height;
         description.Padding = options.Padding;

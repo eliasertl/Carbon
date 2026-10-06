@@ -23,10 +23,12 @@ namespace Carbon
                 BeginGrid({.HorizontalSpacing = 10.0f, .VerticalSpacing = 4.0f});
                 for (int row = 0; row < 2; row++)
                 {
+                    PushID(row);
                     BeginGridRow();
                     for (int column = 0; column < 2; column++)
                         cells[row][column] = Item(sizes[row][column].X, sizes[row][column].Y);
                     EndGridRow();
+                    PopID();
                 }
                 EndGrid();
                 grid = GetLastItemRect();
@@ -38,6 +40,7 @@ namespace Carbon
         EXPECT_EQ(cells[1][1], Rect(90.0f, 24.0f, 40.0f, 10.0f));
         EXPECT_EQ(grid, Rect(0.0f, 0.0f, 130.0f, 34.0f));
         EXPECT_FALSE(IsAnimating());
+        EXPECT_TRUE(GetLayoutWarnings().empty());
     }
 
     TEST_F(GridTests, ACellCanSpanColumns)
@@ -281,6 +284,28 @@ namespace Carbon
         EXPECT_TRUE(IsAnimating());
         Settle(build);
         EXPECT_FALSE(IsAnimating());
+    }
+
+    TEST_F(GridTests, RowsFromOneCallSiteAreReportedUnlessTheyHaveAnID)
+    {
+        static constexpr std::string_view Keys[] = {"a", "b", "c"};
+        const auto build = [&](bool withIDs)
+        {
+            BeginGrid();
+            for (std::string_view key : Keys)
+            {
+                BeginGridRow({.ID = withIDs ? key : std::string_view()});
+                Item(20.0f, 10.0f);
+                EndGridRow();
+            }
+            EndGrid();
+        };
+        Settle([&] { build(true); });
+        EXPECT_TRUE(GetLayoutWarnings().empty());
+        Settle([&] { build(false); });
+        const std::vector<std::string> warnings = GetLayoutWarnings();
+        ASSERT_EQ(warnings.size(), 1u);
+        EXPECT_NE(warnings[0].find("BeginGridRow"), std::string::npos) << warnings[0];
     }
 
     TEST_F(GridTests, MisuseIsReported)

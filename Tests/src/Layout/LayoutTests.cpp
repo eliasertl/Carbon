@@ -1,9 +1,25 @@
 #include "Support/ContextTest.h"
 
 #include <cmath>
+#include <format>
+#include <source_location>
 
 namespace Carbon
 {
+    namespace
+    {
+        // A helper function that begins a stack: every call lands on the same source location.
+        uint32_t s_HelperLine = 0;
+
+        void HelperRow(float width)
+        {
+            s_HelperLine = std::source_location::current().line() + 1;
+            BeginHStack();
+            AllocateItem(Vec2(width, 10.0f));
+            EndHStack();
+        }
+    } // namespace
+
     // Layout is single-pass: sizes that depend on content are known one frame late. `Settle` runs enough frames
     // for that; tests that check first-frame behaviour say so explicitly.
     class LayoutTests : public ContextTest
@@ -431,6 +447,90 @@ namespace Carbon
         EXPECT_FLOAT_EQ(narrow[0].X, 40.0f);
         EXPECT_FLOAT_EQ(narrow[1].X, 70.0f);
         EXPECT_FLOAT_EQ(narrow[2].X, 100.0f);
+        // It works, but the order is their only identity, which is reported once.
+        EXPECT_EQ(GetLayoutWarnings().size(), 1u);
+    }
+
+    TEST_F(LayoutTests, AHelperThatBeginsAStackIsReportedOnceWithItsLocationAndTheFix)
+    {
+        Rect rows[2];
+        const auto build = [&]
+        {
+            BeginVStack();
+            HelperRow(40.0f);
+            rows[0] = GetLastItemRect();
+            HelperRow(60.0f);
+            rows[1] = GetLastItemRect();
+            HelperRow(80.0f);
+            EndVStack();
+        };
+        Settle(build);
+        // Still laid out correctly, by order.
+        EXPECT_FLOAT_EQ(rows[0].Width, 40.0f);
+        EXPECT_FLOAT_EQ(rows[1].Width, 60.0f);
+
+        // Twenty frames, three calls each: one message, at the helper's line, with the fix.
+        const std::vector<std::string> warnings = GetLayoutWarnings();
+        ASSERT_EQ(warnings.size(), 1u);
+        EXPECT_NE(warnings[0].find("LayoutTests.cpp"), std::string::npos) << warnings[0];
+        EXPECT_NE(warnings[0].find(std::format(":{}:", s_HelperLine)), std::string::npos) << warnings[0];
+        EXPECT_NE(warnings[0].find("BeginHStack"), std::string::npos) << warnings[0];
+        EXPECT_NE(warnings[0].find("PushID"), std::string::npos) << warnings[0];
+        EXPECT_NE(warnings[0].find(".ID"), std::string::npos) << warnings[0];
+        EXPECT_TRUE(m_AssertMessages.empty()) << "a warning, not a failed check";
+    }
+
+    TEST_F(LayoutTests, AnIDScopeAnExplicitIDOrAnotherContainerKeepsCallSitesApart)
+    {
+        Settle(
+            [&]
+            {
+                BeginVStack();
+                // Pushing an ID around each call (or only around Begin) gives each stack its own identity.
+                for (int i = 0; i < 3; i++)
+                {
+                    PushID(i);
+                    HelperRow(40.0f);
+                    PopID();
+                }
+                // So does an explicit ID.
+                BeginHStack({.ID = "first"});
+                EndHStack();
+                BeginHStack({.ID = "second"});
+                EndHStack();
+                EndVStack();
+
+                // The same helper once in each of several containers is no collision.
+                for (int i = 0; i < 2; i++)
+                {
+                    PushID(i);
+                    BeginVStack();
+                    PopID();
+                    HelperRow(40.0f);
+                    EndVStack();
+                }
+            });
+        EXPECT_TRUE(GetLayoutWarnings().empty());
+    }
+
+    TEST_F(LayoutTests, EachCollidingCallSiteIsReportedOnce)
+    {
+        Settle(
+            [&]
+            {
+                BeginVStack();
+                HelperRow(10.0f);
+                HelperRow(20.0f);
+                EndVStack();
+                BeginVStack();
+                for (int i = 0; i < 2; i++)
+                {
+                    BeginHStack();
+                    EndHStack();
+                }
+                EndVStack();
+            });
+        EXPECT_EQ(GetLayoutWarnings().size(), 2u);
     }
 
     TEST_F(LayoutTests, NewContainersAreHiddenForOneFrameThenFadeIn)

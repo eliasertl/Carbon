@@ -459,10 +459,14 @@ namespace Carbon
         {
             // Wrapped in a stack whose width is the entry's width for the overflow calculation. With labels shown,
             // the control sits on the row of the icons and has its label below, like the items.
+            // Every control's stacks are begun from these lines, so each gets its index as its identity. The ID
+            // is popped right away: the stacks keep it, and the caller's widgets inside keep their own IDs.
             build.IsControlLabeled = build.Mode == ToolbarDisplayMode::IconAndLabel;
+            PushID(index);
             if (build.IsControlLabeled)
                 BeginVStack({.Spacing = LabelGap, .Alignment = Alignment::Center});
             BeginHStack({.Spacing = ItemSpacing, .Height = build.IsControlLabeled ? IconBoxHeight : Size::Fit()});
+            PopID();
             build.IsControlInStack = true;
             return true;
         }

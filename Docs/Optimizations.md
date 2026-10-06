@@ -153,7 +153,9 @@ else to the middle of the rows.
 ## Layout
 
 Stacks opened from one call site in a loop, without `PushID`: `for (...) { BeginHStack(); ...; EndHStack(); }`
-inside a scroll view, each stack with one item. Stacks from one call site are told apart by their order.
+inside a scroll view, each stack with one item. Stacks from one call site are told apart by their order. Since
+decision 130 such a loop is also reported once through the log; the benchmark measures this fallback, which
+applications are asked to avoid.
 
 | Metric | Case | v1 | v2 | v3 | Change |
 | --- | --- | --- | --- | --- | --- |

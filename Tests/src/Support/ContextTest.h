@@ -59,6 +59,18 @@ namespace Carbon
             EndFrame();
         }
 
+        /// The messages of the warnings the layout logged, such as call sites that begin several containers.
+        std::vector<std::string> GetLayoutWarnings() const
+        {
+            std::vector<std::string> warnings;
+            for (const LogEntry& entry : m_Logs)
+            {
+                if (entry.Level == LogLevel::Warning && entry.Source == "Layout")
+                    warnings.push_back(entry.Message);
+            }
+            return warnings;
+        }
+
         /// Runs `build` for enough frames that layout measurements and appear fades have settled.
         void Settle(const std::function<void()>& build, int frames = 20)
         {

@@ -148,11 +148,13 @@ namespace Carbon
                 BeginGrid();
                 for (int row = 0; row < 3; row++)
                 {
+                    PushID(row);
                     BeginGridRow();
                     Text("Label");
                     SetNextGridCell({.ColumnSpan = row == 2 ? 2 : 1});
                     Button("Cell");
                     EndGridRow();
+                    PopID();
                 }
                 EndGrid();
                 EndScrollView();

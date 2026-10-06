@@ -58,6 +58,7 @@ array is the usual choice.
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `GridRowOptions::Alignment` | `VerticalAlignment` | the grid's | Where the cells of this row sit vertically |
+| `GridRowOptions::ID` | `std::string_view` | call site | A stable identity for a row begun in a loop; see [Layout](../Layout.md#identity) |
 | `GridCellOptions::ColumnSpan` | `int` | 1 | How many columns the cell covers |
 | `GridCellOptions::Alignment` | `Alignment` | the column's | Where the cell's content sits horizontally |
 | `GridCellOptions::VerticalAlignment` | `VerticalAlignment` | the row's | Where the cell's content sits vertically |
@@ -76,6 +77,8 @@ array is the usual choice.
   `IsAnimating()` is true until the columns have settled. See [Layout](../Layout.md#one-frame-of-latency).
 - **Identity.** A grid and its rows are identified by their call sites, like stacks. They do not push onto the ID
   stack, so wrapping existing widgets in a grid does not change their IDs or lose their focus or animation state.
+  Rows begun in a loop need an identity each, `PushID(key)` or `.ID = key`; otherwise the line is reported once
+  through the log, as for [stacks](Stack.md#identity).
 - A grid has at most 32 columns.
 
 ## Keyboard

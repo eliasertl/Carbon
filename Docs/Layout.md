@@ -151,11 +151,28 @@ This is invisible in practice:
 
 A stack remembers its measurements between frames, so it needs an identity. By default that is the place in your
 source where `BeginVStack` or `BeginHStack` is called (plus the enclosing container and the ID stack). This is
-stable when stacks around it appear and disappear, and several stacks begun from the same line in a loop are
-told apart by their order.
+stable when stacks around it appear and disappear. Grids and grid rows work the same way.
 
-Only one case needs help: a loop whose items change *order* or are removed from the middle. Wrap each iteration
-in `PushID(item.Key)` / `PopID()` or pass `.ID`, and the measurements travel with the item:
+**The rule: one line of source begins one stack per container and ID scope.** Two cases break it, and both look
+innocent:
+
+- a **loop** that begins a stack in each iteration, and
+- a **helper function** that begins a stack and is called more than once in the same container: every call
+  lands on the same line inside the helper.
+
+Carbon still tells such stacks apart, by their order, but then their measurements belong to a position rather
+than to an item: when an item before them disappears, the next one takes over its measurements for a frame and
+jumps. So Carbon reports the line once per run, through the host's log callback, as a warning from `Layout`:
+
+```
+Settings.cpp:42: BeginHStack was called more than once from this line inside the same container during one
+frame, from a loop or from a function called several times. [...] Give each its own identity: put
+PushID(key) / PopID() around each call, or pass a unique .ID in the options of BeginHStack.
+```
+
+The fix is to give each stack an identity of its own: wrap each iteration or call in `PushID(key)` / `PopID()`,
+or pass `.ID` (`GridRowOptions` has one too). The key should belong to the item, not to its position, so the
+measurements travel with the item:
 
 ```cpp
 for (const Row& row : rows)
@@ -165,6 +182,19 @@ for (const Row& row : rows)
     // ...
     Carbon::EndHStack();
     Carbon::PopID();
+}
+```
+
+In a helper function, push the ID only around the `Begin` call. Stacks take their identity when they begin, so
+the stack gets its own, and the widgets inside keep the IDs they would have without the helper:
+
+```cpp
+void BeginRow(std::string_view label)
+{
+    Carbon::PushID(label);
+    Carbon::BeginHStack({ .Width = Carbon::Size::Fill() });
+    Carbon::PopID();
+    Carbon::Text(label, { .Secondary = true });
 }
 ```
 

@@ -42,9 +42,10 @@ namespace Carbon
         Internal::ContainerDescription description;
         description.Kind = Internal::ContainerKind::Grid;
         description.Axis = Axis::Vertical;
-        description.Id = options.ID.empty() ? Internal::GetCallSiteID(context, location.file_name(), location.line(),
-                                                                      location.column())
-                                            : GetID(options.ID);
+        if (options.ID.empty())
+            Internal::SetCallSiteID(context, description, location);
+        else
+            description.Id = GetID(options.ID);
         description.Width = options.Width;
         description.Height = options.Height;
         description.Padding = options.Padding;
@@ -115,7 +116,10 @@ namespace Carbon
         Internal::ContainerDescription description;
         description.Kind = Internal::ContainerKind::GridRow;
         description.Axis = Axis::Horizontal;
-        description.Id = Internal::GetCallSiteID(context, location.file_name(), location.line(), location.column());
+        if (options.ID.empty())
+            Internal::SetCallSiteID(context, description, location);
+        else
+            description.Id = GetID(options.ID);
         description.Spacing =
             isInGrid ? layout.GridFrames.back().HorizontalSpacing : context.Style.GetVar(StyleVar::Spacing);
         description.CrossFactor = 0.5f;

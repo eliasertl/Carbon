@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <optional>
+#include <source_location>
 #include <vector>
 
 #include "Carbon/Core/EdgeInsets.h"
@@ -69,6 +70,8 @@ namespace Carbon::Internal
         ContainerKind Kind = ContainerKind::VStack;
         Carbon::Axis Axis = Carbon::Axis::Vertical;
         ID Id;
+        /// Where the container was begun, when its ID was derived from that (see SetCallSiteID); null otherwise.
+        const std::source_location* CallSite = nullptr;
         Size Width = Size::Fit();
         Size Height = Size::Fit();
         EdgeInsets Padding;
@@ -193,6 +196,8 @@ namespace Carbon::Internal
         /// The scroll view that Page Up and Page Down act on: the hovered one, or else the first (outermost) one.
         ID KeyboardScrollView;
         ID FirstScrollViewCandidate;
+        /// Call sites that have been reported for beginning several containers in one, so each is reported once.
+        std::vector<uint64_t> ReportedCallSites;
     };
 
     /// Called by NewFrame: opens the root container, which covers the display.
@@ -217,6 +222,8 @@ namespace Carbon::Internal
     float GetAlignmentFactor(Alignment alignment);
     float GetAlignmentFactor(VerticalAlignment alignment);
 
-    /// Identifies a container by its call site, the enclosing container and the ID scope.
-    ID GetCallSiteID(Context& context, const char* file, uint32_t line, uint32_t column);
+    /// Identifies a container by its call site, the enclosing container and the ID scope, and records the call
+    /// site in the description so that BeginContainer can report a call site that begins several containers in
+    /// one container during a frame.
+    void SetCallSiteID(Context& context, ContainerDescription& description, const std::source_location& location);
 } // namespace Carbon::Internal
