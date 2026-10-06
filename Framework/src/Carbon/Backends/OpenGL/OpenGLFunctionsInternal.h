@@ -36,7 +36,6 @@ namespace Carbon::Internal
 
         inline constexpr GLenum CullFace = 0x0B44;
         inline constexpr GLenum DepthTest = 0x0B71;
-        inline constexpr GLenum DepthWritemask = 0x0B72;
         inline constexpr GLenum StencilTest = 0x0B90;
         inline constexpr GLenum Viewport = 0x0BA2;
         inline constexpr GLenum Blend = 0x0BE2;
@@ -55,13 +54,10 @@ namespace Carbon::Internal
         inline constexpr GLenum Version = 0x1F02;
 
         inline constexpr GLenum UnpackSwapBytes = 0x0CF0;
-        inline constexpr GLenum UnpackLsbFirst = 0x0CF1;
         inline constexpr GLenum UnpackRowLength = 0x0CF2;
         inline constexpr GLenum UnpackSkipRows = 0x0CF3;
         inline constexpr GLenum UnpackSkipPixels = 0x0CF4;
         inline constexpr GLenum UnpackAlignment = 0x0CF5;
-        inline constexpr GLenum UnpackImageHeight = 0x806E;
-        inline constexpr GLenum UnpackSkipImages = 0x806D;
 
         inline constexpr GLenum Texture2D = 0x0DE1;
         inline constexpr GLenum TextureBuffer = 0x8C2A;
@@ -121,7 +117,6 @@ namespace Carbon::Internal
     X(BlendEquationSeparate, void, (GLenum modeRgb, GLenum modeAlpha))                                               \
     X(BlendFuncSeparate, void, (GLenum srcRgb, GLenum dstRgb, GLenum srcAlpha, GLenum dstAlpha))                     \
     X(ColorMask, void, (GLboolean red, GLboolean green, GLboolean blue, GLboolean alpha))                            \
-    X(DepthMask, void, (GLboolean flag))                                                                             \
     X(Viewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))                                             \
     X(Scissor, void, (GLint x, GLint y, GLsizei width, GLsizei height))                                              \
     X(PixelStorei, void, (GLenum pname, GLint param))                                                                \

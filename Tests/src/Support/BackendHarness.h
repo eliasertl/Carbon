@@ -69,6 +69,10 @@ namespace Carbon
         /// target or reading it back. The benchmarks report this.
         double GetLastRenderSeconds() const { return m_LastRenderSeconds; }
 
+        /// How often the backend asked the API for a piece of state (glGet*, glIsEnabled) during the last
+        /// RenderFrame; 0 for the APIs where that is not counted. Each such call is a round trip in a browser.
+        virtual uint32_t GetLastRenderStateQueries() const { return 0; }
+
     protected:
         /// Measures the backend's render function: a harness keeps one alive around that call.
         class RenderTimer

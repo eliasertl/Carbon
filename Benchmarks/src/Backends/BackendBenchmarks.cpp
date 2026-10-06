@@ -127,6 +127,9 @@ namespace Carbon::Benchmarks
 
             const DrawData& drawData = GetDrawData();
             state.counters["vertices"] = static_cast<double>(drawData.Vertices.size());
+            // OpenGL only: the state queries of one render call (glGet*, glIsEnabled).
+            if (harness->GetLastRenderStateQueries() > 0)
+                state.counters["state_queries"] = static_cast<double>(harness->GetLastRenderStateQueries());
             state.counters["commands"] = static_cast<double>(drawData.Commands.size());
 
             harness->ShutdownBackend();

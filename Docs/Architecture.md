@@ -469,7 +469,7 @@ In `Backends/Vulkan/`: `VulkanInit`, `VulkanShutdown`, `VulkanRender(commandBuff
 In `Backends/OpenGL/`: `OpenGLInit`, `OpenGLShutdown`, `OpenGLRender()`, `OpenGLGetTextureID(texture)` and
 `OpenGLImage(...)`, for OpenGL 3.3 core.
 
-- `OpenGLFunctionsInternal.h` declares the GL types and constants the backend uses and a table of 55 functions,
+- `OpenGLFunctionsInternal.h` declares the GL types and constants the backend uses and a table of 54 functions,
   resolved through the host's `GetProcAddress`. No GL header, no loader library.
 - One program (GLSL 3.30, or GLSL ES 3.00 for the OpenGL ES backend), one vertex array with Carbon's vertex and
   element buffers, an `RGBA32UI` 2D texture for the primitives (floats as bits, exact; 1024 per row), a sampler

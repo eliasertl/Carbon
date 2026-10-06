@@ -228,7 +228,6 @@ namespace Carbon::Internal
     {
         m_GL.GetIntegerv(GL::CurrentProgram, &state.Program);
         m_GL.GetIntegerv(GL::VertexArrayBinding, &state.VertexArray);
-        m_GL.GetIntegerv(GL::ArrayBufferBinding, &state.ArrayBuffer);
         m_GL.GetIntegerv(GL::ActiveTexture, &state.ActiveTexture);
         for (GLuint unit = 0; unit < 2; unit++)
         {
@@ -246,7 +245,6 @@ namespace Carbon::Internal
         m_GL.GetIntegerv(GL::BlendSrcAlpha, &state.BlendSrcAlpha);
         m_GL.GetIntegerv(GL::BlendDstAlpha, &state.BlendDstAlpha);
         m_GL.GetBooleanv(GL::ColorWritemask, state.ColorMask);
-        m_GL.GetBooleanv(GL::DepthWritemask, &state.DepthMask);
         state.Blend = m_GL.IsEnabled(GL::Blend);
         state.ScissorTest = m_GL.IsEnabled(GL::ScissorTest);
         state.CullFace = m_GL.IsEnabled(GL::CullFace);
@@ -266,7 +264,6 @@ namespace Carbon::Internal
     {
         m_GL.UseProgram(static_cast<GLuint>(state.Program));
         m_GL.BindVertexArray(static_cast<GLuint>(state.VertexArray));
-        m_GL.BindBuffer(GL::ArrayBuffer, static_cast<GLuint>(state.ArrayBuffer));
         for (GLuint unit = 0; unit < 2; unit++)
         {
             m_GL.ActiveTexture(GL::Texture0 + unit);
@@ -281,7 +278,6 @@ namespace Carbon::Internal
         m_GL.BlendFuncSeparate(static_cast<GLenum>(state.BlendSrcRgb), static_cast<GLenum>(state.BlendDstRgb),
                                static_cast<GLenum>(state.BlendSrcAlpha), static_cast<GLenum>(state.BlendDstAlpha));
         m_GL.ColorMask(state.ColorMask[0], state.ColorMask[1], state.ColorMask[2], state.ColorMask[3]);
-        m_GL.DepthMask(state.DepthMask);
         SetEnabled(GL::Blend, state.Blend != GL::False);
         SetEnabled(GL::ScissorTest, state.ScissorTest != GL::False);
         SetEnabled(GL::CullFace, state.CullFace != GL::False);
@@ -304,13 +300,8 @@ namespace Carbon::Internal
         m_GL.GetIntegerv(GL::UnpackRowLength, &state.RowLength);
         m_GL.GetIntegerv(GL::UnpackSkipRows, &state.SkipRows);
         m_GL.GetIntegerv(GL::UnpackSkipPixels, &state.SkipPixels);
-        m_GL.GetIntegerv(GL::UnpackImageHeight, &state.ImageHeight);
-        m_GL.GetIntegerv(GL::UnpackSkipImages, &state.SkipImages);
         if (!m_IsES)
-        {
             m_GL.GetIntegerv(GL::UnpackSwapBytes, &state.SwapBytes);
-            m_GL.GetIntegerv(GL::UnpackLsbFirst, &state.LsbFirst);
-        }
     }
 
     void OpenGLRenderer::SetUnpackDefaults() const
@@ -320,13 +311,8 @@ namespace Carbon::Internal
         m_GL.PixelStorei(GL::UnpackRowLength, 0);
         m_GL.PixelStorei(GL::UnpackSkipRows, 0);
         m_GL.PixelStorei(GL::UnpackSkipPixels, 0);
-        m_GL.PixelStorei(GL::UnpackImageHeight, 0);
-        m_GL.PixelStorei(GL::UnpackSkipImages, 0);
         if (!m_IsES)
-        {
             m_GL.PixelStorei(GL::UnpackSwapBytes, 0);
-            m_GL.PixelStorei(GL::UnpackLsbFirst, 0);
-        }
     }
 
     void OpenGLRenderer::RestoreUnpackState(const SavedUnpackState& state) const
@@ -336,13 +322,8 @@ namespace Carbon::Internal
         m_GL.PixelStorei(GL::UnpackRowLength, state.RowLength);
         m_GL.PixelStorei(GL::UnpackSkipRows, state.SkipRows);
         m_GL.PixelStorei(GL::UnpackSkipPixels, state.SkipPixels);
-        m_GL.PixelStorei(GL::UnpackImageHeight, state.ImageHeight);
-        m_GL.PixelStorei(GL::UnpackSkipImages, state.SkipImages);
         if (!m_IsES)
-        {
             m_GL.PixelStorei(GL::UnpackSwapBytes, state.SwapBytes);
-            m_GL.PixelStorei(GL::UnpackLsbFirst, state.LsbFirst);
-        }
     }
 
     void OpenGLRenderer::SetEnabled(GLenum capability, bool enabled) const
@@ -464,6 +445,9 @@ namespace Carbon::Internal
             SavedUnpackState unpack;
             SaveUnpackState(unpack);
             SetUnpackDefaults();
+            // The array buffer binding is no part of the vertex array's state, and only an upload changes it.
+            GLint arrayBuffer = 0;
+            m_GL.GetIntegerv(GL::ArrayBufferBinding, &arrayBuffer);
             const GLsizeiptr vertexBytes = static_cast<GLsizeiptr>(drawData.Vertices.size_bytes());
             const GLsizeiptr indexBytes = static_cast<GLsizeiptr>(drawData.Indices.size_bytes());
             EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes);
@@ -479,6 +463,7 @@ namespace Carbon::Internal
             m_GL.BufferData(GL::ElementArrayBuffer, m_IndexCapacity, nullptr, GL::StreamDraw);
             m_GL.BufferSubData(GL::ElementArrayBuffer, 0, indexBytes, drawData.Indices.data());
             UploadPrimitives(drawData);
+            m_GL.BindBuffer(GL::ArrayBuffer, static_cast<GLuint>(arrayBuffer));
             RestoreUnpackState(unpack);
             m_HasNewDrawData = false;
         }

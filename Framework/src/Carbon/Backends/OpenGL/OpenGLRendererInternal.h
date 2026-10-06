@@ -43,7 +43,6 @@ namespace Carbon::Internal
         {
             GLint Program = 0;
             GLint VertexArray = 0;
-            GLint ArrayBuffer = 0;
             GLint ActiveTexture = 0;
             GLint Texture2D[2] = {};
             GLint Sampler[2] = {};
@@ -57,7 +56,6 @@ namespace Carbon::Internal
             GLint BlendDstAlpha = 0;
             GLint PolygonMode[2] = {};
             GLboolean ColorMask[4] = {};
-            GLboolean DepthMask = 0;
             GLboolean Blend = 0;
             GLboolean ScissorTest = 0;
             GLboolean CullFace = 0;
@@ -68,7 +66,10 @@ namespace Carbon::Internal
             GLboolean FramebufferSrgb = 0;
         };
 
-        /// Pixel-unpack state, changed only while textures are uploaded.
+        /// The pixel-unpack state that a two-dimensional upload of bytes or integers depends on, changed only
+        /// while textures are uploaded. The state for three-dimensional images and for bitmaps is left alone:
+        /// it has no effect on Carbon's uploads, and every state that is saved is a query, which is a round trip
+        /// in a browser.
         struct SavedUnpackState
         {
             GLint Buffer = 0;
@@ -76,10 +77,7 @@ namespace Carbon::Internal
             GLint RowLength = 0;
             GLint SkipRows = 0;
             GLint SkipPixels = 0;
-            GLint ImageHeight = 0;
-            GLint SkipImages = 0;
             GLint SwapBytes = 0;
-            GLint LsbFirst = 0;
         };
 
         bool CreateProgram();

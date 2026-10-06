@@ -31,6 +31,7 @@ COUNTERS = [
     ("atlas_full_per_1k", "atlas clears/1k frames", ""),
     ("frames_per_second", "frames/s", ""),
     ("frames_per_scroll", "frames/scroll", ""),
+    ("state_queries", "state queries/render", ""),
 ]
 
 

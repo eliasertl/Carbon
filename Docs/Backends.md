@@ -237,7 +237,7 @@ Carbon::OpenGLImage(sceneTexture, Carbon::Vec2(320, 180));
 Carbon::OpenGLShutdown();                                // with the context still current
 ```
 
-**The loader.** Carbon includes no OpenGL header and links no loader. `OpenGLInit` resolves the 55 functions it
+**The loader.** Carbon includes no OpenGL header and links no loader. `OpenGLInit` resolves the 54 functions it
 uses through the host's `GetProcAddress` into a private table, and fails with the name of the first one that is
 missing. The function must return OpenGL 1.0 and 1.1 functions too, which `glfwGetProcAddress`,
 `SDL_GL_GetProcAddress` and `eglGetProcAddress` (EGL 1.5) do; plain `wglGetProcAddress` does not. Carbon is a

@@ -88,6 +88,55 @@ namespace Carbon
         /// backend with an OpenGL ES 3.0 context (`isES`), rendering into a framebuffer object. Debug output of type
         /// error or undefined behavior, OpenGL errors and any state the backend fails to restore are collected as
         /// messages.
+        // Counts the backend's state queries: the loader given to Carbon hands out these in place of the three
+        // query functions.
+        uint32_t g_StateQueries = 0;
+        void(CB_OPENGL_CALL* g_GetIntegerv)(GLenum, GLint*) = nullptr;
+        void(CB_OPENGL_CALL* g_GetBooleanv)(GLenum, GLboolean*) = nullptr;
+        GLboolean(CB_OPENGL_CALL* g_IsEnabled)(GLenum) = nullptr;
+
+        void CB_OPENGL_CALL CountingGetIntegerv(GLenum name, GLint* data)
+        {
+            g_StateQueries++;
+            g_GetIntegerv(name, data);
+        }
+
+        void CB_OPENGL_CALL CountingGetBooleanv(GLenum name, GLboolean* data)
+        {
+            g_StateQueries++;
+            g_GetBooleanv(name, data);
+        }
+
+        GLboolean CB_OPENGL_CALL CountingIsEnabled(GLenum capability)
+        {
+            g_StateQueries++;
+            return g_IsEnabled(capability);
+        }
+
+        GLFWglproc CountingGetProcAddress(const char* name)
+        {
+            const GLFWglproc function = glfwGetProcAddress(name);
+            const std::string_view functionName(name);
+            if (function == nullptr)
+                return function;
+            if (functionName == "glGetIntegerv")
+            {
+                g_GetIntegerv = reinterpret_cast<decltype(g_GetIntegerv)>(function);
+                return reinterpret_cast<GLFWglproc>(&CountingGetIntegerv);
+            }
+            if (functionName == "glGetBooleanv")
+            {
+                g_GetBooleanv = reinterpret_cast<decltype(g_GetBooleanv)>(function);
+                return reinterpret_cast<GLFWglproc>(&CountingGetBooleanv);
+            }
+            if (functionName == "glIsEnabled")
+            {
+                g_IsEnabled = reinterpret_cast<decltype(g_IsEnabled)>(function);
+                return reinterpret_cast<GLFWglproc>(&CountingIsEnabled);
+            }
+            return function;
+        }
+
         class OpenGLHarness : public BackendHarness
         {
         public:
@@ -104,6 +153,7 @@ namespace Carbon
             }
 
             std::string_view GetName() const override { return m_IsES ? "OpenGLES" : "OpenGL"; }
+            uint32_t GetLastRenderStateQueries() const override { return m_LastStateQueries; }
 
             std::string CreateDevice() override
             {
@@ -170,14 +220,14 @@ namespace Carbon
                 if (m_IsES)
                 {
                     OpenGLESInitInfo info;
-                    info.GetProcAddress = &glfwGetProcAddress;
+                    info.GetProcAddress = &CountingGetProcAddress;
                     info.ColorFormat = colorFormat;
                     return OpenGLESInit(info);
                 }
 #endif
 #if defined(CARBON_HAS_BACKEND_OPENGL)
                 OpenGLInitInfo info;
-                info.GetProcAddress = &glfwGetProcAddress;
+                info.GetProcAddress = &CountingGetProcAddress;
                 info.ColorFormat = colorFormat;
                 return OpenGLInit(info);
 #else
@@ -317,18 +367,22 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_OPENGLES)
                 if (m_IsES)
                 {
+                    g_StateQueries = 0;
                     {
                         const RenderTimer timer(*this);
                         OpenGLESRender();
                     }
+                    m_LastStateQueries = g_StateQueries;
                     return;
                 }
 #endif
 #if defined(CARBON_HAS_BACKEND_OPENGL)
+                g_StateQueries = 0;
                 {
                     const RenderTimer timer(*this);
                     OpenGLRender();
                 }
+                m_LastStateQueries = g_StateQueries;
 #endif
             }
 
@@ -357,6 +411,7 @@ namespace Carbon
 
         private:
             bool m_IsES = false;
+            uint32_t m_LastStateQueries = 0;
             GLFWwindow* m_Window = nullptr;
             OpenGLFunctions m_GL;
             HarnessFunctions m_Extra;
