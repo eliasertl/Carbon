@@ -72,6 +72,19 @@ namespace Carbon
                               image.Pixels.data(), static_cast<int>(image.Width * 4)) != 0;
     }
 
+    bool ShouldWriteAllImages()
+    {
+#if defined(_MSC_VER)
+        char* value = nullptr;
+        size_t length = 0;
+        const bool isSet = _dupenv_s(&value, &length, "CARBON_TESTS_WRITE_IMAGES") == 0 && value != nullptr;
+        std::free(value);
+        return isSet;
+#else
+        return std::getenv("CARBON_TESTS_WRITE_IMAGES") != nullptr;
+#endif
+    }
+
     std::filesystem::path GetTestOutputDirectory(std::string_view name)
     {
         const std::filesystem::path directory = std::filesystem::path(CARBON_TESTS_OUTPUT_DIR) / name;

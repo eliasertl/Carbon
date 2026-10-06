@@ -9,6 +9,9 @@ add_subdirectory(Common)
 if(CARBON_BACKEND_WEBGPU)
     add_subdirectory(WebGPUMinimalIntegration)
 endif()
+if(CARBON_BACKEND_VULKAN)
+    add_subdirectory(VulkanMinimalIntegration)
+endif()
 
 # The main examples run on WebGPU.
 if(NOT CARBON_BACKEND_WEBGPU)

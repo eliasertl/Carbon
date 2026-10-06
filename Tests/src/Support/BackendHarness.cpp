@@ -8,6 +8,11 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
         names.emplace_back("WebGPU");
 #endif
+#if defined(CARBON_HAS_BACKEND_VULKAN)
+        // Both of the Vulkan backend's pipeline modes.
+        names.emplace_back("Vulkan");
+        names.emplace_back("VulkanRenderPass");
+#endif
         return names;
     }
 
@@ -16,6 +21,10 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
         if (name == "WebGPU")
             return CreateWebGPUHarness();
+#endif
+#if defined(CARBON_HAS_BACKEND_VULKAN)
+        if (name == "Vulkan" || name == "VulkanRenderPass")
+            return CreateVulkanHarness(name == "VulkanRenderPass");
 #endif
         static_cast<void>(name);
         return nullptr;

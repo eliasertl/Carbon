@@ -71,15 +71,20 @@ namespace Carbon
             EXPECT_TRUE(matches) << sceneCase.GetName() << ": " << difference.MismatchedPixels << " of "
                                  << difference.TotalPixels << " pixels differ (" << difference.GetMismatchPercentage()
                                  << " %), largest channel difference " << difference.LargestDifference;
-            if (!matches)
+            // Images are written for failures, and for every case when CARBON_TESTS_WRITE_IMAGES is set, to look
+            // at the backends side by side.
+            if (!matches || ShouldWriteAllImages())
             {
                 const std::filesystem::path directory = GetTestOutputDirectory("BackendCompare");
                 const std::string prefix = std::format("{}-{}-", sceneCase.GetName(), GetParam());
                 WritePng(directory / (prefix + "actual.png"), actual);
                 WritePng(directory / (prefix + "reference.png"), expected);
                 WritePng(directory / (prefix + "diff.png"), MakeDifferenceImage(actual, expected, ChannelTolerance));
-                ADD_FAILURE() << "Images written to " << directory.string();
+                if (!matches)
+                    ADD_FAILURE() << "Images written to " << directory.string();
             }
+            RecordProperty(sceneCase.GetName() + "-LargestDifference", static_cast<int>(difference.LargestDifference));
+            RecordProperty(sceneCase.GetName() + "-Mismatched", static_cast<int>(difference.MismatchedPixels));
         }
     }
 

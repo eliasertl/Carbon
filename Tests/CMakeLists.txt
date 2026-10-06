@@ -34,6 +34,7 @@ add_executable(CarbonTests
     src/Support/ImageCompare.h
     src/Support/TestScene.cpp
     src/Support/TestScene.h
+    src/Support/VulkanHarness.cpp
     src/Support/WebGPUHarness.cpp
     src/Support/WidgetTest.h
     src/Text/GlyphAtlasTests.cpp

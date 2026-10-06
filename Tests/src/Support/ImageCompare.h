@@ -38,4 +38,8 @@ namespace Carbon
 
     /// The folder where tests write images that explain a failure: <build>/Tests/<name>, created on demand.
     std::filesystem::path GetTestOutputDirectory(std::string_view name);
+
+    /// True when the environment variable CARBON_TESTS_WRITE_IMAGES is set: tests then write their images even
+    /// when they pass, to look at them.
+    bool ShouldWriteAllImages();
 } // namespace Carbon

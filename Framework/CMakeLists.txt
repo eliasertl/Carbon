@@ -147,6 +147,18 @@ if(CARBON_BACKEND_WEBGPU)
         src/Carbon/Backends/WebGPU/WebGPURendererInternal.cpp
     )
 endif()
+if(CARBON_BACKEND_VULKAN)
+    list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/Vulkan/VulkanBackend.h)
+    list(APPEND CARBON_INTERNAL_HEADERS
+        src/Carbon/Backends/Vulkan/VulkanAllocatorInternal.h
+        src/Carbon/Backends/Vulkan/VulkanRendererInternal.h
+    )
+    list(APPEND CARBON_SOURCES
+        src/Carbon/Backends/Vulkan/VulkanAllocatorInternal.cpp
+        src/Carbon/Backends/Vulkan/VulkanBackend.cpp
+        src/Carbon/Backends/Vulkan/VulkanRendererInternal.cpp
+    )
+endif()
 
 # The public headers as they are written in an include directive. The PublicApiBoundary tests use this list to
 # verify that CarbonExtensions and the CustomComponent example stay on the public API.
@@ -197,6 +209,16 @@ if(CARBON_BACKEND_WEBGPU)
     target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_WEBGPU=1)
     target_link_libraries(Carbon PUBLIC ${CARBON_DEPS_DAWN_NAME})
     carbon_embed_asset(Carbon WebGPUShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/WebGPU/Shaders/Carbon.wgsl")
+endif()
+if(CARBON_BACKEND_VULKAN)
+    list(APPEND CARBON_ENABLED_BACKENDS Vulkan)
+    target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_VULKAN=1)
+    target_link_libraries(Carbon PUBLIC Vulkan::Vulkan)
+    # GLSL is compiled to SPIR-V at build time and included as a list of words.
+    carbon_compile_spirv(Carbon "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/Vulkan/Shaders/Carbon.vert"
+        "${CARBON_GENERATED_DIR}/Carbon/Backends/Vulkan/Carbon.vert.inc")
+    carbon_compile_spirv(Carbon "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/Vulkan/Shaders/Carbon.frag"
+        "${CARBON_GENERATED_DIR}/Carbon/Backends/Vulkan/Carbon.frag.inc")
 endif()
 if(CARBON_ENABLED_BACKENDS)
     list(JOIN CARBON_ENABLED_BACKENDS ", " carbon_backend_text)

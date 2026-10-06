@@ -24,6 +24,24 @@ function(carbon_embed_asset TARGET SYMBOL FILE)
     target_sources(${TARGET} PRIVATE "${CARBON_OUTPUT}")
 endfunction()
 
+# Compiles a GLSL shader to SPIR-V with glslc (Vulkan_GLSLC_EXECUTABLE) into OUTPUT, a comma-separated list of
+# 32-bit words that a source file of TARGET includes inside an array initializer. The output's folder is on
+# TARGET's private include path, so it is included from the generated tree's root.
+function(carbon_compile_spirv TARGET SHADER OUTPUT)
+    get_filename_component(output_dir "${OUTPUT}" DIRECTORY)
+    get_filename_component(shader_name "${SHADER}" NAME)
+    add_custom_command(
+        OUTPUT "${OUTPUT}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${output_dir}"
+        COMMAND "${Vulkan_GLSLC_EXECUTABLE}" --target-env=vulkan1.0 -O -mfmt=num -o "${OUTPUT}" "${SHADER}"
+        DEPENDS "${SHADER}"
+        COMMENT "Carbon: compiling ${shader_name} to SPIR-V"
+        VERBATIM
+    )
+    target_sources(${TARGET} PRIVATE "${OUTPUT}")
+    target_include_directories(${TARGET} PRIVATE "${CARBON_GENERATED_DIR}")
+endfunction()
+
 # Adds the rule that generates Carbon/Text/Icons.h from Phosphor's stylesheet. The caller lists the header in the
 # target's public header file set, which makes it a source of the target.
 function(carbon_generate_icons STYLESHEET)

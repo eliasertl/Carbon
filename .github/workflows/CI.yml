@@ -149,7 +149,9 @@ jobs:
           fail-on-cache-miss: true
 
       # The window-system packages are what GLFW needs for the examples. The Mesa Vulkan drivers provide a
-      # software adapter, so that the renderer tests and the screenshots below run without a GPU.
+      # software adapter (lavapipe), so that the renderer tests and the screenshots below run without a GPU, for
+      # Dawn and for Carbon's Vulkan backend. glslc compiles the Vulkan backend's shaders; the validation layers
+      # check its calls in the tests.
       - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -157,7 +159,7 @@ jobs:
           sudo apt-get install -y ninja-build pkg-config \
             libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols \
-            mesa-vulkan-drivers libvulkan1
+            mesa-vulkan-drivers libvulkan1 libvulkan-dev glslc vulkan-validationlayers
           echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
           echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
 
@@ -175,6 +177,20 @@ jobs:
         shell: bash
         run: command -v ninja || choco install ninja --no-progress -y
 
+      # The Vulkan SDK has the headers, the loader's import library and glslc; the runtime installs the loader
+      # itself (vulkan-1.dll), without which the tests could not start. The runner has no Vulkan driver, so the
+      # Vulkan tests skip there.
+      - name: Install the Vulkan SDK (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Invoke-WebRequest https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe -OutFile vulkan-sdk.exe
+          Start-Process -Wait -FilePath .\vulkan-sdk.exe -ArgumentList '--root','C:\VulkanSDK','--accept-licenses','--default-answer','--confirm-command','install'
+          Invoke-WebRequest https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime.exe -OutFile vulkan-runtime.exe
+          Start-Process -Wait -FilePath .\vulkan-runtime.exe -ArgumentList '/S'
+          "VULKAN_SDK=C:\VulkanSDK" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          "C:\VulkanSDK\Bin" | Out-File $env:GITHUB_PATH -Append -Encoding utf8
+
       # CMake wants forward slashes, also on Windows: there, `pwd -W` prints the path that way.
       - name: Configure
         shell: bash
@@ -183,7 +199,8 @@ jobs:
           cmake -S . -B Build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             "-DCMAKE_PREFIX_PATH=$workspace/dawn-install" \
-            -DCARBON_WARNINGS_AS_ERRORS=ON
+            -DCARBON_WARNINGS_AS_ERRORS=ON \
+            -DCARBON_BACKEND_WEBGPU=ON -DCARBON_BACKEND_VULKAN=ON
 
       - name: Build
         run: cmake --build Build
@@ -203,6 +220,7 @@ jobs:
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Dark.png --page charts --theme dark
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Menu.png --page menus --show menu --scale 2
           Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --screenshot Screenshots/WebGPUMinimalIntegration.png
+          Build/Examples/VulkanMinimalIntegration/VulkanMinimalIntegration --screenshot Screenshots/VulkanMinimalIntegration.png || true
           Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
           Build/Examples/CustomTitleBar/CustomTitleBar --screenshot Screenshots/CustomTitleBar.png
 

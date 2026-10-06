@@ -7,6 +7,10 @@
 - For the WebGPU renderer backend, which the examples use: an installed [Dawn](https://dawn.googlesource.com/dawn)
   (see [Installing Dawn](#installing-dawn)). Without Dawn, Carbon builds without that backend (headless library and
   tests only); see [Renderer backends](Backends.md)
+- For the Vulkan renderer backend: the Vulkan headers and loader, and `glslc`. The
+  [Vulkan SDK](https://vulkan.lunarg.com) has all of them (its installer sets `VULKAN_SDK`, which CMake finds); on
+  Ubuntu, install `libvulkan-dev glslc`. The validation layers (`vulkan-validationlayers`, part of the SDK) make
+  the Vulkan tests check every call
 - The git submodules: `git submodule update --init --recursive`
 - Linux, examples only: the X11 and Wayland development packages GLFW needs (on Ubuntu:
   `libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols`)
@@ -85,6 +89,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
 | `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. The main examples need it |
+| `CARBON_BACKEND_VULKAN` | `ON` when the Vulkan headers, loader and `glslc` are found | Compile the Vulkan renderer backend into `Carbon`; `ON` without them, or without `glslc`, stops the configuration with an explanation. `Vulkan_GLSLC_EXECUTABLE` points CMake at a `glslc` elsewhere |
 
 The backend options are decided once, at the first configuration, and then cached: after installing a dependency
 later, pass `-DCARBON_BACKEND_<NAME>=ON`. CMake prints the enabled backends (`Carbon: renderer backends: ...`), a
@@ -130,8 +135,9 @@ cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install> \
 
 ## What the build generates
 
-Fonts, the shader and the icon constants are generated at build time into `<build>/Framework/Generated` by the
-CMake scripts in `Framework/CMake/` (no Python or other tools needed). Nothing generated is committed, and the
+Fonts, shaders and the icon constants are generated at build time into `<build>/Framework/Generated` by the
+CMake scripts in `Framework/CMake/` (no Python needed). The Vulkan backend's GLSL is compiled to SPIR-V there by
+`glslc`. Nothing generated is committed, and the
 `Carbon` library needs no asset files at run time.
 
 ## Examples and tests
@@ -227,7 +233,8 @@ What gets installed:
   embedded fonts, FreeType and HarfBuzz. Ship them with your application.
 
 `Carbon_BACKENDS` lists the renderer backends the package was built with. Their graphics libraries are not
-installed with Carbon; the application's build must be able to find them: the same Dawn install for WebGPU. With
+installed with Carbon; the application's build must be able to find them: the same Dawn install for WebGPU, the
+Vulkan loader for Vulkan. With
 MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one minor
 version (0.1.x).
 

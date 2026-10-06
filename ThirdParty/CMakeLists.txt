@@ -191,6 +191,29 @@ if(CARBON_BACKEND_WEBGPU AND NOT carbon_dawn_found)
         "See Docs/Building.md, section \"Installing Dawn\".")
 endif()
 
+# ---- Vulkan: the loader and headers, and glslc to compile the shaders (Vulkan SDK) ------------
+if(NOT DEFINED CARBON_BACKEND_VULKAN OR CARBON_BACKEND_VULKAN)
+    find_package(Vulkan QUIET COMPONENTS glslc)
+endif()
+set(carbon_vulkan_found OFF)
+if(TARGET Vulkan::Vulkan AND Vulkan_GLSLC_EXECUTABLE)
+    set(carbon_vulkan_found ON)
+endif()
+carbon_declare_backend(VULKAN ${carbon_vulkan_found} "Build the Vulkan renderer backend (needs the Vulkan SDK)")
+if(CARBON_BACKEND_VULKAN AND NOT carbon_vulkan_found)
+    if(TARGET Vulkan::Vulkan)
+        set(carbon_vulkan_missing "glslc, the shader compiler, was not found")
+    else()
+        set(carbon_vulkan_missing "the Vulkan headers and loader were not found")
+    endif()
+    message(FATAL_ERROR
+        "Carbon: CARBON_BACKEND_VULKAN is ON but ${carbon_vulkan_missing}.\n"
+        "Install the Vulkan SDK (https://vulkan.lunarg.com), which has both, and make sure VULKAN_SDK is set, or\n"
+        "on Linux the distribution's packages (Ubuntu: libvulkan-dev glslc). Point CMake at glslc with\n"
+        "-DVulkan_GLSLC_EXECUTABLE=<path> if it is installed elsewhere.\n"
+        "Without Vulkan, configure with -DCARBON_BACKEND_VULKAN=OFF.")
+endif()
+
 # A static Dawn built for another MSVC runtime (Debug vs. Release) fails at link time with
 # LNK2038. Detect the common mismatch early and explain it.
 if(CARBON_BACKEND_WEBGPU AND MSVC AND CMAKE_BUILD_TYPE)

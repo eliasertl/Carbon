@@ -43,7 +43,8 @@ Framework/src/Carbon/
 ├── Renderer/             backend-neutral rendering: the public RendererBackend interface, the dispatch from
 │                         core to the installed backend, glyph-atlas and host-texture bookkeeping, TextureFormat
 ├── Backends/             the only folder that uses graphics APIs, one subfolder per backend with its public
-│   └── WebGPU/           header, implementation and shaders: WebGPUBackend.h, WebGPURendererInternal, Shaders/
+│   ├── WebGPU/           header, implementation and shaders: WebGPUBackend.h, WebGPURendererInternal, Shaders/
+│   └── Vulkan/           VulkanBackend.h, VulkanRendererInternal, VulkanAllocatorInternal, Shaders/ (GLSL 450)
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -432,6 +433,27 @@ The first backend, in `Backends/WebGPU/`; `WebGPUInit`, `WebGPUShutdown`, `WebGP
   points. Icon weight follows text weight (semibold and above use the bold font); `TextSpec::Icons` selects a
   variant explicitly. Icons are drawn at 1.2 × the text size and centered on the capitals of the primary font.
 
+### Vulkan backend
+
+In `Backends/Vulkan/`: `VulkanInit`, `VulkanShutdown`, `VulkanRender(commandBuffer)`,
+`VulkanGetTextureID(view, layout)`, `VulkanReleaseTexture(view)` and `VulkanImage(...)`.
+
+- The pipeline is built for the host's `VkRenderPass` and subpass, or, without one, for dynamic rendering from the
+  formats in `VulkanInitInfo`. Push constants carry the frame uniforms; set 0 is the frame's primitive storage
+  buffer, set 1 the texture of a draw command. Viewport and scissor are dynamic.
+- Shaders: `Shaders/Carbon.vert` and `Carbon.frag` in GLSL 450, ports of the WGSL (Vulkan's clip space has y
+  down). `glslc` compiles them at build time to SPIR-V word lists in the build tree, included by
+  `VulkanRendererInternal.cpp`.
+- Per frame in flight: host-visible, persistently mapped vertex, index and primitive buffers and the primitive
+  descriptor set. The slot advances once per frame (`EndFrame`); objects that recorded frames may still use are
+  retired and destroyed `FramesInFlight` frames later.
+- The glyph atlas is an `R8_UNORM` image. Uploads go through a ring of staging buffers and command buffers with
+  fences, submitted to the host's queue from `UpdateGlyphAtlas`, with barriers against earlier and later
+  sampling. A new size gets a new image.
+- `VulkanAllocatorInternal` hands out device memory from 4 MB blocks per memory type with a first-fit free list;
+  buffers and images never share a block (no `bufferImageGranularity` concerns); large requests get a block of
+  their own.
+
 ## 7. Layout algorithm
 
 Layout is single-pass with one frame of latency for anything that needs a size it cannot know yet.
@@ -808,6 +830,10 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 105 | Every backend lives in `Framework/src/Carbon/Backends/<Name>/` with its public header (`<Name>Backend.h`), its implementation and its shaders, and has the API `<Name>Init(const <Name>InitInfo&)`, `<Name>Shutdown()`, `<Name>Render(...)`, `<Name>GetTextureID(...)` and `<Name>Image(...)` as free functions in `namespace Carbon`. `ContextDescription` lost its device, formats and sample count; `Carbon::Render`, `Carbon::GetTextureID`, the `Image(wgpu::TextureView)` overload and `GetEmbeddedShader` were removed without shims | One prefix per backend reads like the rest of Carbon's free functions, and a host that includes one backend's header sees no other API. A context is created without knowing the API, so formats belong to the backend's init info. Carbon is before 1.0, and shims would keep `wgpu::` in core headers. This replaces decision 5 |
 | 106 | `<Name>Init` returns `bool` and logs why it failed; `<Name>Render` and `<Name>GetTextureID` without that backend installed fail a check | A host can fall back to another backend when one cannot start, which is a run-time condition. Rendering with a backend that is not installed is a programming error |
 | 107 | The main examples stay on WebGPU through `Examples/Common`, now split into a backend-neutral library (arguments, GLFW input, PNG screenshots) and the WebGPU host. `MinimalIntegration` became `WebGPUMinimalIntegration`; the main examples are skipped with a message when the WebGPU backend is off | The minimal examples of the other backends share the neutral part and stay self-contained otherwise. The Gallery's images are WebGPU textures |
+| 108 | The Vulkan backend links the loader (`Vulkan::Vulkan`) and calls Vulkan functions directly, uses its own allocator rather than VMA, and compiles GLSL 450 to SPIR-V with `glslc` at build time into word lists (`-mfmt=num`) that a source file includes | No new dependency besides the SDK the backend needs anyway. Carbon allocates little and rarely, so a block allocator is enough. Including words needs no embedding script and keeps SPIR-V out of the repository |
+| 109 | Vulkan glyph-atlas uploads are submitted to the host's queue, with their own fences, from inside `VulkanRender`; the host must not use that queue from another thread meanwhile | Copies cannot be recorded inside the host's render pass, and the backend's API has no earlier call. Queue order puts the upload before the frame, and barriers in the upload order it against earlier frames still sampling the atlas |
+| 110 | Vulkan rotates its per-frame buffers once per frame (signalled by `EndFrame`) and destroys replaced objects `FramesInFlight` frames later, assuming the usual contract that the host waited for frame N − `FramesInFlight` before recording frame N; `VulkanReleaseTexture` was added for views destroyed sooner | Counting `Render` calls would break hosts that draw a frame twice. The contract is the one every Vulkan renderer uses. Vulkan may reuse a destroyed view's handle at once, which a cache keyed by handles cannot tell apart otherwise |
+| 111 | The renderer tests run the Vulkan backend twice, with a render pass (`VulkanRenderPass`) and with dynamic rendering (`Vulkan`), with the Khronos validation layer when installed. The Windows CI job installs the Vulkan SDK and runtime but has no Vulkan driver, so the Vulkan tests skip there; Linux runs them on lavapipe | Both pipeline modes are public API. A test executable that cannot load `vulkan-1.dll` would not start at all |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

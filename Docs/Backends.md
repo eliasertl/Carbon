@@ -7,6 +7,7 @@ library and can switch by shutting one down and initializing another.
 | Backend | CMake option | Header | Dependency |
 | --- | --- | --- | --- |
 | WebGPU (Dawn) | `CARBON_BACKEND_WEBGPU` | `Carbon/Backends/WebGPU/WebGPUBackend.h` | An installed [Dawn](Building.md#installing-dawn) |
+| Vulkan | `CARBON_BACKEND_VULKAN` | `Carbon/Backends/Vulkan/VulkanBackend.h` | The Vulkan headers and loader, and `glslc` ([Vulkan SDK](https://vulkan.lunarg.com)) |
 
 A context has at most one backend. Without one it is *headless*: it builds the same draw data
 (`Carbon::GetDrawData()`) but cannot render, which is what the unit tests use.
@@ -18,7 +19,7 @@ built when its dependency is found; set to `ON`, a missing dependency stops the 
 CMake prints the result:
 
 ```text
--- Carbon: renderer backends: WebGPU
+-- Carbon: renderer backends: WebGPU, Vulkan
 ```
 
 Code that links `Carbon::Carbon` sees `CARBON_HAS_BACKEND_<NAME>` defined for every backend that was built, and an
@@ -107,6 +108,80 @@ Carbon::DestroyContext(context);
   from the Windows SDK (`Redist/D3D/x64`) with your application. Carbon's examples and tests copy it with
   `carbon_copy_dawn_runtime(<target>)`, which the installed package provides too; without it, device creation fails
   with `DynamicLib.Open: d3dcompiler_47.dll`.
+
+## Vulkan
+
+The Vulkan backend records into a command buffer, inside a render pass instance the host begins.
+[Examples/VulkanMinimalIntegration](../Examples/VulkanMinimalIntegration/Main.cpp) is a complete host with GLFW,
+a swapchain and a host triangle in the same render pass.
+
+```cpp
+#include <Carbon/Backends/Vulkan/VulkanBackend.h>
+
+Carbon::VulkanInitInfo info;
+info.Instance = instance;
+info.PhysicalDevice = physicalDevice;
+info.Device = device;
+info.Queue = graphicsQueue;                              // the queue the host submits the frame to
+info.QueueFamily = graphicsQueueFamily;
+info.FramesInFlight = 2;                                 // how many frames the host records ahead
+info.RenderPass = renderPass;                            // or VK_NULL_HANDLE for dynamic rendering, below
+info.Subpass = 0;
+info.ColorFormat = Carbon::TextureFormat::BGRA8Unorm;    // the color attachment's format
+if (!Carbon::VulkanInit(info))
+    return;
+
+// Every frame, after EndFrame, inside the host's render pass:
+vkCmdBeginRenderPass(commandBuffer, &passInfo, VK_SUBPASS_CONTENTS_INLINE);
+DrawScene(commandBuffer);                                // your own content, if any
+Carbon::VulkanRender(commandBuffer);                     // Carbon's interface on top
+vkCmdEndRenderPass(commandBuffer);
+
+// A texture of yours, in the layout it has when the frame samples it:
+Carbon::VulkanImage(sceneView, Carbon::Vec2(320, 180), {}, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+
+vkDeviceWaitIdle(device);                                // the GPU must be done with Carbon's frames
+Carbon::VulkanShutdown();
+```
+
+**Render pass or dynamic rendering.** With `RenderPass` set, Carbon builds its pipeline for that render pass and
+`Subpass`; any compatible render pass works later (same attachment formats and sample count), so recreating a
+swapchain of the same format needs nothing from Carbon. With `RenderPass` left `VK_NULL_HANDLE`, Carbon builds the
+pipeline for dynamic rendering from `ColorFormat`, `DepthStencilFormat` and `SampleCount`, and the host draws
+between `vkCmdBeginRendering` and `vkCmdEndRendering`. The host must then have enabled the `dynamicRendering`
+feature: core in Vulkan 1.3 (`VkPhysicalDeviceVulkan13Features::dynamicRendering`), or the
+`VK_KHR_dynamic_rendering` extension with its feature struct on Vulkan 1.2. Carbon itself needs nothing beyond
+Vulkan 1.0 otherwise.
+
+**Frames in flight.** Carbon keeps vertex, index and primitive buffers for each of `FramesInFlight` frames and
+rotates through them once per frame, so it never writes a buffer the GPU may still read. It relies on the usual
+contract: when the host records frame N, it has waited for the fence of frame N − `FramesInFlight`. Objects a
+recorded frame may still use (an atlas image that was replaced, a released texture's descriptor set, a buffer
+that grew) are destroyed `FramesInFlight` frames later. Calling `VulkanRender` again in the same frame, for a
+second target, reuses the frame's buffers.
+
+**Glyph-atlas uploads.** Inside a render pass Carbon cannot record copies, so atlas changes are recorded into a
+command buffer of Carbon's own and submitted to `Queue` from inside `VulkanRender`, before the host submits the
+frame. Barriers in it order the copy after earlier frames' sampling and before later frames'. The host must
+therefore not use the queue from another thread during `VulkanRender`.
+
+**State.** `VulkanRender` binds its own pipeline, descriptor sets, vertex and index buffers, and sets viewport,
+scissor and push constants; it restores nothing. Viewport and scissor are dynamic state in Carbon's pipeline.
+
+**Textures.** `VulkanGetTextureID(view, layout)` creates a descriptor set (combined image sampler) for the view,
+in the layout the image has whenever Carbon's commands sample it, and caches it until the view goes a whole frame
+unused. A host that destroys a view sooner calls `VulkanReleaseTexture(view)` first, because Vulkan may give a new
+view the same handle. Without `DescriptorPool`, Carbon creates a pool for 1024 texture descriptor sets; a host
+pool must have been created with `VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT`.
+
+**Memory and objects.** Carbon allocates device memory with a small allocator of its own (a few large blocks,
+no VMA), and uses `PipelineCache` and `Allocator` when the host gives them. It links the Vulkan loader
+(`Vulkan::Vulkan`) and calls Vulkan functions directly.
+
+**Building.** The backend needs the Vulkan headers and loader, and `glslc` to compile its shaders
+(`Backends/Vulkan/Shaders/Carbon.vert` and `Carbon.frag`, GLSL 450) to SPIR-V at build time. The
+[Vulkan SDK](https://vulkan.lunarg.com) has all of it; on Ubuntu, `libvulkan-dev` and `glslc`. See
+[Building](Building.md).
 
 ## Writing your own backend
 
@@ -242,7 +317,8 @@ texture.
 
 ### Checking a backend
 
-Carbon's own tests run every built-in backend through the same suite: the renderer tests compare each pixel of a
+Carbon's own tests run every built-in backend through the same suite (Vulkan twice, once with a render pass and
+once with dynamic rendering, with the validation layer when it is installed): the renderer tests compare each pixel of a
 squircle with the CPU distance function, and `BackendCompareTests` renders a fixed scene in both themes at scale 1
 and 2 and compares it with the WebGPU rendering. `Tests/src/Support/BackendHarness.h` shows what a backend needs
 to be tested that way.
