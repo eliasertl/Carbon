@@ -1,7 +1,9 @@
-// Uses an installed Carbon like an application would: a headless context, a few frames of an interface made of
-// built-in widgets, extension components and a custom component. See CMakeLists.txt next to this file.
+// Uses an installed Carbon like an application would: a context, a few frames of an interface made of built-in
+// widgets, extension components and a custom component, drawn by a renderer backend written here against the
+// installed headers alone. See CMakeLists.txt next to this file.
 
 #include <cstdio>
+#include <memory>
 
 #include <Carbon/Extensions/Extensions.h>
 #include <Carbon/Reflection/Reflection.h>
@@ -10,6 +12,46 @@
 
 namespace PackageCheck
 {
+    // A renderer backend written outside Carbon, against the installed Carbon/Renderer/RendererBackend.h only. It
+    // draws nothing; it counts what Carbon hands it, which is what a real backend would upload and draw.
+    static_assert(Carbon::RendererBackendVersion == 1, "This backend was written for version 1 of the contract");
+
+    class CountingBackend : public Carbon::RendererBackend
+    {
+    public:
+        std::string_view GetName() const override { return "Counting"; }
+        void UpdateGlyphAtlas(const Carbon::GlyphAtlasUpdate& update) override
+        {
+            AtlasUpdates++;
+            AtlasBytes += update.Pixels.size();
+        }
+        void Render(const Carbon::DrawData& drawData) override
+        {
+            Renders++;
+            Commands += drawData.Commands.size();
+        }
+        void ReleaseTexture(Carbon::TextureID) override { Releases++; }
+
+    public:
+        int AtlasUpdates = 0;
+        size_t AtlasBytes = 0;
+        int Renders = 0;
+        size_t Commands = 0;
+        int Releases = 0;
+    };
+
+    // The backend's own functions, in the shape of the built-in ones.
+    bool CountingInit()
+    {
+        return Carbon::InstallRendererBackend(std::make_unique<CountingBackend>());
+    }
+
+    void CountingRender()
+    {
+        if (Carbon::GetRendererBackend<CountingBackend>() != nullptr)
+            Carbon::RenderDrawData();
+    }
+
     enum class Quality
     {
         Low,
@@ -27,7 +69,6 @@ namespace PackageCheck
 
 int main()
 {
-    // Without a device Carbon produces draw data but cannot render it, which is all this check needs.
     Carbon::ContextDescription description;
     description.Callbacks.Log = [](Carbon::LogLevel level, std::string_view source, std::string_view message)
     {
@@ -40,6 +81,8 @@ int main()
     int failedChecks = 0;
     description.Callbacks.AssertFailed = [&failedChecks](const Carbon::AssertInfo&) { failedChecks++; };
     Carbon::Context* context = Carbon::CreateContext(description);
+    const bool isInstalled = PackageCheck::CountingInit();
+    const PackageCheck::CountingBackend* backend = Carbon::GetRendererBackend<PackageCheck::CountingBackend>();
 
     Carbon::IO& io = Carbon::GetIO();
     io.SetDisplaySize(640.0f, 480.0f);
@@ -62,7 +105,11 @@ int main()
         Carbon::EndVStack();
         Carbon::EndFrame();
         vertexCount = Carbon::GetDrawData().Vertices.size();
+        PackageCheck::CountingRender();
     }
+    // Containers fade in during their first frames, which have nothing to draw and are not rendered.
+    const bool isRendered = isInstalled && backend != nullptr && backend->Renders > 0 && backend->Commands > 0 &&
+                            backend->AtlasUpdates >= 1 && backend->AtlasBytes > 0;
 
     const Carbon::Version version = Carbon::GetExtensionsVersion();
     const bool isReflected = Carbon::GetEnumCount<PackageCheck::Quality>() == 3 &&
@@ -70,10 +117,10 @@ int main()
                              Carbon::GetFieldDisplayName<PackageCheck::Settings>(0) == "Texture Quality";
     Carbon::DestroyContext(context);
 
-    if (vertexCount == 0 || failedChecks != 0 || !isReflected)
+    if (vertexCount == 0 || failedChecks != 0 || !isReflected || !isRendered)
     {
-        std::fprintf(stderr, "Package check failed: %zu vertices, %d failed checks, reflection %s\n", vertexCount,
-                     failedChecks, isReflected ? "works" : "failed");
+        std::fprintf(stderr, "Package check failed: %zu vertices, %d failed checks, reflection %s, custom backend %s\n",
+                     vertexCount, failedChecks, isReflected ? "works" : "failed", isRendered ? "works" : "failed");
         return 1;
     }
     std::printf("Carbon %u.%u.%u package check passed (%zu vertices)\n", version.Major, version.Minor, version.Patch,
