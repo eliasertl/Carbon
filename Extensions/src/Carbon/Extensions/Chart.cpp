@@ -91,6 +91,39 @@ namespace Carbon
             return nice * magnitude;
         }
 
+        // Draws a series that has more values than the plot has pixel columns. Segments from value to value
+        // would all fall into the same few pixels; instead each column gets one stroke over the range of its
+        // values, joined to the next column. That looks the same and takes two quads per column, however many
+        // values there are.
+        void DrawDenseLine(DrawList& drawList, const ChartFrame& frame, std::span<const float> values, Color color,
+                           size_t columns)
+        {
+            const size_t count = values.size();
+            Vec2 previous;
+            bool hasPrevious = false;
+            for (size_t column = 0; column < columns; column++)
+            {
+                const size_t first = column * count / columns;
+                const size_t end = (column + 1) * count / columns;
+                if (first >= end)
+                    continue;
+                float low = values[first];
+                float high = values[first];
+                for (size_t i = first + 1; i < end; i++)
+                {
+                    low = std::min(low, values[i]);
+                    high = std::max(high, values[i]);
+                }
+                const float x =
+                    frame.Plot.X + frame.Plot.Width * (static_cast<float>(column) + 0.5f) / static_cast<float>(columns);
+                if (hasPrevious)
+                    drawList.AddLine(previous, Vec2(x, frame.GetY(values[first])), color, LineWidth);
+                drawList.AddLine(Vec2(x, frame.GetY(low)), Vec2(x, frame.GetY(high)), color, LineWidth);
+                previous = Vec2(x, frame.GetY(values[end - 1]));
+                hasPrevious = true;
+            }
+        }
+
         // Reserves the chart's space and draws everything but the marks: legend, grid and axis labels.
         ChartFrame BeginChart(std::string_view id, std::span<const ChartSeries> series, const ChartOptions& options,
                               bool isBarChart)
@@ -195,13 +228,24 @@ namespace Carbon
 
             if (!options.Labels.empty() && frame.Count > 0)
             {
-                float widest = 0.0f;
-                for (const std::string_view label : options.Labels)
-                    widest = std::max(widest, MeasureText(label, tickSpec).X);
                 const float slot =
                     frame.Plot.Width / static_cast<float>(isBarChart ? frame.Count : std::max(frame.Count - 1, 1));
-                const int stride = std::max(static_cast<int>(std::ceil((widest + 8.0f) / slot)), 1);
                 const int labelCount = std::min(frame.Count, static_cast<int>(options.Labels.size()));
+                // Every `stride`-th label is drawn, with the smallest stride that gives the widest of them room.
+                // Only labels that could be drawn are measured: the search starts at the stride an empty label
+                // would need and grows it until the labels it selects fit, so a chart with a label for each of
+                // 100,000 values measures a few hundred of them.
+                int stride = std::max(static_cast<int>(std::ceil(8.0f / slot)), 1);
+                while (true)
+                {
+                    float widest = 0.0f;
+                    for (int i = 0; i < labelCount; i += stride)
+                        widest = std::max(widest, MeasureText(options.Labels[static_cast<size_t>(i)], tickSpec).X);
+                    const int needed = std::max(static_cast<int>(std::ceil((widest + 8.0f) / slot)), 1);
+                    if (needed <= stride)
+                        break;
+                    stride = needed;
+                }
                 for (int i = 0; i < labelCount; i += stride)
                 {
                     const std::string_view label = options.Labels[static_cast<size_t>(i)];
@@ -302,6 +346,13 @@ namespace Carbon
         {
             const std::span<const float> values = series[s].Values;
             const Color color = GetSeriesColor(series[s], s);
+            // With more than two values per pixel column, single segments and dots can no longer be told apart.
+            const size_t columns = static_cast<size_t>(std::max(frame.Plot.Width * GetContentScale().Factor, 1.0f));
+            if (values.size() > columns * 2)
+            {
+                DrawDenseLine(drawList, frame, values, color, columns);
+                continue;
+            }
             Vec2 previous;
             for (size_t i = 0; i < values.size(); i++)
             {

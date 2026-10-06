@@ -57,6 +57,11 @@ The data is not copied: the spans must stay valid during the call, nothing longe
   line chart, a tinted column in a bar chart) and a small box next to the pointer names the values.
 - **Appearing.** A chart draws itself in when it appears: lines are revealed from the leading edge, bars grow
   out of the zero line. With Reduce Motion it is simply there.
+- **Many values.** A line with more than two values per pixel column is drawn as one stroke per column over the
+  range of that column's values, which looks the same as a segment per value and costs two quads per column
+  however many values there are; `ShowsPoints` is ignored then. Of the labels, only the ones that are drawn are
+  measured. A chart of 100,000 values with a label each takes about as long as one of 10,000 (see
+  [Optimizations](../Optimizations.md#charts-and-controls)).
 - Charts are not interactive beyond the callout and are not a stop for Tab.
 
 ## Accessibility note
