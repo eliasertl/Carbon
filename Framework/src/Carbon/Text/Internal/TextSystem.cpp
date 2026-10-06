@@ -33,6 +33,8 @@ namespace Carbon::Internal
         // Shaped lines unused for this many frames are evicted; the sweep runs every EvictionInterval frames.
         constexpr uint64_t ShapedLineLifetime = 600;
         constexpr uint64_t EvictionInterval = 120;
+        // With this many lines cached, a new line recycles the least recently used one instead of adding to them.
+        constexpr size_t MaxIdleShapedLines = 1024;
 
         bool IsPrivateUse(char32_t codepoint)
         {
@@ -83,6 +85,8 @@ namespace Carbon::Internal
         m_Fonts.push_back(std::move(font));
         // Fallback resolution depends on the set of fonts, so cached lines are stale now.
         m_ShapedLines.clear();
+        m_NewestLine = nullptr;
+        m_OldestLine = nullptr;
         return m_Fonts.back().get();
     }
 
@@ -128,14 +132,74 @@ namespace Carbon::Internal
 
         if (frameCount % EvictionInterval == 0)
         {
-            for (auto it = m_ShapedLines.begin(); it != m_ShapedLines.end();)
+            // The lines are in the order of their last use, so the stale ones are at the old end.
+            while (m_OldestLine != nullptr && frameCount - m_OldestLine->LastUsedFrame > ShapedLineLifetime)
             {
-                if (frameCount - it->second.LastUsedFrame > ShapedLineLifetime)
-                    it = m_ShapedLines.erase(it);
-                else
-                    ++it;
+                ShapedLine& line = *m_OldestLine;
+                const uint64_t key = line.Key;
+                UnlinkLine(line);
+                m_ShapedLines.erase(key);
             }
         }
+    }
+
+    void TextSystem::TouchLine(ShapedLine& line)
+    {
+        // The order among the lines of one frame does not matter: a line moves once per frame.
+        if (line.LastUsedFrame == m_FrameCount)
+            return;
+        line.LastUsedFrame = m_FrameCount;
+        if (m_NewestLine != &line)
+        {
+            UnlinkLine(line);
+            LinkNewest(line);
+        }
+    }
+
+    void TextSystem::LinkNewest(ShapedLine& line)
+    {
+        line.Newer = nullptr;
+        line.Older = m_NewestLine;
+        if (m_NewestLine != nullptr)
+            m_NewestLine->Newer = &line;
+        m_NewestLine = &line;
+        if (m_OldestLine == nullptr)
+            m_OldestLine = &line;
+    }
+
+    void TextSystem::UnlinkLine(ShapedLine& line)
+    {
+        (line.Newer != nullptr ? line.Newer->Older : m_NewestLine) = line.Older;
+        (line.Older != nullptr ? line.Older->Newer : m_OldestLine) = line.Newer;
+        line.Newer = nullptr;
+        line.Older = nullptr;
+    }
+
+    ShapedLine& TextSystem::AcquireLine(uint64_t key)
+    {
+        // A line used in this frame is never recycled: callers hold references until the frame ends.
+        ShapedLine* line = nullptr;
+        if (m_ShapedLines.size() >= MaxIdleShapedLines && m_OldestLine != nullptr &&
+            m_OldestLine->LastUsedFrame != m_FrameCount)
+        {
+            // The node moves to its new key with the glyph storage it has, so nothing is allocated.
+            ShapedLine& oldest = *m_OldestLine;
+            const uint64_t oldestKey = oldest.Key;
+            UnlinkLine(oldest);
+            auto node = m_ShapedLines.extract(oldestKey);
+            node.key() = key;
+            line = &m_ShapedLines.insert(std::move(node)).position->second;
+            line->Glyphs.clear();
+            line->Width = 0.0f;
+        }
+        else
+        {
+            line = &m_ShapedLines.emplace(key, ShapedLine()).first->second;
+        }
+        line->Key = key;
+        line->LastUsedFrame = m_FrameCount;
+        LinkNewest(*line);
+        return *line;
     }
 
     void TextSystem::SetMaxAtlasSize(uint32_t size)
@@ -155,12 +219,13 @@ namespace Carbon::Internal
         const auto found = m_ShapedLines.find(key);
         if (found != m_ShapedLines.end())
         {
-            found->second.LastUsedFrame = m_FrameCount;
+            TouchLine(found->second);
             return found->second;
         }
 
-        ShapedLine shaped;
-        shaped.LastUsedFrame = m_FrameCount;
+        ShapedLine& shaped = AcquireLine(key);
+        // One glyph per byte is the most a line shapes to in practice; the storage is reused when it is recycled.
+        shaped.Glyphs.reserve(line.size());
 
         // Split the line into runs that use the same face, then shape each run.
         const uint16_t primaryFace = GetPrimaryFace(spec);
@@ -183,7 +248,7 @@ namespace Carbon::Internal
         if (offset > runStart)
             ShapeRun(line, runStart, offset - runStart, runFace, primaryFace, spec, shaped);
 
-        return m_ShapedLines.emplace(key, std::move(shaped)).first->second;
+        return shaped;
     }
 
     FontMetrics TextSystem::GetMetrics(const TextSpec& spec)

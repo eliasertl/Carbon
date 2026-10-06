@@ -1,5 +1,6 @@
 #include "Support/ContextTest.h"
 
+#include <format>
 #include <string>
 
 #include "Carbon/Core/ContextInternal.h"
@@ -247,6 +248,44 @@ namespace Carbon
         EXPECT_GT(text.GetShapedLineCount(), before);
         EndFrame();
         EXPECT_FALSE(GetDrawData().Vertices.empty());
+    }
+
+    TEST_F(TextTests, ChangingTextDoesNotGrowTheCacheOfShapedLines)
+    {
+        // 50 new strings per frame, as timers and counters produce them: the cache stops growing.
+        Internal::TextSystem& text = GetTextSystem();
+        for (int frame = 0; frame < 200; frame++)
+        {
+            NewFrame();
+            for (int i = 0; i < 50; i++)
+                text.Shape(std::format("{}:{}", frame, i), TextSpec());
+            EndFrame();
+        }
+        EXPECT_LE(text.GetShapedLineCount(), 1024u + 50u);
+    }
+
+    TEST_F(TextTests, LinesOfTheCurrentFrameAreNeverRecycled)
+    {
+        Internal::TextSystem& text = GetTextSystem();
+        NewFrame();
+        const Internal::ShapedLine* kept = &text.Shape("Kept", TextSpec());
+        const size_t glyphCount = kept->Glyphs.size();
+        EXPECT_EQ(glyphCount, 4u);
+        // Far more lines in one frame than the cache keeps idle: it grows instead of taking a line in use.
+        for (int i = 0; i < 3000; i++)
+            text.Shape(std::format("Burst {}", i), TextSpec());
+        EXPECT_GE(text.GetShapedLineCount(), 3000u);
+        EXPECT_EQ(&text.Shape("Kept", TextSpec()), kept);
+        EXPECT_EQ(kept->Glyphs.size(), glyphCount);
+        EndFrame();
+
+        // Afterwards the burst's lines are the ones new text takes over.
+        const size_t afterBurst = text.GetShapedLineCount();
+        NewFrame();
+        for (int i = 0; i < 100; i++)
+            text.Shape(std::format("Later {}", i), TextSpec());
+        EndFrame();
+        EXPECT_EQ(text.GetShapedLineCount(), afterBurst);
     }
 
     TEST_F(TextTests, StaleShapedLinesAreEvicted)

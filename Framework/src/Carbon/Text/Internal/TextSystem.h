@@ -56,6 +56,10 @@ namespace Carbon::Internal
         /// Advance width in ems.
         float Width = 0.0f;
         uint64_t LastUsedFrame = 0;
+        /// The key the line is cached under, and its neighbours in the order of last use.
+        uint64_t Key = 0;
+        ShapedLine* Newer = nullptr;
+        ShapedLine* Older = nullptr;
     };
 
     /// Fonts, shaping, glyph rasterization and the glyph atlas of one context. GPU-free: the renderer only
@@ -80,6 +84,11 @@ namespace Carbon::Internal
         void BeginFrame(uint64_t frameCount, float contentScale);
 
         /// Shapes one line (no '\n'). The result is cached and stays valid until the next BeginFrame.
+        ///
+        /// The cache is bounded: once it holds MaxIdleShapedLines lines, a new line takes the place, and the
+        /// memory, of the line that has gone unused the longest, unless that one was used in this frame. Text
+        /// that changes every frame (a timer, the value next to a slider) therefore neither grows the cache nor
+        /// allocates.
         const ShapedLine& Shape(std::string_view line, const TextSpec& spec);
 
         FontMetrics GetMetrics(const TextSpec& spec);
@@ -131,6 +140,12 @@ namespace Carbon::Internal
             int32_t Top = 0;
         };
 
+        /// Moves a cached line to the front of the order of last use.
+        void TouchLine(ShapedLine& line);
+        void LinkNewest(ShapedLine& line);
+        void UnlinkLine(ShapedLine& line);
+        /// An empty cache entry for `key`: a new one, or the recycled entry of the least recently used line.
+        ShapedLine& AcquireLine(uint64_t key);
         uint16_t AddFace(std::span<const uint8_t> data, bool copyData);
         std::unique_ptr<Font> LoadFont(std::span<const uint8_t> data, std::span<const uint8_t> italicData,
                                        std::string_view name, bool copyData);
@@ -166,6 +181,9 @@ namespace Carbon::Internal
         GlyphAtlas m_Atlas;
         std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> m_Glyphs;
         std::unordered_map<uint64_t, ShapedLine> m_ShapedLines;
+        /// The ends of the list of cached lines in the order of their last use.
+        ShapedLine* m_NewestLine = nullptr;
+        ShapedLine* m_OldestLine = nullptr;
         uint64_t m_FrameCount = 0;
         float m_ContentScale = 1.0f;
         bool m_AtlasOverflowed = false;

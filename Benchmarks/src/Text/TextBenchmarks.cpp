@@ -47,7 +47,9 @@ namespace Carbon::Benchmarks
         // 50 labels that show a different text in every frame, like timers and the value next to a slider.
         void ChangingStrings(benchmark::State& state)
         {
-            FrameBenchmark frame;
+            // More settle frames than usual: the cache of shaped lines takes some frames of new strings to fill
+            // up, and the steady state is what comes after.
+            FrameBenchmark frame({.SettleFrames = 40});
             uint64_t tick = 0;
             const auto build = [&]
             {
