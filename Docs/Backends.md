@@ -58,10 +58,27 @@ again; everything else (layout, animation, focus, text caches) stays.
 - **Blending.** Premultiplied alpha, on top of whatever the target already holds. Carbon neither tests nor writes
   depth.
 - **Size.** The target is `display size × content scale` pixels; Carbon sets the viewport to that.
-- **Host textures.** `<Name>GetTextureID` registers a texture for the current frame. Carbon keeps what it needs to
-  draw the texture while the texture is registered or drawn, and releases it once a whole frame passes without
-  either. Call it every frame, or keep drawing the ID you got, and keep the texture alive until then. Textures are
-  sampled with linear filtering and treated as straight (not premultiplied) alpha.
+- **Host textures.** A texture of yours is drawn by its `TextureID`, which comes from one of two places:
+  - `<Name>GetTextureID(...)` takes the API's own texture type, checked by the compiler, and registers it for the
+    current frame.
+  - `Carbon::MakeTextureID(handle)` turns a raw native handle into an ID without registering anything, as Dear
+    ImGui's `ImTextureID` does: the C handle of a WebGPU texture view (`view.Get()`), a Vulkan image view, an
+    OpenGL texture name. The backend resolves the handle the first time it draws it.
+
+  Both give the same ID for the same texture, and both follow one rule: Carbon keeps what it needs to draw the
+  texture while the texture is registered or drawn, and releases it once a whole frame passes without either. Keep
+  the texture alive until then. Textures are sampled with linear filtering and treated as straight (not
+  premultiplied) alpha.
+
+  ```cpp
+  Carbon::Image(Carbon::MakeTextureID(sceneView.Get()), Carbon::Vec2(320, 180));   // WebGPU, raw handle
+  Carbon::Image(Carbon::MakeTextureID(sceneImageView), Carbon::Vec2(320, 180));    // Vulkan
+  Carbon::Image(Carbon::MakeTextureID(sceneTexture), Carbon::Vec2(320, 180));      // OpenGL
+  ```
+
+  A raw handle cannot say what the typed functions can: on Vulkan it is sampled in
+  `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`, and on WebGPU Carbon takes its reference to the view only when it
+  draws it, so the view must be alive at `WebGPURender`. A wrong handle is not caught at compile time.
 - **Rendering twice.** `<Name>Render` may be called more than once per frame, for several targets.
 
 ## WebGPU
@@ -104,6 +121,8 @@ Carbon::DestroyContext(context);
   pipeline, bind groups, vertex and index buffers, viewport and scissor rectangle, and does not restore the
   previous ones. Draw your content first, or set your state again afterwards.
 - **Textures.** `WebGPUGetTextureID(view)` keeps a reference to the `wgpu::TextureView` while it is in use.
+  `MakeTextureID(view.Get())` draws the view without registering it; Carbon takes its reference when
+  `WebGPURender` first draws it.
 - **Windows: d3dcompiler_47.dll.** Dawn's Direct3D backends compile shaders with `d3dcompiler_47.dll` and, unless
   Dawn was built with `DAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON`, only look for it next to the executable. Ship the DLL
   from the Windows SDK (`Redist/D3D/x64`) with your application. Carbon's examples and tests copy it with
@@ -171,8 +190,10 @@ scissor and push constants; it restores nothing. Viewport and scissor are dynami
 
 **Textures.** `VulkanGetTextureID(view, layout)` creates a descriptor set (combined image sampler) for the view,
 in the layout the image has whenever Carbon's commands sample it, and caches it until the view goes a whole frame
-unused. A host that destroys a view sooner calls `VulkanReleaseTexture(view)` first, because Vulkan may give a new
-view the same handle. Without `DescriptorPool`, Carbon creates a pool for 1024 texture descriptor sets; a host
+unused. `MakeTextureID(view)` draws a view without registering it, in `VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL`;
+the descriptor set is then created when `VulkanRender` first draws it. A host that destroys a view sooner than a
+frame after its last use calls `VulkanReleaseTexture(view)` first, because Vulkan may give a new view the same
+handle. Without `DescriptorPool`, Carbon creates a pool for 1024 texture descriptor sets; a host
 pool must have been created with `VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT`.
 
 **Memory and objects.** Carbon allocates device memory with a small allocator of its own (a few large blocks,
@@ -240,8 +261,10 @@ with `ImageOptions::UV = Rect(0, 1, 1, -1)`.
 draws, so the GPU encodes them; otherwise it disables `GL_FRAMEBUFFER_SRGB`, so its sRGB colors are written as
 they are, which matches the other backends on a `…Unorm` target. Either way the host's setting is restored.
 
-**Textures.** `OpenGLGetTextureID(texture)` takes a texture name. Carbon samples it with its own sampler object
-(linear, clamped to the edge), so the texture's own filter settings do not matter, and keeps nothing else for it.
+**Textures.** `OpenGLGetTextureID(texture)` takes a texture name; `MakeTextureID(texture)` gives the same ID
+without registering it, which on OpenGL makes no difference at all. Carbon samples the texture with its own sampler
+object (linear, clamped to the edge), so the texture's own filter settings do not matter, and keeps nothing else
+for it.
 
 **Shaders.** `Backends/OpenGL/Shaders/Carbon.vert` and `Carbon.frag` are GLSL 3.30 core, ports of the WGSL,
 embedded as text and compiled by the driver in `OpenGLInit`; a compile error is logged with the driver's message.
@@ -349,8 +372,9 @@ the content scale. Upload them however suits the API; the WGSL shader of the Web
   `rgb × alpha × coverage, alpha × coverage`, blended with `One, OneMinusSrcAlpha`.
 - **Commands.** Draw each `DrawCommand` in order: `IndexCount` indices from `IndexOffset`, base vertex 0, with the
   clip rectangle (points, times the content scale, rounded to whole pixels and clamped to the target) as scissor.
-  `TextureID()` (zero) is the glyph atlas; any other ID is a host texture. Skip a command whose texture you do not
-  know, and log a warning.
+  `TextureID()` (zero) is the glyph atlas; any other ID is a host texture. An ID your backend has not seen is a
+  native handle the host drew without registering it (`MakeTextureID`): resolve it as your `GetTextureID` function
+  would with default settings, or skip the command with a warning if your API cannot.
 - **Sampling.** Linear filtering, clamped to the edge.
 
 ### The glyph atlas
@@ -374,7 +398,9 @@ The atlas is a single-channel (8-bit coverage) texture. `UpdateGlyphAtlas` recei
 
 `RegisterHostTexture(key)` marks a texture as used in the current frame and returns a `TextureID` whose value is
 the key; any nonzero 64-bit value that identifies the texture to your backend works (a handle, a pointer, a slot
-number). Carbon also counts a texture as used when the frame's draw data draws it. After a whole frame without
+number); use `MakeTextureID(handle).Value` as the key, so that a registered texture and the same texture drawn
+by its raw handle are one texture. Carbon also counts a texture as used when the frame's draw data draws it, even
+one that was never registered. After a whole frame without
 either, Carbon calls `ReleaseTexture`. If an API may reuse a handle for a new texture before that (Vulkan image
 views, Direct3D descriptors), offer a function that calls `ReleaseHostTexture(key)` before the host destroys the
 texture.

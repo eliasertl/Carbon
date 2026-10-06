@@ -91,12 +91,15 @@ namespace Carbon
         /// and a display of at least one pixel; it stays valid until the next NewFrame.
         ///
         /// Draw every command in order with premultiplied-alpha blending, clipped to its ClipRect (points; times
-        /// ContentScale for pixels). TextureID() is the glyph atlas; other IDs are host textures registered with
-        /// RegisterHostTexture. A command with an ID the backend does not know is skipped.
+        /// ContentScale for pixels). TextureID() is the glyph atlas; other IDs are host textures. An ID the backend
+        /// has not seen yet is a native handle the host drew without registering it (MakeTextureID): the backend
+        /// resolves it then, as its GetTextureID function would with default settings, or skips the command with a
+        /// warning if its API cannot draw a raw handle.
         virtual void Render(const DrawData& drawData) = 0;
 
         /// A host texture is no longer in use: a whole frame passed in which it was neither registered nor
-        /// drawn, or ReleaseHostTexture was called. The backend drops what it keeps for the texture.
+        /// drawn, or ReleaseHostTexture was called. The backend drops what it keeps for the texture, whether it
+        /// was registered or resolved from a raw handle in Render.
         virtual void ReleaseTexture(TextureID texture) = 0;
     };
 
@@ -158,7 +161,9 @@ namespace Carbon
     ///
     /// A texture stays registered while it is registered again or drawn in every frame; after a whole frame
     /// without either, the backend's ReleaseTexture is called. A backend calls this from its GetTextureID
-    /// function and keeps what it needs to bind the texture (a view, a descriptor set) under the same key.
+    /// function and keeps what it needs to bind the texture (a view, a descriptor set) under the same key. Use the
+    /// key MakeTextureID gives for the native handle, so that a registered texture and the same texture drawn by
+    /// its raw handle are one texture.
     TextureID RegisterHostTexture(uint64_t key);
 
     /// Forgets a host texture now and calls the backend's ReleaseTexture. For hosts that destroy a texture

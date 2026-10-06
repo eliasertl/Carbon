@@ -93,6 +93,11 @@ Carbon::GetDrawList().AddImage(id, Carbon::Rect(20, 20, 320, 180), Carbon::Rect(
 Carbon::WebGPUImage(sceneView, Carbon::Vec2(320, 180));          // the same as a widget
 ```
 
+Or skip the registration and pass the raw handle, as with Dear ImGui's `ImTextureID`:
+`Carbon::Image(Carbon::MakeTextureID(sceneView.Get()), size)` (an image view on Vulkan, a texture name on OpenGL).
+The backend resolves it when it first draws it; [Renderer backends](Backends.md) lists what a raw handle cannot
+carry.
+
 Carbon keeps what it needs to draw the texture while it is in use and releases it once a whole frame passes
 without the texture being registered or drawn. Call the backend's `GetTextureID` every frame, or keep drawing the
 ID you got. Textures are sampled with linear filtering and treated as straight (non-premultiplied) alpha.

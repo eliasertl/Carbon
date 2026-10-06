@@ -23,7 +23,7 @@ namespace Carbon
     };
 
     /// Displays a texture at `size` points. Get the TextureID of one of your textures from the renderer
-    /// backend's GetTextureID function (WebGPUGetTextureID, VulkanGetTextureID, ...), or use its Image function
-    /// that takes the texture directly (WebGPUImage, ...).
+    /// backend's GetTextureID function (WebGPUGetTextureID, VulkanGetTextureID, ...), or from its raw native handle
+    /// with MakeTextureID, or use the backend's Image function that takes the texture directly (WebGPUImage, ...).
     void Image(TextureID texture, Vec2 size, const ImageOptions& options = {});
 } // namespace Carbon

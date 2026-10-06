@@ -78,17 +78,17 @@ namespace Carbon::Internal
 
     void EndRenderFrame(Context& context)
     {
+        // Every texture the frame draws is in use, whether it was registered or drawn by its raw handle
+        // (MakeTextureID). A texture that expired at the start of this frame and is drawn again needs no release.
         RenderState& state = context.Render;
-        if (!state.Textures.empty())
+        for (const DrawCommand& command : context.Draw.GetDrawData().Commands)
         {
-            for (const DrawCommand& command : context.Draw.GetDrawData().Commands)
-            {
-                if (command.Texture == TextureID())
-                    continue;
-                const auto found = state.Textures.find(command.Texture.Value);
-                if (found != state.Textures.end())
-                    found->second = context.FrameCount;
-            }
+            if (command.Texture == TextureID())
+                continue;
+            const auto [entry, isNew] = state.Textures.try_emplace(command.Texture.Value, context.FrameCount);
+            entry->second = context.FrameCount;
+            if (isNew)
+                ForgetPendingRelease(state, command.Texture);
         }
 
         if (state.Backend != nullptr)

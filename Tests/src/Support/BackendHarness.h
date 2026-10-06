@@ -57,6 +57,10 @@ namespace Carbon
         /// Registers a texture made by CreateTexture with the backend and returns its ID.
         virtual TextureID GetTextureID(size_t texture) = 0;
 
+        /// The ID of a texture made by CreateTexture from its raw native handle (MakeTextureID), without
+        /// registering it.
+        virtual TextureID GetRawTextureID(size_t texture) = 0;
+
         /// Errors and warnings the API reported (validation layers, debug output) since the last call.
         virtual std::vector<std::string> TakeMessages() = 0;
     };

@@ -719,13 +719,21 @@ namespace Carbon::Internal
             VkDescriptorSet set = m_AtlasSet;
             if (command.Texture != TextureID())
             {
-                const auto found = m_HostTextures.find(command.Texture.Value);
-                if (found == m_HostTextures.end() || found->second.Set == VK_NULL_HANDLE)
+                // A texture not registered with VulkanGetTextureID is a raw VkImageView (MakeTextureID), sampled in
+                // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.
+                HostTexture& texture = m_HostTextures[command.Texture.Value];
+                if (texture.Set == VK_NULL_HANDLE)
                 {
-                    CB_LOG_WARNING("Renderer", "Draw command uses an unknown or released texture; skipped");
+                    texture.View = ToView(command.Texture.Value);
+                    texture.Layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+                    texture.Set = AllocateTextureSet(texture.View, texture.Layout);
+                }
+                if (texture.Set == VK_NULL_HANDLE)
+                {
+                    CB_LOG_WARNING("Renderer", "No descriptor set for a host texture; skipped");
                     continue;
                 }
-                set = found->second.Set;
+                set = texture.Set;
             }
             if (set != boundSet)
             {

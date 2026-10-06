@@ -479,6 +479,46 @@ namespace Carbon
         EXPECT_TRUE(m_Record.Released.empty());
     }
 
+    TEST_F(RendererBackendTests, MakeTextureIDTakesPointersAndIntegers)
+    {
+        int object = 0;
+        EXPECT_EQ(MakeTextureID(&object).Value, static_cast<uint64_t>(reinterpret_cast<uintptr_t>(&object)));
+        EXPECT_EQ(MakeTextureID(uint32_t{42}), TextureID{42});
+        EXPECT_EQ(MakeTextureID(uint64_t{0xFFFF'FFFF'FFFFull}).Value, 0xFFFF'FFFF'FFFFull);
+        EXPECT_EQ(MakeTextureID(static_cast<int*>(nullptr)), TextureID()); // null is the atlas
+    }
+
+    TEST_F(RendererBackendTests, ATextureDrawnByItsHandleNeedsNoRegistration)
+    {
+        Install();
+        const TextureID texture = MakeTextureID(uint32_t{42});
+        // Drawn in two frames without ever being registered: it is in use, and released only after a whole frame
+        // without it.
+        Frame([&] { GetDrawList().AddImage(texture, Rect(0.0f, 0.0f, 32.0f, 32.0f)); });
+        RenderDrawData();
+        Frame([&] { GetDrawList().AddImage(texture, Rect(0.0f, 0.0f, 32.0f, 32.0f)); });
+        RenderDrawData();
+        RunFrame();
+        RenderDrawData();
+        EXPECT_TRUE(m_Record.Released.empty());
+
+        RunFrame();
+        RenderDrawData();
+        EXPECT_EQ(m_Record.Released, (std::vector<TextureID>{texture}));
+    }
+
+    TEST_F(RendererBackendTests, DrawingAgainBeforeTheReleaseIsDeliveredCancelsIt)
+    {
+        Install();
+        const TextureID texture = MakeTextureID(uint32_t{42});
+        Frame([&] { GetDrawList().AddImage(texture, Rect(0.0f, 0.0f, 32.0f, 32.0f)); });
+        RunFrame();
+        // Expired in this NewFrame, drawn again right away.
+        Frame([&] { GetDrawList().AddImage(texture, Rect(0.0f, 0.0f, 32.0f, 32.0f)); });
+        RenderDrawData();
+        EXPECT_TRUE(m_Record.Released.empty());
+    }
+
     TEST_F(RendererBackendTests, ReleaseHostTextureReleasesAtOnce)
     {
         Install();

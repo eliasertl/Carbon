@@ -48,16 +48,19 @@ namespace Carbon::Internal
 
         /// The key a view is registered under: its handle, which is a pointer or an integer depending on the
         /// platform.
-        static uint64_t GetTextureKey(VkImageView view) { return ToKey(view); }
+        static uint64_t GetTextureKey(VkImageView view) { return MakeTextureID(view).Value; }
 
     private:
+        /// The view a key stands for; the inverse of GetTextureKey.
+        static VkImageView ToView(uint64_t key) { return FromKey<VkImageView>(key); }
+
         template <typename Handle>
-        static uint64_t ToKey(Handle handle)
+        static Handle FromKey(uint64_t key)
         {
             if constexpr (std::is_pointer_v<Handle>)
-                return static_cast<uint64_t>(reinterpret_cast<uintptr_t>(handle));
+                return reinterpret_cast<Handle>(static_cast<uintptr_t>(key));
             else
-                return static_cast<uint64_t>(handle);
+                return static_cast<Handle>(key);
         }
 
     private:

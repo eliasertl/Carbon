@@ -250,6 +250,8 @@ namespace Carbon
 
             TextureID GetTextureID(size_t texture) override { return OpenGLGetTextureID(m_Textures[texture]); }
 
+            TextureID GetRawTextureID(size_t texture) override { return MakeTextureID(m_Textures[texture]); }
+
             std::vector<std::string> TakeMessages() override
             {
                 if (m_Window != nullptr)

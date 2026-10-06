@@ -2,6 +2,7 @@
 
 #include <cstdint>
 #include <span>
+#include <type_traits>
 
 #include "Carbon/Core/Rect.h"
 #include "Carbon/Core/Vec2.h"
@@ -11,14 +12,34 @@ namespace Carbon
     /// Corner smoothing that matches the look of Apple's continuous corners.
     inline constexpr float DefaultCornerSmoothing = 0.6f;
 
-    /// Identifies a texture a draw command samples. The default value (0) is Carbon's glyph atlas; other values
-    /// are handed out by the renderer for host textures.
+    /// Identifies a texture a draw command samples. The default value (0) is Carbon's glyph atlas; any other value
+    /// is a host texture: what the renderer backend's GetTextureID function returned, or MakeTextureID(handle).
     struct TextureID
     {
         uint64_t Value = 0;
 
         constexpr bool operator==(const TextureID& other) const = default;
     };
+
+    /// Makes the TextureID of a native texture handle of the renderer backend in use, which can then be drawn
+    /// without registering it first: the C handle of a texture view for WebGPU (`view.Get()`), an image view for
+    /// Vulkan, a texture name for OpenGL. Handles may be pointers or integers; both are accepted. A null handle gives
+    /// the default TextureID, which is the glyph atlas.
+    ///
+    /// The backend resolves the handle when it first draws it and releases what it created once a whole frame
+    /// passes without the texture. Keep the texture alive until then. The backends' GetTextureID functions do the
+    /// same with type checking, and also take what a raw handle cannot carry: a Vulkan image layout other than
+    /// shader-read-only-optimal, or a WebGPU reference held from the call on. See Docs/Backends.md.
+    template <typename Handle>
+    TextureID MakeTextureID(Handle handle)
+    {
+        static_assert(std::is_pointer_v<Handle> || std::is_integral_v<Handle>,
+                      "MakeTextureID takes a pointer or integer handle, such as the C handle of a texture view");
+        if constexpr (std::is_pointer_v<Handle>)
+            return TextureID{static_cast<uint64_t>(reinterpret_cast<uintptr_t>(handle))};
+        else
+            return TextureID{static_cast<uint64_t>(handle)};
+    }
 
     /// Drawing order. Later layers draw above earlier ones regardless of submission order.
     enum class DrawLayer : uint8_t

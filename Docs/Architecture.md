@@ -367,7 +367,8 @@ TextureID RegisterHostTexture(uint64_t key);               void ReleaseHostTextu
   install and after `InvalidateGlyphAtlas`), the registry of host textures, the check that rendering follows
   `EndFrame`, and the error for rendering without a backend.
 - **Host textures.** `RegisterHostTexture(key)` marks a texture as used in the current frame; `EndFrame` marks
-  every texture the frame's commands draw. A texture last used in frame N expires at the start of frame N + 2.
+  every texture the frame's commands draw, registered or not, so a texture drawn by its raw handle
+  (`MakeTextureID`) is tracked too and the backend resolves it lazily in `Render`. A texture last used in frame N expires at the start of frame N + 2.
   The backend hears about it (`ReleaseTexture`) with the next `RenderDrawData` or `FlushGlyphAtlas`, never from
   `NewFrame`: a backend may only touch the GPU inside calls its own functions make.
 - **Frames in flight.** `EndFrame` tells the backend that new draw data is final; every `Render` until the next
@@ -855,6 +856,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 115 | The OpenGL tests create their context in a hidden GLFW window and render into a framebuffer object; the harness changes host state before every `OpenGLRender` and fails when it is not restored. CI runs them on Linux under Xvfb with llvmpipe | One harness covers rendering, debug output and state restoration. GitHub's Windows runners have no OpenGL 3.3 driver, so the tests skip there |
 | 116 | `VulkanMinimalIntegration` and `OpenGLMinimalIntegration` have no documentation screenshots in `Docs/Images/Screenshots.txt`; CI uploads their screenshots as artifacts from Linux | The documentation images are rendered by the Windows CI job, which has no Vulkan or OpenGL 3.3 device. Their output matches the WebGPU example's, whose image the README shows |
 | 117 | `Tests/Package` installs a renderer backend of its own, written against the installed `RendererBackend.h` only, and checks that Carbon hands it the atlas and the frames | It proves the claim that a backend can be written outside the repository, with the same mechanism as the custom-component check |
+| 118 | Besides the typed `<Name>GetTextureID` functions, a host may draw a raw native handle turned into a `TextureID` with `MakeTextureID` (pointer or integer), without registering it, like Dear ImGui's `ImTextureID`. Core tracks every texture a frame draws; backends resolve an unseen ID in `Render` with default settings (Vulkan: shader-read-only layout; WebGPU: the reference is taken then) and release it after a frame unused. Registration and raw handles give the same ID. `RendererBackendVersion` stays 1 | It is the shortest path from a texture to the screen and the one ImGui users expect. Unlike ImGui, Carbon still creates and frees Vulkan descriptor sets and WebGPU bind groups itself, so the raw path adds no bookkeeping for the host. A backend written for version 1 stays correct: it skips IDs it does not know, which is what it did before |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

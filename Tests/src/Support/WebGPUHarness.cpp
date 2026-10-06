@@ -187,6 +187,8 @@ namespace Carbon
 
             TextureID GetTextureID(size_t texture) override { return WebGPUGetTextureID(m_Textures[texture]); }
 
+            TextureID GetRawTextureID(size_t texture) override { return MakeTextureID(m_Textures[texture].Get()); }
+
             std::vector<std::string> TakeMessages() override
             {
                 if (m_Instance != nullptr)

@@ -375,6 +375,8 @@ namespace Carbon
 
             TextureID GetTextureID(size_t texture) override { return VulkanGetTextureID(m_Textures[texture].View); }
 
+            TextureID GetRawTextureID(size_t texture) override { return MakeTextureID(m_Textures[texture].View); }
+
             std::vector<std::string> TakeMessages() override
             {
                 std::vector<std::string> messages = std::move(m_Messages);

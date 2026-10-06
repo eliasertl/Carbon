@@ -11,11 +11,15 @@ Carbon::Image(id, Carbon::Vec2(320.0f, 180.0f));
 Carbon::Image(id, Carbon::Vec2(64.0f, 64.0f), { .CornerRadius = 12.0f });
 
 Carbon::WebGPUImage(coverView, Carbon::Vec2(64.0f, 64.0f));                           // the same in one call
+
+Carbon::Image(Carbon::MakeTextureID(coverView.Get()), Carbon::Vec2(64.0f, 64.0f));    // a raw handle, unregistered
 ```
 
 The size is in points; the texture is stretched to it. A `TextureID` comes from the renderer backend that draws
 the frame (`WebGPUGetTextureID` for a `wgpu::TextureView`; see [Renderer backends](../Backends.md)), and every
-backend has an `Image` function that takes its own texture type directly (`WebGPUImage`).
+backend has an `Image` function that takes its own texture type directly (`WebGPUImage`). Like Dear ImGui's
+`ImTextureID`, `MakeTextureID` also turns a raw native handle (a texture view's C handle, a Vulkan image view, an
+OpenGL texture name) into an ID that can be drawn without registering it.
 
 ## Options
 

@@ -398,12 +398,14 @@ namespace Carbon::Internal
             GLuint texture = m_AtlasTexture;
             if (command.Texture != TextureID())
             {
-                texture = static_cast<GLuint>(command.Texture.Value);
-                if (!m_HostTextures.contains(texture))
+                // Registered or not (MakeTextureID), a host texture is its GLuint name; nothing else is kept.
+                if (command.Texture.Value > UINT32_MAX)
                 {
-                    CB_LOG_WARNING("Renderer", "Draw command uses an unknown or released texture; skipped");
+                    CB_LOG_WARNING("Renderer",
+                                   "Draw command uses a texture ID that is no OpenGL texture name; skipped");
                     continue;
                 }
+                texture = static_cast<GLuint>(command.Texture.Value);
             }
             if (texture != boundTexture)
             {
@@ -423,15 +425,12 @@ namespace Carbon::Internal
 
     TextureID OpenGLRenderer::RegisterTexture(GLuint texture)
     {
-        if (texture == 0)
-            return TextureID();
-        m_HostTextures.insert(texture);
-        return RegisterHostTexture(texture);
+        return RegisterHostTexture(MakeTextureID(texture).Value);
     }
 
     void OpenGLRenderer::ReleaseTexture(TextureID texture)
     {
-        // The texture belongs to the host; Carbon only stops accepting its ID.
-        m_HostTextures.erase(static_cast<GLuint>(texture.Value));
+        // The texture belongs to the host, and Carbon keeps nothing for it.
+        static_cast<void>(texture);
     }
 } // namespace Carbon::Internal

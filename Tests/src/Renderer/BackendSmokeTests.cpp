@@ -95,7 +95,33 @@ namespace Carbon
         EXPECT_NEAR(image.GetPixel(16, 16).G, gray.G, 2.5f / 255.0f);
     }
 
-    TEST_P(BackendSmokeTests, TexturesAreReleasedAfterAFrameWithoutThem)
+    TEST_P(BackendSmokeTests, RawHandlesAreDrawnWithoutRegistration)
+    {
+        // A texture drawn by its native handle alone (MakeTextureID), as Dear ImGui's ImTextureID works.
+        const uint8_t texels[16] = {255, 0, 0, 255, 0, 255, 0, 255, 0, 0, 255, 255, 255, 255, 255, 255};
+        const size_t texture = m_Harness->CreateTexture(2, 2, texels);
+        const RenderedImage image =
+            RenderFrame(48.0f, 48.0f, 1.0f, Color::Black(), [&](DrawList& drawList)
+                        { drawList.AddImage(m_Harness->GetRawTextureID(texture), Rect(8.0f, 8.0f, 32.0f, 32.0f)); });
+        const Color red = image.GetPixel(15, 15);
+        const Color white = image.GetPixel(32, 32);
+        EXPECT_NEAR(red.R, 1.0f, 0.01f);
+        EXPECT_NEAR(red.G, 0.0f, 0.01f);
+        EXPECT_NEAR(white.B, 1.0f, 0.01f);
+        EXPECT_NEAR(image.GetPixel(4, 4).R, 0.0f, 0.01f); // outside the image
+    }
+
+    TEST_P(BackendSmokeTests, RegisteredAndRawIDsOfATextureAreTheSame)
+    {
+        const uint8_t white[4] = {255, 255, 255, 255};
+        const size_t texture = m_Harness->CreateTexture(1, 1, white);
+        GetIO().SetDisplaySize(16.0f, 16.0f);
+        NewFrame();
+        EXPECT_EQ(m_Harness->GetTextureID(texture), m_Harness->GetRawTextureID(texture));
+        EndFrame();
+    }
+
+    TEST_P(BackendSmokeTests, AReleasedTextureComesBackWhenItIsDrawnAgain)
     {
         const uint8_t white[4] = {255, 255, 255, 255};
         const size_t texture = m_Harness->CreateTexture(1, 1, white);
@@ -115,13 +141,13 @@ namespace Carbon
             m_Harness->RenderFrame(16, 16, Color::Black());
         }
 
-        // The ID was released; drawing it now is skipped with a warning, not a crash.
+        // The backend released what it kept for the texture. Drawn again while the texture is alive, it is
+        // resolved from its handle once more.
         NewFrame();
         GetDrawList().AddImage(id, Rect(0.0f, 0.0f, 16.0f, 16.0f));
         EndFrame();
         const RenderedImage image = m_Harness->RenderFrame(16, 16, Color::Black());
-        EXPECT_NEAR(image.GetPixel(8, 8).R, 0.0f, 0.01f);
-        ExpectProblem("unknown or released texture");
+        EXPECT_NEAR(image.GetPixel(8, 8).R, 1.0f, 0.01f);
     }
 
     CB_INSTANTIATE_BACKEND_TESTS(BackendSmokeTests);

@@ -308,13 +308,11 @@ namespace Carbon::Internal
             }
             else
             {
-                const auto found = m_HostTextures.find(command.Texture.Value);
-                if (found == m_HostTextures.end())
-                {
-                    CB_LOG_WARNING("Renderer", "Draw command uses an unknown or released texture; skipped");
-                    continue;
-                }
-                HostTexture& texture = found->second;
+                // A texture not registered with WebGPUGetTextureID is a raw WGPUTextureView (MakeTextureID). The
+                // wrapper takes a reference of its own, so the view lives as long as Carbon uses it.
+                HostTexture& texture = m_HostTextures[command.Texture.Value];
+                if (texture.View == nullptr)
+                    texture.View = wgpu::TextureView(reinterpret_cast<WGPUTextureView>(command.Texture.Value));
                 if (texture.BindGroup == nullptr)
                     texture.BindGroup = CreateTextureBindGroup(texture.View);
                 pass.SetBindGroup(1, texture.BindGroup);
@@ -332,7 +330,7 @@ namespace Carbon::Internal
             return TextureID();
         // The view's handle is unique while Carbon holds a reference to it. Carbon's core decides how long the
         // texture stays registered and calls ReleaseTexture when it is no longer used.
-        const uint64_t key = reinterpret_cast<uintptr_t>(view.Get());
+        const uint64_t key = MakeTextureID(view.Get()).Value;
         HostTexture& texture = m_HostTextures[key];
         if (texture.View == nullptr)
             texture.View = view;

@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstdint>
-#include <unordered_set>
 
 #include "Carbon/Backends/OpenGL/OpenGLBackend.h"
 #include "Carbon/Backends/OpenGL/OpenGLFunctionsInternal.h"
@@ -104,7 +103,5 @@ namespace Carbon::Internal
         GLuint m_AtlasTexture = 0;
         uint32_t m_AtlasWidth = 0;
         uint32_t m_AtlasHeight = 0;
-
-        std::unordered_set<GLuint> m_HostTextures;
     };
 } // namespace Carbon::Internal
