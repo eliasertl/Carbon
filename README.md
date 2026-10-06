@@ -89,12 +89,12 @@ each backend is the only difference between the builds.
 
 | Example | Shows |
 | --- | --- |
-| [`WebGPUMinimal`](Examples/WebGPUMinimal/Main.cpp) | The host side with WebGPU, step by step: context, backend, input forwarding, the frame loop, drawing your own content in the same pass |
-| [`VulkanMinimal`](Examples/VulkanMinimal/Main.cpp) | The same with Vulkan: a swapchain, frames in flight, Carbon and the host's triangle in one render pass |
-| [`OpenGLMinimal`](Examples/OpenGLMinimal/Main.cpp) | The same with OpenGL 3.3: Carbon resolves its functions through `glfwGetProcAddress` and restores the host's state |
-| [`OpenGLESMinimal`](Examples/OpenGLESMinimal/Main.cpp) | The same with OpenGL ES 3.0, natively or in a browser (WebGL 2) |
-| [`DX11Minimal`](Examples/DX11Minimal/Main.cpp) | The same with Direct3D 11: a flip-model swap chain, the host's triangle and Carbon in one render target |
-| [`DX9Minimal`](Examples/DX9Minimal/Main.cpp) | The same with Direct3D 9: a device reset on resize and a fixed-function triangle under Carbon's interface |
+| [`WebGPUMinimal`](Examples/Minimal/WebGPUMinimal.cpp) | The host side with WebGPU, step by step: context, backend, input forwarding, the frame loop, drawing your own content in the same pass |
+| [`VulkanMinimal`](Examples/Minimal/VulkanMinimal.cpp) | The same with Vulkan: a swapchain, frames in flight, Carbon and the host's triangle in one render pass |
+| [`OpenGLMinimal`](Examples/Minimal/OpenGLMinimal.cpp) | The same with OpenGL 3.3: Carbon resolves its functions through `glfwGetProcAddress` and restores the host's state |
+| [`OpenGLESMinimal`](Examples/Minimal/OpenGLESMinimal.cpp) | The same with OpenGL ES 3.0, natively or in a browser (WebGL 2) |
+| [`DX11Minimal`](Examples/Minimal/DX11Minimal.cpp) | The same with Direct3D 11: a flip-model swap chain, the host's triangle and Carbon in one render target |
+| [`DX9Minimal`](Examples/Minimal/DX9Minimal.cpp) | The same with Direct3D 9: a device reset on resize and a fixed-function triangle under Carbon's interface |
 | [`<Backend>Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
 | [`<Backend>CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
 | [`<Backend>CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |

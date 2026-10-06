@@ -327,18 +327,18 @@ jobs:
           Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Light.png --page selection
           Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Dark.png --page charts --theme dark
           Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Menu.png --page menus --show menu --scale 2
-          Build/Examples/WebGPUMinimal/WebGPUMinimal --screenshot Screenshots/WebGPUMinimal.png
-          Build/Examples/VulkanMinimal/VulkanMinimal --screenshot Screenshots/VulkanMinimal.png || true
+          Build/Examples/Minimal/WebGPUMinimal --screenshot Screenshots/WebGPUMinimal.png
+          Build/Examples/Minimal/VulkanMinimal --screenshot Screenshots/VulkanMinimal.png || true
           Build/Examples/Gallery/VulkanGallery --screenshot Screenshots/VulkanGallery.png --page images || true
           if [ "$RUNNER_OS" = "Windows" ]; then
-            Build/Examples/DX11Minimal/DX11Minimal --screenshot Screenshots/DX11Minimal.png
+            Build/Examples/Minimal/DX11Minimal --screenshot Screenshots/DX11Minimal.png
             Build/Examples/Gallery/DX11Gallery --screenshot Screenshots/DX11Gallery.png --page images
-            Build/Examples/DX9Minimal/DX9Minimal --screenshot Screenshots/DX9Minimal.png || true
+            Build/Examples/Minimal/DX9Minimal --screenshot Screenshots/DX9Minimal.png || true
             Build/Examples/Gallery/DX9Gallery --screenshot Screenshots/DX9Gallery.png --page images || true
           fi
           if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a Build/Examples/OpenGLMinimal/OpenGLMinimal --screenshot Screenshots/OpenGLMinimal.png
-            xvfb-run -a Build/Examples/OpenGLESMinimal/OpenGLESMinimal --screenshot Screenshots/OpenGLESMinimal.png
+            xvfb-run -a Build/Examples/Minimal/OpenGLMinimal --screenshot Screenshots/OpenGLMinimal.png
+            xvfb-run -a Build/Examples/Minimal/OpenGLESMinimal --screenshot Screenshots/OpenGLESMinimal.png
             xvfb-run -a Build/Examples/Gallery/OpenGLGallery --screenshot Screenshots/OpenGLGallery.png --page images
             xvfb-run -a Build/Examples/Gallery/OpenGLESGallery --screenshot Screenshots/OpenGLESGallery.png --page images
           fi

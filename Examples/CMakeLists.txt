@@ -57,9 +57,7 @@ function(carbon_add_backend_examples name)
 endfunction()
 
 # One minimal integration per renderer backend, each built only when its backend is.
-foreach(backend IN LISTS CARBON_EXAMPLE_BACKENDS)
-    add_subdirectory(${backend}Minimal)
-endforeach()
+add_subdirectory(Minimal)
 
 add_subdirectory(CustomComponent)
 # The Gallery and CustomTitleBar use the extension components, so they need CarbonExtensions.

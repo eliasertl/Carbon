@@ -25,7 +25,7 @@ Then look around:
 ```sh
 Build/Examples/Gallery/WebGPUGallery              # every component; try the Dark and Reduce Motion switches
 Build/Examples/Gallery/VulkanGallery --theme dark --page charts   # the same on another backend
-Build/Examples/WebGPUMinimal/WebGPUMinimal
+Build/Examples/Minimal/WebGPUMinimal
 Build/Examples/CustomComponent/WebGPUCustomComponent
 Build/Examples/CustomTitleBar/WebGPUCustomTitleBar  # a window whose title bar is drawn by Carbon
 Build/Examples/Reflection/Reflection               # a settings window generated from a struct
@@ -97,7 +97,7 @@ pass.End();
 ```
 
 [Integration](Integration.md) covers this side in full: input forwarding, DPI, clipboard and cursor callbacks,
-logging. [Examples/WebGPUMinimal](../Examples/WebGPUMinimal/Main.cpp) is a complete host in
+logging. [Examples/Minimal/WebGPUMinimal.cpp](../Examples/Minimal/WebGPUMinimal.cpp) is a complete host in
 one file, with GLFW.
 
 ## 5. Build an interface
