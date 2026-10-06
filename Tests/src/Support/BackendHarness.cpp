@@ -11,6 +11,9 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_OPENGL)
         names.emplace_back("OpenGL");
 #endif
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+        names.emplace_back("OpenGLES");
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         // Both of the Vulkan backend's pipeline modes.
         names.emplace_back("Vulkan");
@@ -27,7 +30,11 @@ namespace Carbon
 #endif
 #if defined(CARBON_HAS_BACKEND_OPENGL)
         if (name == "OpenGL")
-            return CreateOpenGLHarness();
+            return CreateOpenGLHarness(false);
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+        if (name == "OpenGLES")
+            return CreateOpenGLHarness(true);
 #endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         if (name == "Vulkan" || name == "VulkanRenderPass")

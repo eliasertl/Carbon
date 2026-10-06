@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <string_view>
 
@@ -18,21 +19,34 @@ namespace Carbon::Internal
     namespace
     {
         constexpr GLsizeiptr MinimumBufferSize = 16 * 1024;
-        // Texture units: the draw command's texture, and the primitive buffer.
+        // Texture units: the draw command's texture, and the primitives.
         constexpr GLuint ColorUnit = 0;
         constexpr GLuint PrimitiveUnit = 1;
+        // Primitives per row of the primitive texture; two RGBA32UI texels each. 2048 texels is the smallest
+        // maximum texture size OpenGL ES 3.0 allows. Keep in step with the shader.
+        constexpr GLsizei PrimitivesPerRow = 1024;
+        constexpr GLsizei PrimitiveTextureWidth = PrimitivesPerRow * 2;
+
+        // The shaders' first lines: the GLSL version, and for ES the default precisions.
+        constexpr std::string_view DesktopHeader = "#version 330 core\n";
+        constexpr std::string_view ESHeader =
+            "#version 300 es\n"
+            "precision highp float;\n"
+            "precision highp int;\n"
+            "precision highp sampler2D;\n"
+            "precision highp usampler2D;\n";
 
         std::string_view GetSource(const unsigned char* data, unsigned long long size)
         {
             return {reinterpret_cast<const char*>(data), static_cast<size_t>(size)};
         }
 
-        GLuint CompileShader(const OpenGLFunctions& gl, GLenum type, std::string_view source)
+        GLuint CompileShader(const OpenGLFunctions& gl, GLenum type, std::string_view header, std::string_view body)
         {
             const GLuint shader = gl.CreateShader(type);
-            const GLchar* text = source.data();
-            const GLint length = static_cast<GLint>(source.size());
-            gl.ShaderSource(shader, 1, &text, &length);
+            const GLchar* texts[2] = {header.data(), body.data()};
+            const GLint lengths[2] = {static_cast<GLint>(header.size()), static_cast<GLint>(body.size())};
+            gl.ShaderSource(shader, 2, texts, lengths);
             gl.CompileShader(shader);
             GLint isCompiled = GL::False;
             gl.GetShaderiv(shader, GL::CompileStatus, &isCompiled);
@@ -51,8 +65,52 @@ namespace Carbon::Internal
         }
     } // namespace
 
-    OpenGLRenderer::OpenGLRenderer(const OpenGLFunctions& gl, TextureFormat colorFormat)
-        : m_GL(gl), m_IsLinearOutput(IsSrgbFormat(colorFormat))
+    bool OpenGLRenderer::Install(OpenGLProcLoader getProcAddress, TextureFormat colorFormat, bool isES)
+    {
+        const char* const api = isES ? "OpenGL ES" : "OpenGL";
+        if (getProcAddress == nullptr)
+        {
+            CB_LOG_ERROR("OpenGL", "{} needs a GetProcAddress function", isES ? "OpenGLESInit" : "OpenGLInit");
+            return false;
+        }
+        if (!IsColorFormat(colorFormat))
+        {
+            CB_LOG_ERROR("OpenGL", "Unsupported color format {}", ToString(colorFormat));
+            return false;
+        }
+
+        OpenGLFunctions functions;
+        std::string_view missing;
+        if (!functions.Load(getProcAddress, isES, missing))
+        {
+            CB_LOG_ERROR("OpenGL", "The {} function {} could not be resolved; is a {} {} context current?", api,
+                         missing, api, isES ? "3.0" : "3.3");
+            return false;
+        }
+        GLint major = 0;
+        GLint minor = 0;
+        functions.GetIntegerv(GL::MajorVersion, &major);
+        functions.GetIntegerv(GL::MinorVersion, &minor);
+        const GLint required = isES ? 30 : 33;
+        if (major * 10 + minor < required)
+        {
+            CB_LOG_ERROR("OpenGL", "The {} backend needs {} {}.{}; the context has {}.{}", api, api, required / 10,
+                         required % 10, major, minor);
+            return false;
+        }
+
+        if (isES)
+        {
+            std::unique_ptr<OpenGLESRenderer> renderer =
+                std::make_unique<OpenGLESRenderer>(functions, colorFormat, true);
+            return renderer->IsValid() && InstallRendererBackend(std::move(renderer));
+        }
+        std::unique_ptr<OpenGLRenderer> renderer = std::make_unique<OpenGLRenderer>(functions, colorFormat, false);
+        return renderer->IsValid() && InstallRendererBackend(std::move(renderer));
+    }
+
+    OpenGLRenderer::OpenGLRenderer(const OpenGLFunctions& gl, TextureFormat colorFormat, bool isES)
+        : m_GL(gl), m_IsLinearOutput(IsSrgbFormat(colorFormat)), m_IsES(isES)
     {
         if (!CreateProgram())
             return;
@@ -62,11 +120,10 @@ namespace Carbon::Internal
         SaveState(state);
 
         m_GL.GenVertexArrays(1, &m_VertexArray);
-        GLuint buffers[3] = {};
-        m_GL.GenBuffers(3, buffers);
+        GLuint buffers[2] = {};
+        m_GL.GenBuffers(2, buffers);
         m_VertexBuffer = buffers[0];
         m_IndexBuffer = buffers[1];
-        m_PrimitiveBuffer = buffers[2];
 
         // Vertex layout: mirrors DrawVertex. The element buffer binding is part of the vertex array.
         static_assert(sizeof(DrawVertex) == 32, "DrawVertex must match the vertex layout below");
@@ -89,8 +146,13 @@ namespace Carbon::Internal
                                   reinterpret_cast<const void*>(offsetof(DrawVertex, Primitive)));
         m_GL.BindVertexArray(0);
 
+        // An integer texture is complete only with nearest filtering; texelFetch ignores filters otherwise.
         m_GL.ActiveTexture(GL::Texture0 + PrimitiveUnit);
         m_GL.GenTextures(1, &m_PrimitiveTexture);
+        m_GL.BindTexture(GL::Texture2D, m_PrimitiveTexture);
+        m_GL.TexParameteri(GL::Texture2D, GL::TextureMinFilter, static_cast<GLint>(GL::Nearest));
+        m_GL.TexParameteri(GL::Texture2D, GL::TextureMagFilter, static_cast<GLint>(GL::Nearest));
+        m_GL.TexParameteri(GL::Texture2D, GL::TextureMaxLevel, 0);
 
         m_GL.GenSamplers(1, &m_Sampler);
         m_GL.SamplerParameteri(m_Sampler, GL::TextureMinFilter, static_cast<GLint>(GL::Linear));
@@ -107,8 +169,8 @@ namespace Carbon::Internal
             return;
         m_GL.DeleteProgram(m_Program);
         m_GL.DeleteVertexArrays(1, &m_VertexArray);
-        const GLuint buffers[3] = {m_VertexBuffer, m_IndexBuffer, m_PrimitiveBuffer};
-        m_GL.DeleteBuffers(3, buffers);
+        const GLuint buffers[2] = {m_VertexBuffer, m_IndexBuffer};
+        m_GL.DeleteBuffers(2, buffers);
         m_GL.DeleteTextures(1, &m_PrimitiveTexture);
         if (m_AtlasTexture != 0)
             m_GL.DeleteTextures(1, &m_AtlasTexture);
@@ -117,10 +179,11 @@ namespace Carbon::Internal
 
     bool OpenGLRenderer::CreateProgram()
     {
-        const GLuint vertex =
-            CompileShader(m_GL, GL::VertexShader, GetSource(g_OpenGLVertexShaderData, g_OpenGLVertexShaderSize));
-        const GLuint fragment =
-            CompileShader(m_GL, GL::FragmentShader, GetSource(g_OpenGLFragmentShaderData, g_OpenGLFragmentShaderSize));
+        const std::string_view header = m_IsES ? ESHeader : DesktopHeader;
+        const GLuint vertex = CompileShader(m_GL, GL::VertexShader, header,
+                                            GetSource(g_OpenGLVertexShaderData, g_OpenGLVertexShaderSize));
+        const GLuint fragment = CompileShader(m_GL, GL::FragmentShader, header,
+                                              GetSource(g_OpenGLFragmentShaderData, g_OpenGLFragmentShaderSize));
         if (vertex == 0 || fragment == 0)
         {
             if (vertex != 0)
@@ -149,7 +212,7 @@ namespace Carbon::Internal
             return false;
         }
 
-        // GLSL 3.30 cannot name texture units in the shader; they are set once here.
+        // GLSL 3.30 and GLSL ES 3.00 cannot name texture units in the shader; they are set once here.
         GLint previousProgram = 0;
         m_GL.GetIntegerv(GL::CurrentProgram, &previousProgram);
         m_GL.UseProgram(program);
@@ -171,7 +234,6 @@ namespace Carbon::Internal
         {
             m_GL.ActiveTexture(GL::Texture0 + unit);
             m_GL.GetIntegerv(GL::TextureBinding2D, &state.Texture2D[unit]);
-            m_GL.GetIntegerv(GL::TextureBindingBuffer, &state.TextureBuffer[unit]);
             m_GL.GetIntegerv(GL::SamplerBinding, &state.Sampler[unit]);
         }
         m_GL.ActiveTexture(static_cast<GLenum>(state.ActiveTexture));
@@ -183,7 +245,6 @@ namespace Carbon::Internal
         m_GL.GetIntegerv(GL::BlendDstRgb, &state.BlendDstRgb);
         m_GL.GetIntegerv(GL::BlendSrcAlpha, &state.BlendSrcAlpha);
         m_GL.GetIntegerv(GL::BlendDstAlpha, &state.BlendDstAlpha);
-        m_GL.GetIntegerv(GL::PolygonMode, state.PolygonMode);
         m_GL.GetBooleanv(GL::ColorWritemask, state.ColorMask);
         m_GL.GetBooleanv(GL::DepthWritemask, &state.DepthMask);
         state.Blend = m_GL.IsEnabled(GL::Blend);
@@ -191,9 +252,14 @@ namespace Carbon::Internal
         state.CullFace = m_GL.IsEnabled(GL::CullFace);
         state.DepthTest = m_GL.IsEnabled(GL::DepthTest);
         state.StencilTest = m_GL.IsEnabled(GL::StencilTest);
-        state.PrimitiveRestart = m_GL.IsEnabled(GL::PrimitiveRestart);
-        state.ColorLogicOp = m_GL.IsEnabled(GL::ColorLogicOp);
-        state.FramebufferSrgb = m_GL.IsEnabled(GL::FramebufferSrgb);
+        // OpenGL ES has none of these.
+        if (!m_IsES)
+        {
+            m_GL.GetIntegerv(GL::PolygonMode, state.PolygonMode);
+            state.PrimitiveRestart = m_GL.IsEnabled(GL::PrimitiveRestart);
+            state.ColorLogicOp = m_GL.IsEnabled(GL::ColorLogicOp);
+            state.FramebufferSrgb = m_GL.IsEnabled(GL::FramebufferSrgb);
+        }
     }
 
     void OpenGLRenderer::RestoreState(const SavedState& state) const
@@ -205,7 +271,6 @@ namespace Carbon::Internal
         {
             m_GL.ActiveTexture(GL::Texture0 + unit);
             m_GL.BindTexture(GL::Texture2D, static_cast<GLuint>(state.Texture2D[unit]));
-            m_GL.BindTexture(GL::TextureBuffer, static_cast<GLuint>(state.TextureBuffer[unit]));
             m_GL.BindSampler(unit, static_cast<GLuint>(state.Sampler[unit]));
         }
         m_GL.ActiveTexture(static_cast<GLenum>(state.ActiveTexture));
@@ -215,8 +280,6 @@ namespace Carbon::Internal
                                    static_cast<GLenum>(state.BlendEquationAlpha));
         m_GL.BlendFuncSeparate(static_cast<GLenum>(state.BlendSrcRgb), static_cast<GLenum>(state.BlendDstRgb),
                                static_cast<GLenum>(state.BlendSrcAlpha), static_cast<GLenum>(state.BlendDstAlpha));
-        // Core profiles only have one polygon mode for both faces.
-        m_GL.PolygonMode(GL::FrontAndBack, static_cast<GLenum>(state.PolygonMode[0]));
         m_GL.ColorMask(state.ColorMask[0], state.ColorMask[1], state.ColorMask[2], state.ColorMask[3]);
         m_GL.DepthMask(state.DepthMask);
         SetEnabled(GL::Blend, state.Blend != GL::False);
@@ -224,9 +287,62 @@ namespace Carbon::Internal
         SetEnabled(GL::CullFace, state.CullFace != GL::False);
         SetEnabled(GL::DepthTest, state.DepthTest != GL::False);
         SetEnabled(GL::StencilTest, state.StencilTest != GL::False);
-        SetEnabled(GL::PrimitiveRestart, state.PrimitiveRestart != GL::False);
-        SetEnabled(GL::ColorLogicOp, state.ColorLogicOp != GL::False);
-        SetEnabled(GL::FramebufferSrgb, state.FramebufferSrgb != GL::False);
+        if (!m_IsES)
+        {
+            // Core profiles only have one polygon mode for both faces.
+            m_GL.PolygonMode(GL::FrontAndBack, static_cast<GLenum>(state.PolygonMode[0]));
+            SetEnabled(GL::PrimitiveRestart, state.PrimitiveRestart != GL::False);
+            SetEnabled(GL::ColorLogicOp, state.ColorLogicOp != GL::False);
+            SetEnabled(GL::FramebufferSrgb, state.FramebufferSrgb != GL::False);
+        }
+    }
+
+    void OpenGLRenderer::SaveUnpackState(SavedUnpackState& state) const
+    {
+        m_GL.GetIntegerv(GL::PixelUnpackBufferBinding, &state.Buffer);
+        m_GL.GetIntegerv(GL::UnpackAlignment, &state.Alignment);
+        m_GL.GetIntegerv(GL::UnpackRowLength, &state.RowLength);
+        m_GL.GetIntegerv(GL::UnpackSkipRows, &state.SkipRows);
+        m_GL.GetIntegerv(GL::UnpackSkipPixels, &state.SkipPixels);
+        m_GL.GetIntegerv(GL::UnpackImageHeight, &state.ImageHeight);
+        m_GL.GetIntegerv(GL::UnpackSkipImages, &state.SkipImages);
+        if (!m_IsES)
+        {
+            m_GL.GetIntegerv(GL::UnpackSwapBytes, &state.SwapBytes);
+            m_GL.GetIntegerv(GL::UnpackLsbFirst, &state.LsbFirst);
+        }
+    }
+
+    void OpenGLRenderer::SetUnpackDefaults() const
+    {
+        m_GL.BindBuffer(GL::PixelUnpackBuffer, 0);
+        m_GL.PixelStorei(GL::UnpackAlignment, 1);
+        m_GL.PixelStorei(GL::UnpackRowLength, 0);
+        m_GL.PixelStorei(GL::UnpackSkipRows, 0);
+        m_GL.PixelStorei(GL::UnpackSkipPixels, 0);
+        m_GL.PixelStorei(GL::UnpackImageHeight, 0);
+        m_GL.PixelStorei(GL::UnpackSkipImages, 0);
+        if (!m_IsES)
+        {
+            m_GL.PixelStorei(GL::UnpackSwapBytes, 0);
+            m_GL.PixelStorei(GL::UnpackLsbFirst, 0);
+        }
+    }
+
+    void OpenGLRenderer::RestoreUnpackState(const SavedUnpackState& state) const
+    {
+        m_GL.BindBuffer(GL::PixelUnpackBuffer, static_cast<GLuint>(state.Buffer));
+        m_GL.PixelStorei(GL::UnpackAlignment, state.Alignment);
+        m_GL.PixelStorei(GL::UnpackRowLength, state.RowLength);
+        m_GL.PixelStorei(GL::UnpackSkipRows, state.SkipRows);
+        m_GL.PixelStorei(GL::UnpackSkipPixels, state.SkipPixels);
+        m_GL.PixelStorei(GL::UnpackImageHeight, state.ImageHeight);
+        m_GL.PixelStorei(GL::UnpackSkipImages, state.SkipImages);
+        if (!m_IsES)
+        {
+            m_GL.PixelStorei(GL::UnpackSwapBytes, state.SwapBytes);
+            m_GL.PixelStorei(GL::UnpackLsbFirst, state.LsbFirst);
+        }
     }
 
     void OpenGLRenderer::SetEnabled(GLenum capability, bool enabled) const
@@ -253,6 +369,41 @@ namespace Carbon::Internal
         m_GL.BufferData(GL::ArrayBuffer, capacity, nullptr, GL::StreamDraw);
     }
 
+    void OpenGLRenderer::UploadPrimitives(const DrawData& drawData)
+    {
+        // Rows of PrimitivesPerRow primitives; the texture grows by doubling its rows.
+        const GLsizei count = static_cast<GLsizei>(drawData.Primitives.size());
+        const GLsizei rows = std::max<GLsizei>((count + PrimitivesPerRow - 1) / PrimitivesPerRow, 1);
+        m_GL.ActiveTexture(GL::Texture0 + PrimitiveUnit);
+        m_GL.BindTexture(GL::Texture2D, m_PrimitiveTexture);
+        m_GL.BindSampler(PrimitiveUnit, 0);
+        if (m_PrimitiveRows < rows)
+        {
+            m_PrimitiveRows = std::max(m_PrimitiveRows * 2, 1);
+            while (m_PrimitiveRows < rows)
+                m_PrimitiveRows *= 2;
+            m_GL.TexImage2D(GL::Texture2D, 0, static_cast<GLint>(GL::Rgba32ui), PrimitiveTextureWidth, m_PrimitiveRows,
+                            0, GL::RgbaInteger, GL::UnsignedInt, nullptr);
+        }
+        if (count == 0)
+            return;
+
+        // Whole rows, then what is left of the last one.
+        const GLsizei fullRows = count / PrimitivesPerRow;
+        const GLsizei rest = count % PrimitivesPerRow;
+        const DrawPrimitive* primitives = drawData.Primitives.data();
+        if (fullRows > 0)
+        {
+            m_GL.TexSubImage2D(GL::Texture2D, 0, 0, 0, PrimitiveTextureWidth, fullRows, GL::RgbaInteger,
+                               GL::UnsignedInt, primitives);
+        }
+        if (rest > 0)
+        {
+            m_GL.TexSubImage2D(GL::Texture2D, 0, 0, fullRows, rest * 2, 1, GL::RgbaInteger, GL::UnsignedInt,
+                               primitives + static_cast<size_t>(fullRows) * PrimitivesPerRow);
+        }
+    }
+
     RendererBackendCapabilities OpenGLRenderer::GetCapabilities() const
     {
         GLint size = 0;
@@ -265,29 +416,14 @@ namespace Carbon::Internal
 
     void OpenGLRenderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
-        SavedUnpackState state;
-        m_GL.GetIntegerv(GL::PixelUnpackBufferBinding, &state.Buffer);
-        m_GL.GetIntegerv(GL::UnpackAlignment, &state.Alignment);
-        m_GL.GetIntegerv(GL::UnpackRowLength, &state.RowLength);
-        m_GL.GetIntegerv(GL::UnpackSkipRows, &state.SkipRows);
-        m_GL.GetIntegerv(GL::UnpackSkipPixels, &state.SkipPixels);
-        m_GL.GetIntegerv(GL::UnpackImageHeight, &state.ImageHeight);
-        m_GL.GetIntegerv(GL::UnpackSkipImages, &state.SkipImages);
-        m_GL.GetIntegerv(GL::UnpackSwapBytes, &state.SwapBytes);
-        m_GL.GetIntegerv(GL::UnpackLsbFirst, &state.LsbFirst);
-        m_GL.GetIntegerv(GL::ActiveTexture, &state.ActiveTexture);
+        SavedUnpackState unpack;
+        SaveUnpackState(unpack);
+        GLint activeTexture = 0;
+        m_GL.GetIntegerv(GL::ActiveTexture, &activeTexture);
         m_GL.ActiveTexture(GL::Texture0 + ColorUnit);
-        m_GL.GetIntegerv(GL::TextureBinding2D, &state.Texture2D);
-
-        m_GL.BindBuffer(GL::PixelUnpackBuffer, 0);
-        m_GL.PixelStorei(GL::UnpackAlignment, 1);
-        m_GL.PixelStorei(GL::UnpackRowLength, 0);
-        m_GL.PixelStorei(GL::UnpackSkipRows, 0);
-        m_GL.PixelStorei(GL::UnpackSkipPixels, 0);
-        m_GL.PixelStorei(GL::UnpackImageHeight, 0);
-        m_GL.PixelStorei(GL::UnpackSkipImages, 0);
-        m_GL.PixelStorei(GL::UnpackSwapBytes, 0);
-        m_GL.PixelStorei(GL::UnpackLsbFirst, 0);
+        GLint boundTexture = 0;
+        m_GL.GetIntegerv(GL::TextureBinding2D, &boundTexture);
+        SetUnpackDefaults();
 
         // A full update may come with a new size; the changed rows of a partial one fit the texture there is.
         if (m_AtlasTexture == 0 || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
@@ -310,38 +446,25 @@ namespace Carbon::Internal
                                GL::UnsignedByte, rows);
         }
 
-        m_GL.BindTexture(GL::Texture2D, static_cast<GLuint>(state.Texture2D));
-        m_GL.ActiveTexture(static_cast<GLenum>(state.ActiveTexture));
-        m_GL.BindBuffer(GL::PixelUnpackBuffer, static_cast<GLuint>(state.Buffer));
-        m_GL.PixelStorei(GL::UnpackAlignment, state.Alignment);
-        m_GL.PixelStorei(GL::UnpackRowLength, state.RowLength);
-        m_GL.PixelStorei(GL::UnpackSkipRows, state.SkipRows);
-        m_GL.PixelStorei(GL::UnpackSkipPixels, state.SkipPixels);
-        m_GL.PixelStorei(GL::UnpackImageHeight, state.ImageHeight);
-        m_GL.PixelStorei(GL::UnpackSkipImages, state.SkipImages);
-        m_GL.PixelStorei(GL::UnpackSwapBytes, state.SwapBytes);
-        m_GL.PixelStorei(GL::UnpackLsbFirst, state.LsbFirst);
+        m_GL.BindTexture(GL::Texture2D, static_cast<GLuint>(boundTexture));
+        m_GL.ActiveTexture(static_cast<GLenum>(activeTexture));
+        RestoreUnpackState(unpack);
     }
 
     void OpenGLRenderer::Render(const DrawData& drawData)
     {
         SavedState state;
         SaveState(state);
+        SavedUnpackState unpack;
+        SaveUnpackState(unpack);
+        SetUnpackDefaults();
 
-        // Buffers: vertices and indices through the vertex array, primitives through the texture buffer.
+        // Vertices and indices through the vertex array, primitives through the primitive texture.
         const GLsizeiptr vertexBytes = static_cast<GLsizeiptr>(drawData.Vertices.size_bytes());
         const GLsizeiptr indexBytes = static_cast<GLsizeiptr>(drawData.Indices.size_bytes());
-        const GLsizeiptr primitiveBytes =
-            static_cast<GLsizeiptr>(std::max(drawData.Primitives.size_bytes(), sizeof(DrawPrimitive)));
         m_GL.BindVertexArray(m_VertexArray);
         EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes);
         m_GL.BufferSubData(GL::ArrayBuffer, 0, vertexBytes, drawData.Vertices.data());
-        EnsureBuffer(m_PrimitiveBuffer, m_PrimitiveCapacity, primitiveBytes);
-        if (!drawData.Primitives.empty())
-        {
-            m_GL.BufferSubData(GL::ArrayBuffer, 0, static_cast<GLsizeiptr>(drawData.Primitives.size_bytes()),
-                               drawData.Primitives.data());
-        }
         // The element buffer is bound to the vertex array, so binding it here changes nothing of the host's.
         m_GL.BindBuffer(GL::ElementArrayBuffer, m_IndexBuffer);
         if (m_IndexCapacity < indexBytes)
@@ -352,11 +475,9 @@ namespace Carbon::Internal
         }
         m_GL.BufferData(GL::ElementArrayBuffer, m_IndexCapacity, nullptr, GL::StreamDraw);
         m_GL.BufferSubData(GL::ElementArrayBuffer, 0, indexBytes, drawData.Indices.data());
+        UploadPrimitives(drawData);
+        RestoreUnpackState(unpack);
 
-        m_GL.ActiveTexture(GL::Texture0 + PrimitiveUnit);
-        m_GL.BindTexture(GL::TextureBuffer, m_PrimitiveTexture);
-        m_GL.TexBuffer(GL::TextureBuffer, GL::Rgba32ui, m_PrimitiveBuffer);
-        m_GL.BindSampler(PrimitiveUnit, 0);
         m_GL.ActiveTexture(GL::Texture0 + ColorUnit);
         m_GL.BindSampler(ColorUnit, m_Sampler);
 
@@ -375,12 +496,16 @@ namespace Carbon::Internal
         m_GL.Disable(GL::CullFace);
         m_GL.Disable(GL::DepthTest);
         m_GL.Disable(GL::StencilTest);
-        m_GL.Disable(GL::PrimitiveRestart);
-        m_GL.Disable(GL::ColorLogicOp);
-        m_GL.PolygonMode(GL::FrontAndBack, GL::Fill);
         m_GL.ColorMask(GL::True, GL::True, GL::True, GL::True);
-        // sRGB targets convert Carbon's linear output back to sRGB; others take the values as they are.
-        SetEnabled(GL::FramebufferSrgb, m_IsLinearOutput);
+        if (!m_IsES)
+        {
+            m_GL.Disable(GL::PrimitiveRestart);
+            m_GL.Disable(GL::ColorLogicOp);
+            m_GL.PolygonMode(GL::FrontAndBack, GL::Fill);
+            // sRGB targets convert Carbon's linear output back to sRGB; others take the values as they are.
+            // OpenGL ES always encodes into sRGB framebuffers, and never into others.
+            SetEnabled(GL::FramebufferSrgb, m_IsLinearOutput);
+        }
 
         GLuint boundTexture = 0;
         for (const DrawCommand& command : drawData.Commands)

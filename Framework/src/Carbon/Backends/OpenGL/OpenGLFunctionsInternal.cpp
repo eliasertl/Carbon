@@ -2,7 +2,7 @@
 
 namespace Carbon::Internal
 {
-    bool OpenGLFunctions::Load(OpenGLGetProcAddress getProcAddress, std::string_view& missing)
+    bool OpenGLFunctions::Load(OpenGLProcLoader getProcAddress, bool isES, std::string_view& missing)
     {
         // A function pointer of one type converts to another with reinterpret_cast; the host's loader returns the
         // address as a generic function pointer.
@@ -14,6 +14,10 @@ namespace Carbon::Internal
         return false;                                                                        \
     }
         CB_OPENGL_FUNCTIONS(CB_OPENGL_LOAD)
+        if (!isES)
+        {
+            CB_OPENGL_DESKTOP_FUNCTIONS(CB_OPENGL_LOAD)
+        }
 #undef CB_OPENGL_LOAD
         return true;
     }

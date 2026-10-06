@@ -4,11 +4,10 @@
 #include <cstdint>
 #include <string_view>
 
-#include "Carbon/Backends/OpenGL/OpenGLBackend.h"
-
-// The OpenGL types, constants and functions the OpenGL backend uses. Carbon includes no GL header and links no
-// loader: the host loads OpenGL however it likes, and the backend resolves these functions through the host's
-// GetProcAddress into a table of its own. Values are from the OpenGL 3.3 core specification.
+// The OpenGL types, constants and functions the OpenGL and OpenGL ES backends use. Carbon includes no GL header and
+// links no loader: the host loads OpenGL however it likes, and the backends resolve these functions through the
+// host's GetProcAddress into a table of their own. Values are from the OpenGL 3.3 core and OpenGL ES 3.0
+// specifications, which agree on every one used by both.
 
 namespace Carbon::Internal
 {
@@ -81,6 +80,8 @@ namespace Carbon::Internal
         inline constexpr GLenum Red = 0x1903;
         inline constexpr GLenum R8 = 0x8229;
         inline constexpr GLenum Rgba32ui = 0x8D70;
+        inline constexpr GLenum RgbaInteger = 0x8D99;
+        inline constexpr GLenum Nearest = 0x2600;
 
         inline constexpr GLenum ArrayBuffer = 0x8892;
         inline constexpr GLenum ArrayBufferBinding = 0x8894;
@@ -123,7 +124,6 @@ namespace Carbon::Internal
     X(DepthMask, void, (GLboolean flag))                                                                             \
     X(Viewport, void, (GLint x, GLint y, GLsizei width, GLsizei height))                                             \
     X(Scissor, void, (GLint x, GLint y, GLsizei width, GLsizei height))                                              \
-    X(PolygonMode, void, (GLenum face, GLenum mode))                                                                 \
     X(PixelStorei, void, (GLenum pname, GLint param))                                                                \
     X(ActiveTexture, void, (GLenum texture))                                                                         \
     X(BindTexture, void, (GLenum target, GLuint texture))                                                            \
@@ -136,7 +136,6 @@ namespace Carbon::Internal
       (GLenum target, GLint level, GLint x, GLint y, GLsizei width, GLsizei height, GLenum format, GLenum type,      \
        const void* pixels))                                                                                          \
     X(TexParameteri, void, (GLenum target, GLenum pname, GLint param))                                               \
-    X(TexBuffer, void, (GLenum target, GLenum internalFormat, GLuint buffer))                                        \
     X(GenSamplers, void, (GLsizei n, GLuint * samplers))                                                             \
     X(DeleteSamplers, void, (GLsizei n, const GLuint* samplers))                                                     \
     X(BindSampler, void, (GLuint unit, GLuint sampler))                                                              \
@@ -178,14 +177,22 @@ namespace Carbon::Internal
 #define CB_OPENGL_CALL
 #endif
 
+    // Functions only desktop OpenGL has; for OpenGL ES they stay null.
+#define CB_OPENGL_DESKTOP_FUNCTIONS(X) X(PolygonMode, void, (GLenum face, GLenum mode))
+
+    /// A GetProcAddress-style loader, as the public headers of both GL backends declare it.
+    using OpenGLProcLoader = void (*(*)(const char* name))();
+
     /// The table of OpenGL functions the backend resolved through the host's GetProcAddress.
     struct OpenGLFunctions
     {
 #define CB_OPENGL_DECLARE(name, result, parameters) result(CB_OPENGL_CALL* name) parameters = nullptr;
         CB_OPENGL_FUNCTIONS(CB_OPENGL_DECLARE)
+        CB_OPENGL_DESKTOP_FUNCTIONS(CB_OPENGL_DECLARE)
 #undef CB_OPENGL_DECLARE
 
-        /// Resolves every function. Returns false and names the first missing one in `missing`.
-        bool Load(OpenGLGetProcAddress getProcAddress, std::string_view& missing);
+        /// Resolves every function the API has; for OpenGL ES (`isES`) the desktop-only ones stay null. Returns
+        /// false and names the first missing one in `missing`.
+        bool Load(OpenGLProcLoader getProcAddress, bool isES, std::string_view& missing);
     };
 } // namespace Carbon::Internal

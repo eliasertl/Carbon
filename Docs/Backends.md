@@ -9,6 +9,7 @@ library and can switch by shutting one down and initializing another.
 | WebGPU (Dawn) | `CARBON_BACKEND_WEBGPU` | `Carbon/Backends/WebGPU/WebGPUBackend.h` | An installed [Dawn](Building.md#installing-dawn) |
 | Vulkan | `CARBON_BACKEND_VULKAN` | `Carbon/Backends/Vulkan/VulkanBackend.h` | The Vulkan headers and loader, and `glslc` ([Vulkan SDK](https://vulkan.lunarg.com)) |
 | OpenGL 3.3 | `CARBON_BACKEND_OPENGL` | `Carbon/Backends/OpenGL/OpenGLBackend.h` | None: the host loads OpenGL |
+| OpenGL ES 3.0 / WebGL 2 | `CARBON_BACKEND_OPENGLES` | `Carbon/Backends/OpenGLES/OpenGLESBackend.h` | None: the host creates the context |
 
 A context has at most one backend. Without one it is *headless*: it builds the same draw data
 (`Carbon::GetDrawData()`) but cannot render, which is what the unit tests use.
@@ -20,7 +21,7 @@ built when its dependency is found; set to `ON`, a missing dependency stops the 
 CMake prints the result:
 
 ```text
--- Carbon: renderer backends: WebGPU, Vulkan, OpenGL
+-- Carbon: renderer backends: WebGPU, Vulkan, OpenGLES, OpenGL
 ```
 
 Code that links `Carbon::Carbon` sees `CARBON_HAS_BACKEND_<NAME>` defined for every backend that was built, and an
@@ -266,9 +267,48 @@ without registering it, which on OpenGL makes no difference at all. Carbon sampl
 object (linear, clamped to the edge), so the texture's own filter settings do not matter, and keeps nothing else
 for it.
 
-**Shaders.** `Backends/OpenGL/Shaders/Carbon.vert` and `Carbon.frag` are GLSL 3.30 core, ports of the WGSL,
-embedded as text and compiled by the driver in `OpenGLInit`; a compile error is logged with the driver's message.
-Primitives reach the fragment shader through an `RGBA32UI` texture buffer, two texels each.
+**Shaders.** `Backends/OpenGL/Shaders/Carbon.vert` and `Carbon.frag` are ports of the WGSL, embedded as text
+without a `#version` line: the backend adds `#version 330 core` (or, for OpenGL ES, `#version 300 es` with default
+precisions) and the driver compiles them in `OpenGLInit`; a compile error is logged with the driver's message.
+Primitives reach the fragment shader through an `RGBA32UI` 2D texture, two texels each and 1024 per row, read
+exactly with `texelFetch`.
+
+## OpenGL ES
+
+The OpenGL ES backend needs an OpenGL ES 3.0 context or later, or WebGL 2 in a browser (see
+[Building](Building.md#emscripten-web-browsers)): Android, iOS through ANGLE, embedded Linux and the web. It works
+like the OpenGL backend, with its own API and type, and draws into the framebuffer that is bound when the host
+calls `OpenGLESRender`. [Examples/OpenGLESMinimalIntegration](../Examples/OpenGLESMinimalIntegration/Main.cpp) runs
+natively with GLFW and in a browser.
+
+```cpp
+#include <Carbon/Backends/OpenGLES/OpenGLESBackend.h>
+
+// With the host's OpenGL ES context current:
+Carbon::OpenGLESInitInfo info;
+info.GetProcAddress = &eglGetProcAddress;                // or glfwGetProcAddress, SDL_GL_GetProcAddress, ...
+info.ColorFormat = Carbon::TextureFormat::RGBA8Unorm;
+if (!Carbon::OpenGLESInit(info))
+    return;
+
+// Every frame, after EndFrame:
+DrawScene();                                             // your own content, if any
+Carbon::OpenGLESRender();                                // Carbon's interface on top, into the bound framebuffer
+
+Carbon::OpenGLESShutdown();                              // with the context still current
+```
+
+It shares its renderer, its shaders and its state rules with the OpenGL backend (above); the differences are what
+OpenGL ES lacks:
+
+- The shaders are compiled as GLSL ES 3.00 with high precision. Primitives are read from an `RGBA32UI` 2D texture
+  with `texelFetch`, 1024 per row, which every OpenGL ES 3.0 device and WebGL 2 support (OpenGL ES 3.0 has no
+  texture buffers).
+- OpenGL ES has no `GL_FRAMEBUFFER_SRGB`, polygon mode, logic op or primitive-restart switch, so Carbon leaves
+  those alone. sRGB framebuffers always encode; give `ColorFormat` an sRGB format for them so that Carbon writes
+  linear values.
+- `GetProcAddress` must return every OpenGL ES 3.0 function. With Emscripten, link with
+  `-sGL_ENABLE_GET_PROC_ADDRESS` (Carbon's examples do).
 
 ## Writing your own backend
 

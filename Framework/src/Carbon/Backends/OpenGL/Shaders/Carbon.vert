@@ -1,6 +1,6 @@
-#version 330 core
-
-// Vertex stage of the OpenGL backend. A port of VertexMain in Backends/WebGPU/Shaders/Carbon.wgsl; keep them in step.
+// Vertex stage of the OpenGL and OpenGL ES backends, GLSL 3.30 core and GLSL ES 3.00. The backend puts the #version
+// line (and for ES the default precisions) in front. A port of VertexMain in Backends/WebGPU/Shaders/Carbon.wgsl;
+// keep them in step.
 
 // Display size in points, pixels per point, and 1.0 when the target expects linear color values.
 uniform vec4 Frame;

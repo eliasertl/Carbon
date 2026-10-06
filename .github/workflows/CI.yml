@@ -202,7 +202,7 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             "-DCMAKE_PREFIX_PATH=$workspace/dawn-install" \
             -DCARBON_WARNINGS_AS_ERRORS=ON \
-            -DCARBON_BACKEND_WEBGPU=ON -DCARBON_BACKEND_VULKAN=ON -DCARBON_BACKEND_OPENGL=ON
+            -DCARBON_BACKEND_WEBGPU=ON -DCARBON_BACKEND_VULKAN=ON -DCARBON_BACKEND_OPENGL=ON -DCARBON_BACKEND_OPENGLES=ON
 
       - name: Build
         run: cmake --build Build
@@ -233,6 +233,7 @@ jobs:
           Build/Examples/VulkanMinimalIntegration/VulkanMinimalIntegration --screenshot Screenshots/VulkanMinimalIntegration.png || true
           if [ "$RUNNER_OS" = "Linux" ]; then
             xvfb-run -a Build/Examples/OpenGLMinimalIntegration/OpenGLMinimalIntegration --screenshot Screenshots/OpenGLMinimalIntegration.png
+            xvfb-run -a Build/Examples/OpenGLESMinimalIntegration/OpenGLESMinimalIntegration --screenshot Screenshots/OpenGLESMinimalIntegration.png
           fi
           Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
           Build/Examples/CustomTitleBar/CustomTitleBar --screenshot Screenshots/CustomTitleBar.png

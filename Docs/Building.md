@@ -90,6 +90,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
 | `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. The main examples need it |
 | `CARBON_BACKEND_OPENGL` | `ON` | Compile the OpenGL 3.3 renderer backend into `Carbon`. It has no build dependency; its tests create their context with GLFW, which is then built for the tests as well |
+| `CARBON_BACKEND_OPENGLES` | `ON` | Compile the OpenGL ES 3.0 / WebGL 2 renderer backend into `Carbon`. It has no build dependency; it shares its renderer with the OpenGL backend |
 | `CARBON_BACKEND_VULKAN` | `ON` when the Vulkan headers, loader and `glslc` are found | Compile the Vulkan renderer backend into `Carbon`; `ON` without them, or without `glslc`, stops the configuration with an explanation. `Vulkan_GLSLC_EXECUTABLE` points CMake at a `glslc` elsewhere |
 
 The backend options are decided once, at the first configuration, and then cached: after installing a dependency

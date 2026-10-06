@@ -1,0 +1,3 @@
+add_executable(OpenGLESMinimalIntegration Main.cpp)
+target_link_libraries(OpenGLESMinimalIntegration PRIVATE CarbonExampleBase)
+carbon_configure_target(OpenGLESMinimalIntegration)

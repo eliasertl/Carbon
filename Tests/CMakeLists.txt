@@ -47,7 +47,7 @@ add_executable(CarbonTests
 target_include_directories(CarbonTests PRIVATE src)
 target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME} ${CARBON_DEPS_STB_NAME})
 # The OpenGL backend's tests create their context with GLFW.
-if(CARBON_BACKEND_OPENGL)
+if(CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)
     target_link_libraries(CarbonTests PRIVATE ${CARBON_DEPS_GLFW_NAME})
 endif()
 # Tests that compare images write the images of a failure below <build>/Tests.

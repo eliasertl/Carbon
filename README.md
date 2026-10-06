@@ -7,8 +7,8 @@
 Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux. It has
 the productivity of an immediate-mode API and the look and feel of macOS: calm, minimal, precise, with smooth
 spring-driven motion. Carbon renders into a target your application owns through a renderer backend, chosen at
-run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan or OpenGL 3.3, or a backend of your own for
-any other API. It
+run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan, OpenGL 3.3 or OpenGL ES 3.0, or a backend
+of your own for any other API. It
 never creates windows, devices or OS hooks.
 
 | Light | Dark |
@@ -84,6 +84,7 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
 | [`WebGPUMinimalIntegration`](Examples/WebGPUMinimalIntegration/Main.cpp) | The host side with WebGPU, step by step: context, backend, input forwarding, the frame loop, drawing your own content in the same pass |
 | [`VulkanMinimalIntegration`](Examples/VulkanMinimalIntegration/Main.cpp) | The same with Vulkan: a swapchain, frames in flight, Carbon and the host's triangle in one render pass |
 | [`OpenGLMinimalIntegration`](Examples/OpenGLMinimalIntegration/Main.cpp) | The same with OpenGL 3.3: Carbon resolves its functions through `glfwGetProcAddress` and restores the host's state |
+| [`OpenGLESMinimalIntegration`](Examples/OpenGLESMinimalIntegration/Main.cpp) | The same with OpenGL ES 3.0, natively or in a browser (WebGL 2) |
 | [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
 | [`CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
 | [`CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |

@@ -131,9 +131,10 @@ endif()
 # The OpenGL backend includes no GL header and links no GL library: the host loads OpenGL and hands Carbon its
 # GetProcAddress function. It is declared here because its tests need GLFW for a context.
 carbon_declare_backend(OPENGL ON "Build the OpenGL 3.3 renderer backend (no dependency)")
+carbon_declare_backend(OPENGLES ON "Build the OpenGL ES 3.0 / WebGL 2 renderer backend (no dependency)")
 
 # ---- GLFW (examples, and the OpenGL backend's tests) ------------------------------------------
-if(CARBON_BUILD_EXAMPLES OR (CARBON_BUILD_TESTS AND CARBON_BACKEND_OPENGL))
+if(CARBON_BUILD_EXAMPLES OR (CARBON_BUILD_TESTS AND (CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)))
     carbon_declare_dependency(GLFW glfw)
     if(NOT TARGET ${CARBON_DEPS_GLFW_NAME})
         if(CARBON_DEPS_GLFW_BUILD)

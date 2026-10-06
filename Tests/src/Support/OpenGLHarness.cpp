@@ -1,6 +1,6 @@
 #include "Support/BackendHarness.h"
 
-#if defined(CARBON_HAS_BACKEND_OPENGL)
+#if defined(CARBON_HAS_BACKEND_OPENGL) || defined(CARBON_HAS_BACKEND_OPENGLES)
 
 #include <cstring>
 #include <format>
@@ -8,8 +8,13 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include "Carbon/Backends/OpenGL/OpenGLBackend.h"
 #include "Carbon/Backends/OpenGL/OpenGLFunctionsInternal.h"
+#if defined(CARBON_HAS_BACKEND_OPENGL)
+#include "Carbon/Backends/OpenGL/OpenGLBackend.h"
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+#include "Carbon/Backends/OpenGLES/OpenGLESBackend.h"
+#endif
 
 namespace Carbon
 {
@@ -79,12 +84,15 @@ namespace Carbon
             }
         };
 
-        /// Drives the OpenGL backend in a hidden GLFW window with an OpenGL 3.3 core debug context, rendering into
-        /// a framebuffer object. Debug output of type error or undefined behavior, OpenGL errors and any state the
-        /// backend fails to restore are collected as messages.
+        /// Drives the OpenGL backend in a hidden GLFW window with an OpenGL 3.3 core debug context, or the OpenGL ES
+        /// backend with an OpenGL ES 3.0 context (`isES`), rendering into a framebuffer object. Debug output of type
+        /// error or undefined behavior, OpenGL errors and any state the backend fails to restore are collected as
+        /// messages.
         class OpenGLHarness : public BackendHarness
         {
         public:
+            explicit OpenGLHarness(bool isES) : m_IsES(isES) {}
+
             ~OpenGLHarness() override
             {
                 if (m_Window == nullptr)
@@ -95,7 +103,7 @@ namespace Carbon
                 glfwDestroyWindow(m_Window);
             }
 
-            std::string_view GetName() const override { return "OpenGL"; }
+            std::string_view GetName() const override { return m_IsES ? "OpenGLES" : "OpenGL"; }
 
             std::string CreateDevice() override
             {
@@ -106,19 +114,23 @@ namespace Carbon
 
                 glfwDefaultWindowHints();
                 glfwWindowHint(GLFW_VISIBLE, GLFW_FALSE);
-                glfwWindowHint(GLFW_CLIENT_API, GLFW_OPENGL_API);
+                glfwWindowHint(GLFW_CLIENT_API, m_IsES ? GLFW_OPENGL_ES_API : GLFW_OPENGL_API);
                 glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-                glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-                glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-                glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+                glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, m_IsES ? 0 : 3);
+                if (!m_IsES)
+                {
+                    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+                    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GLFW_TRUE);
+                }
                 glfwWindowHint(GLFW_CONTEXT_DEBUG, GLFW_TRUE);
                 m_Window = glfwCreateWindow(64, 64, "CarbonTests", nullptr, nullptr);
                 if (m_Window == nullptr)
-                    return "No OpenGL 3.3 core context could be created";
+                    return m_IsES ? "No OpenGL ES 3.0 context could be created"
+                                  : "No OpenGL 3.3 core context could be created";
                 glfwMakeContextCurrent(m_Window);
 
                 std::string_view missing;
-                if (!m_GL.Load(&glfwGetProcAddress, missing))
+                if (!m_GL.Load(&glfwGetProcAddress, m_IsES, missing))
                     return std::format("The OpenGL function {} is missing", missing);
                 Load(m_Extra.GenFramebuffers, "glGenFramebuffers");
                 Load(m_Extra.DeleteFramebuffers, "glDeleteFramebuffers");
@@ -154,16 +166,38 @@ namespace Carbon
             {
                 glfwMakeContextCurrent(m_Window);
                 m_IsSrgb = IsSrgbFormat(colorFormat);
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+                if (m_IsES)
+                {
+                    OpenGLESInitInfo info;
+                    info.GetProcAddress = &glfwGetProcAddress;
+                    info.ColorFormat = colorFormat;
+                    return OpenGLESInit(info);
+                }
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
                 OpenGLInitInfo info;
                 info.GetProcAddress = &glfwGetProcAddress;
                 info.ColorFormat = colorFormat;
                 return OpenGLInit(info);
+#else
+                return false;
+#endif
             }
 
             void ShutdownBackend() override
             {
                 glfwMakeContextCurrent(m_Window);
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+                if (m_IsES)
+                {
+                    OpenGLESShutdown();
+                    return;
+                }
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
                 OpenGLShutdown();
+#endif
             }
 
             RenderedImage RenderFrame(uint32_t width, uint32_t height, Color background) override
@@ -186,8 +220,8 @@ namespace Carbon
                 if (m_Extra.CheckFramebufferStatus(Framebuffer) != FramebufferComplete)
                     m_Messages.emplace_back("The framebuffer is incomplete");
 
-                // The clear color is linear for an sRGB target, as in the other APIs.
-                if (m_IsSrgb)
+                // The clear color is linear for an sRGB target, as in the other APIs. OpenGL ES always encodes.
+                if (m_IsSrgb && !m_IsES)
                     m_GL.Enable(GL::FramebufferSrgb);
                 m_GL.Viewport(0, 0, static_cast<GLsizei>(width), static_cast<GLsizei>(height));
                 m_Extra.ClearColor(background.R, background.G, background.B, background.A);
@@ -200,16 +234,18 @@ namespace Carbon
                 m_GL.Enable(GL::CullFace);
                 m_GL.Disable(GL::Blend);
                 m_GL.BlendFuncSeparate(GL::One, GL::One, GL::One, GL::One);
-                m_GL.Enable(GL::FramebufferSrgb);
+                if (!m_IsES)
+                    m_GL.Enable(GL::FramebufferSrgb);
                 m_GL.ActiveTexture(GL::Texture0 + 3);
                 m_GL.PixelStorei(GL::UnpackAlignment, 8);
                 const HostState before = ReadHostState();
-                OpenGLRender();
+                RenderWithBackend();
                 if (!(ReadHostState() == before))
                     m_Messages.emplace_back("OpenGLRender did not restore the host's OpenGL state");
                 m_GL.Disable(GL::ScissorTest);
                 m_GL.Disable(GL::CullFace);
-                m_GL.Disable(GL::FramebufferSrgb);
+                if (!m_IsES)
+                    m_GL.Disable(GL::FramebufferSrgb);
                 m_GL.ActiveTexture(GL::Texture0);
                 m_GL.PixelStorei(GL::UnpackAlignment, 4);
 
@@ -248,7 +284,18 @@ namespace Carbon
                 return m_Textures.size() - 1;
             }
 
-            TextureID GetTextureID(size_t texture) override { return OpenGLGetTextureID(m_Textures[texture]); }
+            TextureID GetTextureID(size_t texture) override
+            {
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+                if (m_IsES)
+                    return OpenGLESGetTextureID(m_Textures[texture]);
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
+                return OpenGLGetTextureID(m_Textures[texture]);
+#else
+                return TextureID();
+#endif
+            }
 
             TextureID GetRawTextureID(size_t texture) override { return MakeTextureID(m_Textures[texture]); }
 
@@ -265,6 +312,20 @@ namespace Carbon
             }
 
         private:
+            void RenderWithBackend()
+            {
+#if defined(CARBON_HAS_BACKEND_OPENGLES)
+                if (m_IsES)
+                {
+                    OpenGLESRender();
+                    return;
+                }
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
+                OpenGLRender();
+#endif
+            }
+
             HostState ReadHostState() const
             {
                 HostState state;
@@ -277,7 +338,8 @@ namespace Carbon
                 state.Blend = m_GL.IsEnabled(GL::Blend);
                 state.ScissorTest = m_GL.IsEnabled(GL::ScissorTest);
                 state.CullFace = m_GL.IsEnabled(GL::CullFace);
-                state.FramebufferSrgb = m_GL.IsEnabled(GL::FramebufferSrgb);
+                if (!m_IsES)
+                    state.FramebufferSrgb = m_GL.IsEnabled(GL::FramebufferSrgb);
                 return state;
             }
 
@@ -288,6 +350,7 @@ namespace Carbon
             }
 
         private:
+            bool m_IsES = false;
             GLFWwindow* m_Window = nullptr;
             OpenGLFunctions m_GL;
             HarnessFunctions m_Extra;
@@ -297,9 +360,9 @@ namespace Carbon
         };
     } // namespace
 
-    std::unique_ptr<BackendHarness> CreateOpenGLHarness()
+    std::unique_ptr<BackendHarness> CreateOpenGLHarness(bool isES)
     {
-        return std::make_unique<OpenGLHarness>();
+        return std::make_unique<OpenGLHarness>(isES);
     }
 } // namespace Carbon
 

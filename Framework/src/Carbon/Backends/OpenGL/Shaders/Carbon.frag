@@ -1,14 +1,16 @@
-#version 330 core
-
-// Fragment stage of the OpenGL backend. A port of FragmentMain in Backends/WebGPU/Shaders/Carbon.wgsl; the squircle
-// functions mirror Framework/src/Carbon/Draw/Squircle.cpp. Change them together.
+// Fragment stage of the OpenGL and OpenGL ES backends, GLSL 3.30 core and GLSL ES 3.00. The backend puts the
+// #version line (and for ES the default precisions) in front. A port of FragmentMain in
+// Backends/WebGPU/Shaders/Carbon.wgsl; the squircle functions mirror Framework/src/Carbon/Draw/Squircle.cpp. Change
+// them together.
 
 uniform vec4 Frame;
 // The texture of the draw command: the glyph atlas or a host texture.
 uniform sampler2D ColorTexture;
 // The frame's primitives, two RGBA32UI texels each: (half size, radius, smoothing) and (stroke width, softness,
-// kind, reserved). Floats are stored as their bits, so an integer format returns them exactly.
-uniform usamplerBuffer Primitives;
+// kind, reserved), 1024 primitives per row. Floats are stored as their bits, so an integer format returns them
+// exactly.
+uniform usampler2D Primitives;
+const int PrimitivesPerRow = 1024;
 
 const uint KindSquircle = 0u;
 const uint KindSquircleStroke = 1u;
@@ -74,8 +76,9 @@ float Coverage(float distance)
 
 void main()
 {
-    uvec4 first = texelFetch(Primitives, int(vPrimitive) * 2);
-    uvec4 second = texelFetch(Primitives, int(vPrimitive) * 2 + 1);
+    ivec2 primitiveTexel = ivec2((int(vPrimitive) % PrimitivesPerRow) * 2, int(vPrimitive) / PrimitivesPerRow);
+    uvec4 first = texelFetch(Primitives, primitiveTexel, 0);
+    uvec4 second = texelFetch(Primitives, primitiveTexel + ivec2(1, 0), 0);
     vec2 halfSize = uintBitsToFloat(first.xy);
     float radius = uintBitsToFloat(first.z);
     float smoothing = uintBitsToFloat(first.w);

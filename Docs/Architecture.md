@@ -45,7 +45,9 @@ Framework/src/Carbon/
 ├── Backends/             the only folder that uses graphics APIs, one subfolder per backend with its public
 │   ├── WebGPU/           header, implementation and shaders: WebGPUBackend.h, WebGPURendererInternal, Shaders/
 │   ├── Vulkan/           VulkanBackend.h, VulkanRendererInternal, VulkanAllocatorInternal, Shaders/ (GLSL 450)
-│   └── OpenGL/           OpenGLBackend.h, OpenGLRendererInternal, OpenGLFunctionsInternal, Shaders/ (GLSL 330)
+│   ├── OpenGL/           OpenGLBackend.h, OpenGLRendererInternal, OpenGLFunctionsInternal, Shaders/ (GLSL 330 and
+│   │                     GLSL ES 300), shared with OpenGL ES
+│   └── OpenGLES/         OpenGLESBackend.h: the OpenGL ES 3.0 / WebGL 2 API over the OpenGL renderer
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -463,12 +465,20 @@ In `Backends/OpenGL/`: `OpenGLInit`, `OpenGLShutdown`, `OpenGLRender()`, `OpenGL
 
 - `OpenGLFunctionsInternal.h` declares the GL types and constants the backend uses and a table of 55 functions,
   resolved through the host's `GetProcAddress`. No GL header, no loader library.
-- One program (GLSL 3.30), one vertex array with Carbon's vertex and element buffers, an `RGBA32UI` texture buffer
-  for the primitives (floats as bits, exact), a sampler object for every texture, and an `R8` atlas texture.
+- One program (GLSL 3.30, or GLSL ES 3.00 for the OpenGL ES backend), one vertex array with Carbon's vertex and
+  element buffers, an `RGBA32UI` 2D texture for the primitives (floats as bits, exact; 1024 per row), a sampler
+  object for every texture, and an `R8` atlas texture.
   Buffers are orphaned with `glBufferData` every frame, so the driver never waits for the GPU.
 - `OpenGLRender` saves the state it changes, draws into the bound framebuffer, and restores the state. Clip space
   and scissor rectangles are flipped for OpenGL's bottom-left origin; `GL_FRAMEBUFFER_SRGB` follows the sRGB-ness
   of the init info's format.
+
+### OpenGL ES backend
+
+`Backends/OpenGLES/OpenGLESBackend.h` (`OpenGLESInit`, `OpenGLESShutdown`, `OpenGLESRender()`,
+`OpenGLESGetTextureID`, `OpenGLESImage`) installs the OpenGL renderer in ES mode, as its own type
+(`OpenGLESRenderer`), so that each API finds only its own backend. ES mode compiles the shaders as GLSL ES 3.00,
+loads no desktop-only function and leaves the state OpenGL ES does not have alone.
 
 ## 7. Layout algorithm
 
@@ -857,6 +867,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 116 | `VulkanMinimalIntegration` and `OpenGLMinimalIntegration` have no documentation screenshots in `Docs/Images/Screenshots.txt`; CI uploads their screenshots as artifacts from Linux | The documentation images are rendered by the Windows CI job, which has no Vulkan or OpenGL 3.3 device. Their output matches the WebGPU example's, whose image the README shows |
 | 117 | `Tests/Package` installs a renderer backend of its own, written against the installed `RendererBackend.h` only, and checks that Carbon hands it the atlas and the frames | It proves the claim that a backend can be written outside the repository, with the same mechanism as the custom-component check |
 | 118 | Besides the typed `<Name>GetTextureID` functions, a host may draw a raw native handle turned into a `TextureID` with `MakeTextureID` (pointer or integer), without registering it, like Dear ImGui's `ImTextureID`. Core tracks every texture a frame draws; backends resolve an unseen ID in `Render` with default settings (Vulkan: shader-read-only layout; WebGPU: the reference is taken then) and release it after a frame unused. Registration and raw handles give the same ID. `RendererBackendVersion` stays 1 | It is the shortest path from a texture to the screen and the one ImGui users expect. Unlike ImGui, Carbon still creates and frees Vulkan descriptor sets and WebGPU bind groups itself, so the raw path adds no bookkeeping for the host. A backend written for version 1 stays correct: it skips IDs it does not know, which is what it did before |
+| 119 | OpenGL ES 3.0 (and WebGL 2) is a backend of its own (`OpenGLES*` API, `CARBON_BACKEND_OPENGLES`) that shares the OpenGL backend's renderer and shaders in an ES mode. Both now store primitives in an `RGBA32UI` 2D texture instead of a texture buffer, and the shaders get their `#version` line from the renderer | A host on Android or in a browser should not need desktop names, and one renderer keeps the two from drifting apart. OpenGL ES 3.0 and WebGL 2 have no texture buffers, and 2048 texels is the widest texture OpenGL ES 3.0 guarantees, so 1024 primitives per row |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
