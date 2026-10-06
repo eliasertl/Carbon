@@ -222,10 +222,9 @@ carbon_embed_asset(Carbon PhosphorRegular "${PROJECT_SOURCE_DIR}/ThirdParty/Phos
 carbon_embed_asset(Carbon PhosphorBold "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/bold/Phosphor-Bold.ttf")
 carbon_embed_asset(Carbon PhosphorFill "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/fill/Phosphor-Fill.ttf")
 
-target_compile_definitions(Carbon PRIVATE
-    CARBON_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
-    CARBON_VERSION_MINOR=${PROJECT_VERSION_MINOR}
-    CARBON_VERSION_PATCH=${PROJECT_VERSION_PATCH}
+# The version reaches the one file that reports it, so that a new version recompiles that file and not the library.
+set_source_files_properties(src/Carbon/Core/Version.cpp PROPERTIES COMPILE_DEFINITIONS
+    "CARBON_VERSION_MAJOR=${PROJECT_VERSION_MAJOR};CARBON_VERSION_MINOR=${PROJECT_VERSION_MINOR};CARBON_VERSION_PATCH=${PROJECT_VERSION_PATCH}"
 )
 
 if(CARBON_FORCE_ASSERTS)
