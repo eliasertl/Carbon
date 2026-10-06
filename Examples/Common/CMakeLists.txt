@@ -1,12 +1,19 @@
 # Host-side code shared by the examples.
 
-# Backend-neutral: command-line arguments, GLFW input forwarding, PNG screenshots. Every example uses it, whatever
-# renderer backend it runs on.
+# Backend-neutral: command-line arguments, GLFW input forwarding, PNG screenshots, and the host of the main examples
+# (window, frame loop, Carbon context) written against Example::GraphicsDevice. Every example uses it, whatever
+# renderer backend it runs on, and it is compiled once. The host gets its device from CreateGraphicsDevice(), which
+# the device of each backend defines (below).
 add_library(CarbonExampleBase STATIC
+    ExampleApp.cpp
+    ExampleApp.h
     ExampleArguments.cpp
     ExampleArguments.h
+    ExampleHost.cpp
+    ExampleHost.h
     GlfwInput.cpp
     GlfwInput.h
+    GraphicsDevice.h
     Screenshot.cpp
     Screenshot.h
 )
@@ -22,8 +29,9 @@ add_library(CarbonExampleStb OBJECT StbImageWrite.cpp)
 target_link_libraries(CarbonExampleStb PRIVATE ${CARBON_DEPS_STB_NAME})
 target_sources(CarbonExampleBase PRIVATE $<TARGET_OBJECTS:CarbonExampleStb>)
 
-# The host of the main examples (window, frame loop, Carbon context) over one graphics device per backend:
-# CarbonExample<Backend> holds the host and that backend's device, so an example linking it runs on that backend.
+# One graphics device per backend: CarbonExample<Backend> holds that backend's device, so an example linking it
+# runs on that backend. They are object libraries: the device defines the function the host in CarbonExampleBase
+# calls, and object files are linked whatever the order of the libraries.
 # The backends are listed in CARBON_EXAMPLE_BACKENDS, in the order the executables are made.
 set(carbon_example_backends)
 foreach(backend IN ITEMS WebGPU Vulkan OpenGL OpenGLES DX11 DX9)
@@ -42,14 +50,7 @@ foreach(backend IN ITEMS WebGPU Vulkan OpenGL OpenGLES DX11 DX9)
         set(device_source Devices/OpenGLDevice.cpp)
     endif()
     set(library CarbonExample${backend})
-    add_library(${library} STATIC
-        ExampleApp.cpp
-        ExampleApp.h
-        ExampleHost.cpp
-        ExampleHost.h
-        GraphicsDevice.h
-        ${device_source}
-    )
+    add_library(${library} OBJECT ${device_source})
     target_include_directories(${library} PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/Devices")
     target_link_libraries(${library} PUBLIC CarbonExampleBase)
     if(backend STREQUAL "WebGPU")

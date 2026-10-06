@@ -30,17 +30,28 @@ function(carbon_configure_example target backend)
     endif()
 endfunction()
 
-# carbon_add_backend_examples(<Name> SOURCES <files>... [LIBRARIES <targets>...] [NO_WEB])
-# Makes the executable <Backend><Name> for every backend in CARBON_EXAMPLE_BACKENDS.
+# carbon_add_backend_examples(<Name> SOURCES <files>... [LIBRARIES <targets>...] [DEFINITIONS <definitions>...]
+#                             [NO_WEB])
+# Makes the executable <Backend><Name> for every backend in CARBON_EXAMPLE_BACKENDS. An example's sources do not
+# depend on the backend, so they are compiled once, into the object library <Name>Objects, and linked into every
+# executable with the device of its backend.
 function(carbon_add_backend_examples name)
-    cmake_parse_arguments(PARSE_ARGV 1 arg "NO_WEB" "" "SOURCES;LIBRARIES")
+    cmake_parse_arguments(PARSE_ARGV 1 arg "NO_WEB" "" "SOURCES;LIBRARIES;DEFINITIONS")
     if(EMSCRIPTEN AND arg_NO_WEB)
         return()
     endif()
+    if(NOT CARBON_EXAMPLE_BACKENDS)
+        return()
+    endif()
+    set(objects ${name}Objects)
+    add_library(${objects} OBJECT ${arg_SOURCES})
+    target_link_libraries(${objects} PRIVATE CarbonExampleBase ${arg_LIBRARIES})
+    target_compile_definitions(${objects} PRIVATE ${arg_DEFINITIONS})
+    carbon_configure_target(${objects})
     foreach(backend IN LISTS CARBON_EXAMPLE_BACKENDS)
         set(target ${backend}${name})
-        add_executable(${target} ${arg_SOURCES})
-        target_link_libraries(${target} PRIVATE CarbonExample${backend} ${arg_LIBRARIES})
+        add_executable(${target} $<TARGET_OBJECTS:${objects}>)
+        target_link_libraries(${target} PRIVATE CarbonExample${backend} CarbonExampleBase ${arg_LIBRARIES})
         carbon_configure_example(${target} ${backend})
     endforeach()
 endfunction()
