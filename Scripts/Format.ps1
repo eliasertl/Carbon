@@ -13,10 +13,19 @@ if (-not $files) {
     exit 0
 }
 
-if ($Check) {
-    & clang-format --dry-run --Werror $files
-} else {
-    & clang-format -i $files
+# In batches: all files at once are more than a Windows command line can hold.
+$batchSize = 100
+$exitCode = 0
+for ($start = 0; $start -lt $files.Count; $start += $batchSize) {
+    $batch = $files[$start..([Math]::Min($start + $batchSize, $files.Count) - 1)]
+    if ($Check) {
+        & clang-format --dry-run --Werror $batch
+    } else {
+        & clang-format -i $batch
+    }
+    if ($LASTEXITCODE -ne 0) {
+        $exitCode = $LASTEXITCODE
+    }
 }
 
-exit $LASTEXITCODE
+exit $exitCode
