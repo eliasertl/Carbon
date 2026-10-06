@@ -423,21 +423,30 @@ namespace Carbon
         LayerData& layer = GetLayerData();
         DrawCommand& command = GetCommand(layer, texture, usesTexture);
 
+        // The storage for the quad is made in one step and then written in place: this runs for every glyph.
         const uint32_t packedColor = color.WithOpacity(m_OpacityStack.back()).ToRGBA8();
-        const DrawIndex base = static_cast<DrawIndex>(m_Vertices.size());
+        const size_t firstVertex = m_Vertices.size();
+        m_Vertices.resize(firstVertex + 4);
+        DrawVertex* vertices = m_Vertices.data() + firstVertex;
         for (int i = 0; i < 4; i++)
         {
-            DrawVertex vertex;
-            vertex.Position = positions[i];
-            vertex.Local = locals[i];
-            vertex.UV = uvs[i];
-            vertex.Color = packedColor;
-            vertex.Primitive = primitive;
-            m_Vertices.push_back(vertex);
+            vertices[i].Position = positions[i];
+            vertices[i].Local = locals[i];
+            vertices[i].UV = uvs[i];
+            vertices[i].Color = packedColor;
+            vertices[i].Primitive = primitive;
         }
 
-        const DrawIndex indices[6] = {base, base + 1, base + 2, base, base + 2, base + 3};
-        layer.Indices.insert(layer.Indices.end(), std::begin(indices), std::end(indices));
+        const DrawIndex base = static_cast<DrawIndex>(firstVertex);
+        const size_t firstIndex = layer.Indices.size();
+        layer.Indices.resize(firstIndex + 6);
+        DrawIndex* indices = layer.Indices.data() + firstIndex;
+        indices[0] = base;
+        indices[1] = base + 1;
+        indices[2] = base + 2;
+        indices[3] = base;
+        indices[4] = base + 2;
+        indices[5] = base + 3;
         command.IndexCount += 6;
     }
 
