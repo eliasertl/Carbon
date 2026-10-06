@@ -473,8 +473,8 @@ The baseline. What it shows:
   piece, so a unity build applies. Building its target alone: 245 → 36 CPU seconds, 19.3 → 13.2 s wall clock.
   (`44e2d8c`)
 - **The project version reaches only `Version.cpp`.** The `CARBON_VERSION_*` definitions were on the whole `Carbon`
-  target, so a new version recompiled the library. Rebuild after a version change: 17.6 → 6.8 s in Release, 15.6 →
-  5.0 s in Debug; what is left is CMake running again and every executable linking again. (`122a97b`)
+  target, so a new version recompiled the library. Rebuild after a version change: 17.6 → 6.2 s in Release, 15.6 →
+  3.8 s in Debug; what is left is CMake running again and every executable linking again. (`122a97b`)
 - **The examples' sources are compiled once, not once per backend.** Every example exists once per backend, and its
   backend-neutral sources were compiled for each, as were `Example::App` and `Example::Host`. They are compiled
   once now, into object libraries and `CarbonExampleBase`; a `<Backend><Example>` executable links them with the
