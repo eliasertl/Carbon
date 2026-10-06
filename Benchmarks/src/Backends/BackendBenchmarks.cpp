@@ -35,7 +35,7 @@ namespace Carbon::Benchmarks
         struct Case
         {
             std::string Backend;
-            Scene Scene = Scene::Small;
+            Scene Kind = Scene::Small;
             /// The frame is rendered again without a new frame in between, as a host does that redraws a window
             /// (after an expose event, or into a second swap chain).
             bool IsRedraw = false;
@@ -85,7 +85,7 @@ namespace Carbon::Benchmarks
                 return;
             }
 
-            const bool isLarge = benchmarkCase->Scene == Scene::Large;
+            const bool isLarge = benchmarkCase->Kind == Scene::Large;
             const float width = isLarge ? LargeSceneWidth : TestScene::Width;
             const float height = isLarge ? LargeSceneHeight : TestScene::Height;
             const size_t texture =
@@ -155,7 +155,7 @@ namespace Carbon::Benchmarks
             for (const Case& benchmarkCase : s_Cases)
             {
                 const std::string name = "Backends/" + benchmarkCase.Backend + "/" +
-                                         (benchmarkCase.Scene == Scene::Large ? "Large" : "Small") +
+                                         (benchmarkCase.Kind == Scene::Large ? "Large" : "Small") +
                                          (benchmarkCase.IsRedraw ? "/Redraw" : "/NewFrame");
                 benchmark::RegisterBenchmark(name, BackendRender, &benchmarkCase)
                     ->Iterations(Iterations)
