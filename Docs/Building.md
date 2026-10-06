@@ -250,8 +250,11 @@ platform.
 - **Dawn** is built once per platform at the pinned commit and stored in the Actions cache, keyed by the
   commit. Changing `DAWN_COMMIT` in the workflow rebuilds it.
 - **Windows MSVC (Release)**, **Linux GCC (Debug)** and **Linux Clang (Release)** configure with warnings as
-  errors, build everything, run the tests, render screenshots of the examples (uploaded as artifacts), install
-  Carbon and build `Tests/Package` against the installed package.
+  errors and all three renderer backends required, build everything, run the tests, render screenshots of the
+  examples (uploaded as artifacts), install Carbon and build `Tests/Package` against the installed package.
+- The Linux jobs run the backend tests on software devices: WebGPU and Vulkan on Mesa's lavapipe (with the
+  Vulkan validation layers), OpenGL on llvmpipe under Xvfb. The Windows job installs the Vulkan SDK and runtime to
+  build the Vulkan backend; it has no Vulkan or OpenGL 3.3 driver, so those tests skip there.
 - After a push to `main`, the Windows job also renders the documentation screenshots and commits the ones that
   changed (see [Documentation screenshots](#documentation-screenshots)).
 

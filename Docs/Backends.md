@@ -7,8 +7,8 @@ library and can switch by shutting one down and initializing another.
 | Backend | CMake option | Header | Dependency |
 | --- | --- | --- | --- |
 | WebGPU (Dawn) | `CARBON_BACKEND_WEBGPU` | `Carbon/Backends/WebGPU/WebGPUBackend.h` | An installed [Dawn](Building.md#installing-dawn) |
-| OpenGL 3.3 | `CARBON_BACKEND_OPENGL` | `Carbon/Backends/OpenGL/OpenGLBackend.h` | None: the host loads OpenGL |
 | Vulkan | `CARBON_BACKEND_VULKAN` | `Carbon/Backends/Vulkan/VulkanBackend.h` | The Vulkan headers and loader, and `glslc` ([Vulkan SDK](https://vulkan.lunarg.com)) |
+| OpenGL 3.3 | `CARBON_BACKEND_OPENGL` | `Carbon/Backends/OpenGL/OpenGLBackend.h` | None: the host loads OpenGL |
 
 A context has at most one backend. Without one it is *headless*: it builds the same draw data
 (`Carbon::GetDrawData()`) but cannot render, which is what the unit tests use.
