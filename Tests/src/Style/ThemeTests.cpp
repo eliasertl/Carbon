@@ -266,4 +266,91 @@ namespace Carbon
                 EXPECT_EQ(GetState<First>(b)->Value, 3);
             });
     }
+
+    TEST_F(StateTests, ManyStatesKeepTheirValuesWhileOthersComeAndGo)
+    {
+        // Thousands of states, so that the table of the storage grows several times; then every other transient
+        // one is dropped, which moves entries, and new ones take the freed memory.
+        constexpr int Count = 5000;
+        const auto getID = [](int index) { return HashID(index, HashID("many")); };
+        Frame(
+            [&]
+            {
+                for (int i = 0; i < Count; i++)
+                {
+                    *GetState<int>(getID(i), i % 3 == 0 ? StateLifetime::Persistent : StateLifetime::Transient) = i + 1;
+                }
+            });
+        Frame(
+            [&]
+            {
+                for (int i = 0; i < Count; i += 2)
+                    EXPECT_EQ(*GetState<int>(getID(i)), i + 1) << i;
+            });
+        Frame(
+            [&]
+            {
+                for (int i = 0; i < Count; i++)
+                {
+                    bool created = false;
+                    const int value = *GetState<int>(getID(i), StateLifetime::Transient, &created);
+                    // Odd states were not asked for in the last frame: the transient ones started over, the
+                    // persistent ones (every third) are as they were.
+                    const bool wasDropped = i % 2 == 1 && i % 3 != 0;
+                    EXPECT_EQ(created, wasDropped) << i;
+                    EXPECT_EQ(value, wasDropped ? 0 : i + 1) << i;
+                }
+            });
+    }
+
+    TEST_F(StateTests, PointersStayValidWhileStatesAreAdded)
+    {
+        const ID first = HashID("first");
+        Frame(
+            [&]
+            {
+                int* value = GetState<int>(first);
+                *value = 42;
+                // Enough new states to grow the storage's table more than once.
+                for (int i = 0; i < 4000; i++)
+                    *GetState<int>(HashID(i, first)) = i;
+                EXPECT_EQ(*value, 42);
+                EXPECT_EQ(GetState<int>(first), value);
+            });
+    }
+
+    TEST_F(StateTests, LifetimeFollowsTheLastRequest)
+    {
+        const ID id = HashID("changing");
+        Frame([&] { *GetState<int>(id, StateLifetime::Transient) = 7; });
+        Frame([&] { GetState<int>(id, StateLifetime::Persistent); });
+        RunFrame();
+        RunFrame();
+        Frame([&] { EXPECT_EQ(*GetState<int>(id, StateLifetime::Transient), 7); });
+        RunFrame();
+        bool created = false;
+        Frame([&] { GetState<int>(id, StateLifetime::Transient, &created); });
+        EXPECT_TRUE(created);
+    }
+
+    TEST_F(StateTests, LargeStatesWork)
+    {
+        // Larger than what the storage keeps in its pooled chunks.
+        struct Large
+        {
+            char Bytes[6000];
+        };
+        const ID id = HashID("large");
+        Frame(
+            [&]
+            {
+                Large* large = GetState<Large>(id);
+                EXPECT_EQ(large->Bytes[0], 0);
+                EXPECT_EQ(large->Bytes[5999], 0);
+                large->Bytes[5999] = 9;
+            });
+        Frame([&] { EXPECT_EQ(GetState<Large>(id)->Bytes[5999], 9); });
+        RunFrame();
+        Frame([&] { EXPECT_EQ(GetState<Large>(id)->Bytes[5999], 0); });
+    }
 } // namespace Carbon
