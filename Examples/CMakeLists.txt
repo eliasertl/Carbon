@@ -12,6 +12,9 @@ endif()
 if(CARBON_BACKEND_VULKAN)
     add_subdirectory(VulkanMinimalIntegration)
 endif()
+if(CARBON_BACKEND_OPENGL)
+    add_subdirectory(OpenGLMinimalIntegration)
+endif()
 
 # The main examples run on WebGPU.
 if(NOT CARBON_BACKEND_WEBGPU)

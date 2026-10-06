@@ -12,7 +12,7 @@
   Ubuntu, install `libvulkan-dev glslc`. The validation layers (`vulkan-validationlayers`, part of the SDK) make
   the Vulkan tests check every call
 - The git submodules: `git submodule update --init --recursive`
-- Linux, examples only: the X11 and Wayland development packages GLFW needs (on Ubuntu:
+- Linux, for the examples and the OpenGL backend's tests: the X11 and Wayland development packages GLFW needs (on Ubuntu:
   `libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols`)
 
 ## Quick start
@@ -89,6 +89,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
 | `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. The main examples need it |
+| `CARBON_BACKEND_OPENGL` | `ON` | Compile the OpenGL 3.3 renderer backend into `Carbon`. It has no build dependency; its tests create their context with GLFW, which is then built for the tests as well |
 | `CARBON_BACKEND_VULKAN` | `ON` when the Vulkan headers, loader and `glslc` are found | Compile the Vulkan renderer backend into `Carbon`; `ON` without them, or without `glslc`, stops the configuration with an explanation. `Vulkan_GLSLC_EXECUTABLE` points CMake at a `glslc` elsewhere |
 
 The backend options are decided once, at the first configuration, and then cached: after installing a dependency
@@ -110,7 +111,7 @@ Every dependency `<NAME>` in `FREETYPE`, `HARFBUZZ`, `GOOGLETEST`, `GLFW`, `STB`
 | `FREETYPE` | `freetype` | `Carbon` | `Freetype` |
 | `HARFBUZZ` | `harfbuzz` | `Carbon` | `harfbuzz` |
 | `GOOGLETEST` | `GTest::gtest_main` | tests | `GTest` |
-| `GLFW` | `glfw` | examples | `glfw3` |
+| `GLFW` | `glfw` | examples, and the OpenGL backend's tests | `glfw3` |
 | `STB` | `stb` | examples and tests | header search for `stb_image_write.h` |
 | `DAWN` | `dawn::webgpu_dawn` | `Carbon` (WebGPU backend) | `Dawn` (never built; only searched while `CARBON_BACKEND_WEBGPU` is not `OFF`) |
 

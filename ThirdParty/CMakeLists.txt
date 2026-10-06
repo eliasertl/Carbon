@@ -36,6 +36,13 @@ function(carbon_require_submodule DIRECTORY MARKER)
     endif()
 endfunction()
 
+# Declares CARBON_BACKEND_<NAME> from what was found: FOUND is the result of looking for the dependency.
+function(carbon_declare_backend NAME FOUND DESCRIPTION)
+    if(NOT DEFINED CARBON_BACKEND_${NAME})
+        set(CARBON_BACKEND_${NAME} ${FOUND} CACHE BOOL "${DESCRIPTION}")
+    endif()
+endfunction()
+
 # Fails when the target a dependency should resolve to does not exist after build/find.
 function(carbon_require_target NAME)
     if(NOT TARGET ${CARBON_DEPS_${NAME}_NAME})
@@ -120,8 +127,13 @@ if(CARBON_BUILD_TESTS)
     carbon_require_target(GOOGLETEST)
 endif()
 
-# ---- GLFW (examples) --------------------------------------------------------------------------
-if(CARBON_BUILD_EXAMPLES)
+# ---- OpenGL: nothing to find --------------------------------------------------------------------
+# The OpenGL backend includes no GL header and links no GL library: the host loads OpenGL and hands Carbon its
+# GetProcAddress function. It is declared here because its tests need GLFW for a context.
+carbon_declare_backend(OPENGL ON "Build the OpenGL 3.3 renderer backend (no dependency)")
+
+# ---- GLFW (examples, and the OpenGL backend's tests) ------------------------------------------
+if(CARBON_BUILD_EXAMPLES OR (CARBON_BUILD_TESTS AND CARBON_BACKEND_OPENGL))
     carbon_declare_dependency(GLFW glfw)
     if(NOT TARGET ${CARBON_DEPS_GLFW_NAME})
         if(CARBON_DEPS_GLFW_BUILD)
@@ -161,12 +173,6 @@ endif()
 # enabled when its dependency is found (and the result is cached; pass -DCARBON_BACKEND_<NAME>=ON to
 # insist later). Set to ON, a missing dependency stops the configuration with an explanation.
 
-# Declares CARBON_BACKEND_<NAME> from what was found: FOUND is the result of looking for the dependency.
-function(carbon_declare_backend NAME FOUND DESCRIPTION)
-    if(NOT DEFINED CARBON_BACKEND_${NAME})
-        set(CARBON_BACKEND_${NAME} ${FOUND} CACHE BOOL "${DESCRIPTION}")
-    endif()
-endfunction()
 
 # ---- WebGPU: Dawn (found, never built) --------------------------------------------------------
 set(CARBON_DEPS_DAWN_NAME "dawn::webgpu_dawn" CACHE STRING "CMake target Carbon links for Dawn (WebGPU)")

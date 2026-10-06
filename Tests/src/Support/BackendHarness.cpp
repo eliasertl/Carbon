@@ -8,6 +8,9 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
         names.emplace_back("WebGPU");
 #endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
+        names.emplace_back("OpenGL");
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         // Both of the Vulkan backend's pipeline modes.
         names.emplace_back("Vulkan");
@@ -21,6 +24,10 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
         if (name == "WebGPU")
             return CreateWebGPUHarness();
+#endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
+        if (name == "OpenGL")
+            return CreateOpenGLHarness();
 #endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         if (name == "Vulkan" || name == "VulkanRenderPass")

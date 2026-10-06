@@ -147,6 +147,18 @@ if(CARBON_BACKEND_WEBGPU)
         src/Carbon/Backends/WebGPU/WebGPURendererInternal.cpp
     )
 endif()
+if(CARBON_BACKEND_OPENGL)
+    list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/OpenGL/OpenGLBackend.h)
+    list(APPEND CARBON_INTERNAL_HEADERS
+        src/Carbon/Backends/OpenGL/OpenGLFunctionsInternal.h
+        src/Carbon/Backends/OpenGL/OpenGLRendererInternal.h
+    )
+    list(APPEND CARBON_SOURCES
+        src/Carbon/Backends/OpenGL/OpenGLBackend.cpp
+        src/Carbon/Backends/OpenGL/OpenGLFunctionsInternal.cpp
+        src/Carbon/Backends/OpenGL/OpenGLRendererInternal.cpp
+    )
+endif()
 if(CARBON_BACKEND_VULKAN)
     list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/Vulkan/VulkanBackend.h)
     list(APPEND CARBON_INTERNAL_HEADERS
@@ -219,6 +231,13 @@ if(CARBON_BACKEND_VULKAN)
         "${CARBON_GENERATED_DIR}/Carbon/Backends/Vulkan/Carbon.vert.inc")
     carbon_compile_spirv(Carbon "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/Vulkan/Shaders/Carbon.frag"
         "${CARBON_GENERATED_DIR}/Carbon/Backends/Vulkan/Carbon.frag.inc")
+endif()
+if(CARBON_BACKEND_OPENGL)
+    list(APPEND CARBON_ENABLED_BACKENDS OpenGL)
+    target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_OPENGL=1)
+    # GLSL 3.30 source, embedded as text and compiled by the host's driver.
+    carbon_embed_asset(Carbon OpenGLVertexShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/OpenGL/Shaders/Carbon.vert")
+    carbon_embed_asset(Carbon OpenGLFragmentShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/OpenGL/Shaders/Carbon.frag")
 endif()
 if(CARBON_ENABLED_BACKENDS)
     list(JOIN CARBON_ENABLED_BACKENDS ", " carbon_backend_text)

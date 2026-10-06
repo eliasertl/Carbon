@@ -70,6 +70,9 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
     std::unique_ptr<BackendHarness> CreateWebGPUHarness();
 #endif
+#if defined(CARBON_HAS_BACKEND_OPENGL)
+    std::unique_ptr<BackendHarness> CreateOpenGLHarness();
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
     /// The Vulkan backend with a VkRenderPass ("VulkanRenderPass") or with dynamic rendering ("Vulkan").
     std::unique_ptr<BackendHarness> CreateVulkanHarness(bool useRenderPass);

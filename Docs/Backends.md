@@ -7,6 +7,7 @@ library and can switch by shutting one down and initializing another.
 | Backend | CMake option | Header | Dependency |
 | --- | --- | --- | --- |
 | WebGPU (Dawn) | `CARBON_BACKEND_WEBGPU` | `Carbon/Backends/WebGPU/WebGPUBackend.h` | An installed [Dawn](Building.md#installing-dawn) |
+| OpenGL 3.3 | `CARBON_BACKEND_OPENGL` | `Carbon/Backends/OpenGL/OpenGLBackend.h` | None: the host loads OpenGL |
 | Vulkan | `CARBON_BACKEND_VULKAN` | `Carbon/Backends/Vulkan/VulkanBackend.h` | The Vulkan headers and loader, and `glslc` ([Vulkan SDK](https://vulkan.lunarg.com)) |
 
 A context has at most one backend. Without one it is *headless*: it builds the same draw data
@@ -19,7 +20,7 @@ built when its dependency is found; set to `ON`, a missing dependency stops the 
 CMake prints the result:
 
 ```text
--- Carbon: renderer backends: WebGPU, Vulkan
+-- Carbon: renderer backends: WebGPU, Vulkan, OpenGL
 ```
 
 Code that links `Carbon::Carbon` sees `CARBON_HAS_BACKEND_<NAME>` defined for every backend that was built, and an
@@ -182,6 +183,69 @@ no VMA), and uses `PipelineCache` and `Allocator` when the host gives them. It l
 (`Backends/Vulkan/Shaders/Carbon.vert` and `Carbon.frag`, GLSL 450) to SPIR-V at build time. The
 [Vulkan SDK](https://vulkan.lunarg.com) has all of it; on Ubuntu, `libvulkan-dev` and `glslc`. See
 [Building](Building.md).
+
+## OpenGL
+
+The OpenGL backend needs an OpenGL 3.3 core profile context (or later, or a compatibility profile of 3.3) and
+draws into the framebuffer that is bound when the host calls `OpenGLRender`.
+[Examples/OpenGLMinimalIntegration](../Examples/OpenGLMinimalIntegration/Main.cpp) is a complete host with GLFW
+and a host triangle in the same framebuffer.
+
+```cpp
+#include <Carbon/Backends/OpenGL/OpenGLBackend.h>
+
+// With the host's OpenGL context current:
+Carbon::OpenGLInitInfo info;
+info.GetProcAddress = &glfwGetProcAddress;               // or SDL_GL_GetProcAddress, eglGetProcAddress, ...
+info.ColorFormat = Carbon::TextureFormat::RGBA8Unorm;    // RGBA8UnormSrgb for an sRGB framebuffer
+if (!Carbon::OpenGLInit(info))
+    return;
+
+// Every frame, after EndFrame:
+glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);          // the target, display size × content scale pixels
+DrawScene();                                             // your own content, if any
+Carbon::OpenGLRender();                                  // Carbon's interface on top
+// your state is as you left it
+
+// A texture of yours (a GLuint):
+Carbon::OpenGLImage(sceneTexture, Carbon::Vec2(320, 180));
+
+Carbon::OpenGLShutdown();                                // with the context still current
+```
+
+**The loader.** Carbon includes no OpenGL header and links no loader. `OpenGLInit` resolves the 55 functions it
+uses through the host's `GetProcAddress` into a private table, and fails with the name of the first one that is
+missing. The function must return OpenGL 1.0 and 1.1 functions too, which `glfwGetProcAddress`,
+`SDL_GL_GetProcAddress` and `eglGetProcAddress` (EGL 1.5) do; plain `wglGetProcAddress` does not. Carbon is a
+static library: sharing a loader's global function pointers with the host (glad, GLEW) works only if both link the
+very same loader, so Carbon keeps its own table instead.
+
+**The context.** The context Carbon was initialized with must be current in every `OpenGL*` call and when the
+backend is shut down (`OpenGLShutdown`, `RemoveRendererBackend`, `DestroyContext`), and those calls must come
+from the thread it is current on. Carbon calls OpenGL nowhere else: not from `NewFrame` or `EndFrame`.
+
+**State.** `OpenGLRender` saves every piece of state it changes and restores it before it returns, so the host's
+rendering before and after is not disturbed: the program, vertex array, array buffer, active texture, the
+texture (2D and buffer) and sampler bindings of units 0 and 1, blend enable, equations and functions, scissor test
+and box, culling, depth test and mask, stencil test, color mask, viewport, polygon mode, primitive restart, logic
+op and `GL_FRAMEBUFFER_SRGB`, plus the pixel-unpack state while the glyph atlas is uploaded. The element buffer
+binding belongs to Carbon's own vertex array. Carbon's tests check the restoration after every frame.
+
+**Coordinates.** OpenGL's window coordinates start at the bottom left; Carbon flips its clip space and scissor
+rectangles, so the output matches the other backends. Textures are sampled with row 0 at the top of the image, as
+uploaded from memory; a texture the host rendered into through a framebuffer has row 0 at the bottom, so show it
+with `ImageOptions::UV = Rect(0, 1, 1, -1)`.
+
+**sRGB.** With an sRGB `ColorFormat`, Carbon writes linear values and enables `GL_FRAMEBUFFER_SRGB` while it
+draws, so the GPU encodes them; otherwise it disables `GL_FRAMEBUFFER_SRGB`, so its sRGB colors are written as
+they are, which matches the other backends on a `…Unorm` target. Either way the host's setting is restored.
+
+**Textures.** `OpenGLGetTextureID(texture)` takes a texture name. Carbon samples it with its own sampler object
+(linear, clamped to the edge), so the texture's own filter settings do not matter, and keeps nothing else for it.
+
+**Shaders.** `Backends/OpenGL/Shaders/Carbon.vert` and `Carbon.frag` are GLSL 3.30 core, ports of the WGSL,
+embedded as text and compiled by the driver in `OpenGLInit`; a compile error is logged with the driver's message.
+Primitives reach the fragment shader through an `RGBA32UI` texture buffer, two texels each.
 
 ## Writing your own backend
 

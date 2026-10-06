@@ -44,7 +44,8 @@ Framework/src/Carbon/
 │                         core to the installed backend, glyph-atlas and host-texture bookkeeping, TextureFormat
 ├── Backends/             the only folder that uses graphics APIs, one subfolder per backend with its public
 │   ├── WebGPU/           header, implementation and shaders: WebGPUBackend.h, WebGPURendererInternal, Shaders/
-│   └── Vulkan/           VulkanBackend.h, VulkanRendererInternal, VulkanAllocatorInternal, Shaders/ (GLSL 450)
+│   ├── Vulkan/           VulkanBackend.h, VulkanRendererInternal, VulkanAllocatorInternal, Shaders/ (GLSL 450)
+│   └── OpenGL/           OpenGLBackend.h, OpenGLRendererInternal, OpenGLFunctionsInternal, Shaders/ (GLSL 330)
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -454,6 +455,20 @@ In `Backends/Vulkan/`: `VulkanInit`, `VulkanShutdown`, `VulkanRender(commandBuff
   buffers and images never share a block (no `bufferImageGranularity` concerns); large requests get a block of
   their own.
 
+### OpenGL backend
+
+In `Backends/OpenGL/`: `OpenGLInit`, `OpenGLShutdown`, `OpenGLRender()`, `OpenGLGetTextureID(texture)` and
+`OpenGLImage(...)`, for OpenGL 3.3 core.
+
+- `OpenGLFunctionsInternal.h` declares the GL types and constants the backend uses and a table of 55 functions,
+  resolved through the host's `GetProcAddress`. No GL header, no loader library.
+- One program (GLSL 3.30), one vertex array with Carbon's vertex and element buffers, an `RGBA32UI` texture buffer
+  for the primitives (floats as bits, exact), a sampler object for every texture, and an `R8` atlas texture.
+  Buffers are orphaned with `glBufferData` every frame, so the driver never waits for the GPU.
+- `OpenGLRender` saves the state it changes, draws into the bound framebuffer, and restores the state. Clip space
+  and scissor rectangles are flipped for OpenGL's bottom-left origin; `GL_FRAMEBUFFER_SRGB` follows the sRGB-ness
+  of the init info's format.
+
 ## 7. Layout algorithm
 
 Layout is single-pass with one frame of latency for anything that needs a size it cannot know yet.
@@ -834,6 +849,11 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 109 | Vulkan glyph-atlas uploads are submitted to the host's queue, with their own fences, from inside `VulkanRender`; the host must not use that queue from another thread meanwhile | Copies cannot be recorded inside the host's render pass, and the backend's API has no earlier call. Queue order puts the upload before the frame, and barriers in the upload order it against earlier frames still sampling the atlas |
 | 110 | Vulkan rotates its per-frame buffers once per frame (signalled by `EndFrame`) and destroys replaced objects `FramesInFlight` frames later, assuming the usual contract that the host waited for frame N − `FramesInFlight` before recording frame N; `VulkanReleaseTexture` was added for views destroyed sooner | Counting `Render` calls would break hosts that draw a frame twice. The contract is the one every Vulkan renderer uses. Vulkan may reuse a destroyed view's handle at once, which a cache keyed by handles cannot tell apart otherwise |
 | 111 | The renderer tests run the Vulkan backend twice, with a render pass (`VulkanRenderPass`) and with dynamic rendering (`Vulkan`), with the Khronos validation layer when installed. The Windows CI job installs the Vulkan SDK and runtime but has no Vulkan driver, so the Vulkan tests skip there; Linux runs them on lavapipe | Both pipeline modes are public API. A test executable that cannot load `vulkan-1.dll` would not start at all |
+| 112 | The OpenGL backend resolves its functions through the host's `GetProcAddress` into a private table and ships no loader; it declares the GL types and constants it needs itself | Carbon is a static library: sharing a loader's global function pointers works only if host and Carbon link the very same loader, and a GL header in a backend header would clash with the host's loader |
+| 113 | The OpenGL backend stores primitives in an `RGBA32UI` texture buffer and reads floats with `uintBitsToFloat` | A float texture would carry the integer `Kind` as a denormal, which drivers may flush to zero; integer texels return every bit |
+| 114 | `OpenGLRender` saves and restores every piece of state it changes, and draws into whatever framebuffer is bound; `OpenGLInitInfo` has only the `GetProcAddress` function and a color format, whose sRGB-ness decides `GL_FRAMEBUFFER_SRGB` | OpenGL hosts share one global state machine with Carbon; a library that leaves state behind breaks the host in ways that are hard to trace. The format of the default framebuffer cannot be queried reliably across platforms |
+| 115 | The OpenGL tests create their context in a hidden GLFW window and render into a framebuffer object; the harness changes host state before every `OpenGLRender` and fails when it is not restored. CI runs them on Linux under Xvfb with llvmpipe | One harness covers rendering, debug output and state restoration. GitHub's Windows runners have no OpenGL 3.3 driver, so the tests skip there |
+| 116 | `VulkanMinimalIntegration` and `OpenGLMinimalIntegration` have no documentation screenshots in `Docs/Images/Screenshots.txt`; CI uploads their screenshots as artifacts from Linux | The documentation images are rendered by the Windows CI job, which has no Vulkan or OpenGL 3.3 device. Their output matches the WebGPU example's, whose image the README shows |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

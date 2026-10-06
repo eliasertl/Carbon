@@ -151,7 +151,8 @@ jobs:
       # The window-system packages are what GLFW needs for the examples. The Mesa Vulkan drivers provide a
       # software adapter (lavapipe), so that the renderer tests and the screenshots below run without a GPU, for
       # Dawn and for Carbon's Vulkan backend. glslc compiles the Vulkan backend's shaders; the validation layers
-      # check its calls in the tests.
+      # check its calls in the tests. Xvfb gives the OpenGL backend's tests and example a display, and Mesa's
+      # llvmpipe an OpenGL 3.3 context on it.
       - name: Install build tools (Linux)
         if: runner.os == 'Linux'
         run: |
@@ -159,7 +160,8 @@ jobs:
           sudo apt-get install -y ninja-build pkg-config \
             libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols \
-            mesa-vulkan-drivers libvulkan1 libvulkan-dev glslc vulkan-validationlayers
+            mesa-vulkan-drivers libvulkan1 libvulkan-dev glslc vulkan-validationlayers \
+            xvfb libgl1-mesa-dri
           echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
           echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
 
@@ -200,13 +202,21 @@ jobs:
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             "-DCMAKE_PREFIX_PATH=$workspace/dawn-install" \
             -DCARBON_WARNINGS_AS_ERRORS=ON \
-            -DCARBON_BACKEND_WEBGPU=ON -DCARBON_BACKEND_VULKAN=ON
+            -DCARBON_BACKEND_WEBGPU=ON -DCARBON_BACKEND_VULKAN=ON -DCARBON_BACKEND_OPENGL=ON
 
       - name: Build
         run: cmake --build Build
 
+      # On Linux under a virtual display, for OpenGL. Where the runner cannot create an OpenGL 3.3 or Vulkan device
+      # (Windows), those tests skip.
       - name: Test
-        run: ctest --test-dir Build --output-on-failure
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a ctest --test-dir Build --output-on-failure
+          else
+            ctest --test-dir Build --output-on-failure
+          fi
 
       # A smoke test of the examples, and something to look at: the screenshots are uploaded as an artifact.
       # It needs a WebGPU adapter (WARP on Windows, lavapipe on Linux), so a failure here is reported but does
@@ -221,6 +231,9 @@ jobs:
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Menu.png --page menus --show menu --scale 2
           Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --screenshot Screenshots/WebGPUMinimalIntegration.png
           Build/Examples/VulkanMinimalIntegration/VulkanMinimalIntegration --screenshot Screenshots/VulkanMinimalIntegration.png || true
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            xvfb-run -a Build/Examples/OpenGLMinimalIntegration/OpenGLMinimalIntegration --screenshot Screenshots/OpenGLMinimalIntegration.png
+          fi
           Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
           Build/Examples/CustomTitleBar/CustomTitleBar --screenshot Screenshots/CustomTitleBar.png
 

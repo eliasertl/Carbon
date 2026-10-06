@@ -1,0 +1,3 @@
+add_executable(OpenGLMinimalIntegration Main.cpp)
+target_link_libraries(OpenGLMinimalIntegration PRIVATE CarbonExampleBase)
+carbon_configure_target(OpenGLMinimalIntegration)

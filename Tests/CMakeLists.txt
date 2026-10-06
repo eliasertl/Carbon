@@ -32,6 +32,7 @@ add_executable(CarbonTests
     src/Support/ContextTest.h
     src/Support/ImageCompare.cpp
     src/Support/ImageCompare.h
+    src/Support/OpenGLHarness.cpp
     src/Support/TestScene.cpp
     src/Support/TestScene.h
     src/Support/VulkanHarness.cpp
@@ -45,6 +46,10 @@ add_executable(CarbonTests
 
 target_include_directories(CarbonTests PRIVATE src)
 target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME} ${CARBON_DEPS_STB_NAME})
+# The OpenGL backend's tests create their context with GLFW.
+if(CARBON_BACKEND_OPENGL)
+    target_link_libraries(CarbonTests PRIVATE ${CARBON_DEPS_GLFW_NAME})
+endif()
 # Tests that compare images write the images of a failure below <build>/Tests.
 target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_OUTPUT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}\"")
 
