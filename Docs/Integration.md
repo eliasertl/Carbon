@@ -1,11 +1,11 @@
 # Integrating Carbon into a host application
 
 Carbon never creates windows, devices or OS hooks. Your application (the *host*) owns all of that, forwards input
-to Carbon and gives it a place to draw. This guide covers the host's side: creating a context, forwarding input,
-driving frames and handling DPI.
+to Carbon and gives it a place to draw. This guide covers the host's side: creating a context, connecting a
+renderer backend, forwarding input, driving frames and handling DPI.
 
-[Examples/MinimalIntegration](../Examples/MinimalIntegration/Main.cpp) is the complete, runnable version of this
-guide.
+[Examples/WebGPUMinimalIntegration](../Examples/WebGPUMinimalIntegration/Main.cpp) is the complete, runnable version
+of this guide. [Renderer backends](Backends.md) covers each graphics API in detail.
 
 For what goes between `NewFrame` and `EndFrame`, see [Layout](Layout.md) and the
 [component pages](Components/README.md).
@@ -16,8 +16,6 @@ For what goes between `NewFrame` and `EndFrame`, see [Layout](Layout.md) and the
 #include <Carbon/Carbon.h>
 
 Carbon::ContextDescription description;
-description.Device = device;                       // wgpu::Device; leave null for a headless context
-description.ColorFormat = surfaceFormat;           // format of the pass Carbon will render into
 description.Callbacks.Log = [](Carbon::LogLevel level, std::string_view source, std::string_view message) {
     std::println("[{}] {}: {}", Carbon::ToString(level), source, message);
 };
@@ -34,8 +32,8 @@ Carbon::DestroyContext(context);
   `Carbon::SetCurrentContext` to switch between several.
 - Every callback is optional. Without `Log`, messages are dropped; Carbon never prints on its own. Without the
   clipboard callbacks, copy and paste do nothing.
-- If the pass you render into has a depth-stencil attachment or is multisampled, set `DepthStencilFormat` and
-  `SampleCount` so Carbon's pipeline matches it.
+- A new context is *headless*: it builds draw data (`Carbon::GetDrawData()`) but cannot render. Connect it to your
+  graphics API with a renderer backend, below.
 
 ## The frame loop
 
@@ -55,55 +53,49 @@ Set the display size, content scale and delta time **before** `NewFrame`, every 
 queued input; `EndFrame` produces the frame's draw data. Calling them out of order, or leaving a `PushID`,
 `PushClipRect` or similar unbalanced, is reported through the log and the assert callback.
 
-## Rendering into your render pass
+## Connecting a renderer backend
 
-After `EndFrame`, Carbon records the frame into a render pass that you begin and end:
+A renderer backend draws Carbon's frames with one graphics API into a target you own. Initialize one after
+creating the context, with your API's objects:
+
+```cpp
+#include <Carbon/Backends/WebGPU/WebGPUBackend.h>
+
+Carbon::WebGPUInitInfo info;
+info.Device = device;                                    // wgpu::Device
+info.ColorFormat = Carbon::TextureFormat::BGRA8Unorm;    // the format of the pass Carbon will render into
+Carbon::WebGPUInit(info);
+```
+
+After `EndFrame`, the backend records the frame into your render pass, after your own content:
 
 ```cpp
 wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);   // your pass
 DrawScene(pass);                                                           // your own content, if any
-Carbon::Render(pass);                                                      // Carbon's interface on top
+Carbon::WebGPURender(pass);                                                // Carbon's interface on top
 pass.End();
 ```
 
-What Carbon expects from the pass:
-
-- **Format.** The color attachment has the `ColorFormat` given at context creation. If the pass has a
-  depth-stencil attachment or is multisampled, `DepthStencilFormat` and `SampleCount` must say so. Carbon neither
-  tests nor writes depth.
-- **Size.** The attachment is `display size × content scale` pixels. Carbon sets the viewport to that size.
-- **State.** `Render` sets its own pipeline, bind groups, vertex and index buffers, viewport and scissor rectangle
-  and does not restore the previous ones. Draw your content before `Render`, or set your state again afterwards.
-- **Color.** Carbon's colors are sRGB. On `…Unorm` formats they are written as they are, so blending happens in
-  gamma space, which is what macOS interfaces look like. On `…UnormSrgb` formats Carbon converts to linear values
-  and the GPU blends in linear space; translucent edges then look slightly lighter. Prefer a `…Unorm` surface
-  format for an interface.
-- **Blending.** Carbon draws with premultiplied alpha on top of whatever the pass already contains.
-
-`Render` does nothing (and logs an error once) on a context that was created without a device. A context without
-a device is still useful: it builds the same draw data, which `Carbon::GetDrawData()` returns, for tests or a
-custom renderer.
-
-### Windows: d3dcompiler_47.dll
-
-Dawn's Direct3D backends compile shaders with `d3dcompiler_47.dll` and, unless Dawn was built with
-`DAWN_FORCE_SYSTEM_COMPONENT_LOAD=ON`, only look for it next to the executable. Ship the DLL from the Windows SDK
-(`Redist/D3D/x64`) with your application. Carbon's examples and tests copy it automatically; without it, device
-creation fails with `DynamicLib.Open: d3dcompiler_47.dll`.
+Before destroying the context, call `Carbon::WebGPUShutdown()` (`DestroyContext` does it too). What the target
+must look like (format, size, which state Carbon changes) and how each backend is set up is in
+[Renderer backends](Backends.md). Calling a backend's render function before `EndFrame` is reported through the
+assert callback.
 
 ### Drawing your own textures
 
-A texture view of yours — a rendered scene, a thumbnail — can be drawn inside the interface:
+A texture of yours — a rendered scene, a thumbnail — can be drawn inside the interface. The backend turns it into
+a `TextureID`:
 
 ```cpp
-Carbon::TextureID id = Carbon::GetTextureID(sceneView);   // wgpu::TextureView
+Carbon::TextureID id = Carbon::WebGPUGetTextureID(sceneView);   // wgpu::TextureView
 Carbon::GetDrawList().AddImage(id, Carbon::Rect(20, 20, 320, 180), Carbon::Rect(0, 0, 1, 1),
                                Carbon::Color::White(), 10.0f);   // tint and corner radius are optional
+Carbon::WebGPUImage(sceneView, Carbon::Vec2(320, 180));          // the same as a widget
 ```
 
-Carbon holds a reference to the view while it is in use and releases it once a whole frame passes without the
-texture being drawn. Call `GetTextureID` every frame, or keep drawing the ID you got. Textures are sampled with
-linear filtering and treated as straight (non-premultiplied) alpha.
+Carbon keeps what it needs to draw the texture while it is in use and releases it once a whole frame passes
+without the texture being registered or drawn. Call the backend's `GetTextureID` every frame, or keep drawing the
+ID you got. Textures are sampled with linear filtering and treated as straight (non-premultiplied) alpha.
 
 ## Fonts
 

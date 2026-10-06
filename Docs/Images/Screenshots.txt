@@ -13,7 +13,7 @@ Gallery-Light.png                 Gallery  --page selection
 Gallery-Dark.png                  Gallery  --page selection --theme dark
 Gallery-Lists-Light.png           Gallery  --page lists
 Gallery-Charts-Dark.png           Gallery  --page charts --theme dark
-MinimalIntegration-Light.png      MinimalIntegration
+WebGPUMinimalIntegration-Light.png  WebGPUMinimalIntegration
 CustomComponent-Light.png         CustomComponent
 CustomTitleBar-Dark.png           CustomTitleBar  --theme dark --pointer 878x20
 

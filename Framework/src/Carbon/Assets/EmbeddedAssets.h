@@ -2,7 +2,6 @@
 
 #include <cstdint>
 #include <span>
-#include <string_view>
 
 namespace Carbon
 {
@@ -29,7 +28,4 @@ namespace Carbon
 
     /// Returns the bytes of an embedded font file (TrueType). The data lives for the whole program.
     std::span<const uint8_t> GetEmbeddedFont(EmbeddedFont font);
-
-    /// Returns the WGSL source of Carbon's shader.
-    std::string_view GetEmbeddedShader();
 } // namespace Carbon

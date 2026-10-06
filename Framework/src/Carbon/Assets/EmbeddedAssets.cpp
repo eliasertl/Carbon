@@ -19,8 +19,6 @@ namespace Carbon::Internal
     extern const unsigned long long g_PhosphorBoldSize;
     extern const unsigned char g_PhosphorFillData[];
     extern const unsigned long long g_PhosphorFillSize;
-    extern const unsigned char g_CarbonShaderData[];
-    extern const unsigned long long g_CarbonShaderSize;
 } // namespace Carbon::Internal
 
 namespace Carbon
@@ -47,11 +45,5 @@ namespace Carbon
                 break;
         }
         return {};
-    }
-
-    std::string_view GetEmbeddedShader()
-    {
-        return {reinterpret_cast<const char*>(Internal::g_CarbonShaderData),
-                static_cast<size_t>(Internal::g_CarbonShaderSize)};
     }
 } // namespace Carbon

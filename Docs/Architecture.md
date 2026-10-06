@@ -4,20 +4,21 @@ Status: **approved plan** (2026-10-03); implementation follows the milestones in
 design contract for Carbon v1. Sections marked *Decision* record choices made where the brief left room.
 
 Carbon is an immediate-mode C++20 UI framework that looks like macOS 11–26 (flat, no translucency) and renders
-through WebGPU (Dawn) into a render pass owned by the host. It ships as three static libraries: `Carbon` (core),
+through a renderer backend (WebGPU on Dawn, or one the application writes) into a target owned by the host. It ships as three static libraries: `Carbon` (core),
 `CarbonExtensions` (components built only on Carbon's public extension API) and `CarbonReflection` (interface
 generated from an application's enums and structs, built on both).
 
 ## 1. Principles
 
 1. **The host owns the platform.** Carbon never creates windows, surfaces, devices or OS hooks. The host forwards
-   input and hands Carbon a render pass.
+   input and hands the renderer backend a render pass, command buffer or framebuffer to draw into.
 2. **Immediate mode, small retained state.** The UI is rebuilt from code every frame. Carbon keeps only per-ID state:
    animations, focus, scroll offsets, measured sizes, text-edit state.
 3. **Logical points everywhere.** All public coordinates and sizes are in points. Pixels exist only in the renderer
    and the glyph rasterizer.
-4. **GPU-free above the renderer.** Everything except `Renderer/` compiles and runs without a GPU, so layout,
-   widgets and draw-list output are unit-testable headless.
+4. **GPU-free above the backends.** Everything except `Backends/` compiles and runs without a GPU and includes no
+   graphics API, so layout, widgets and draw-list output are unit-testable headless, and identical whichever
+   backend draws them.
 5. **Extensions prove the API.** `CarbonExtensions` may include only public Carbon headers. If an extension
    component needs something, it becomes public, documented API.
 
@@ -39,8 +40,10 @@ Framework/src/Carbon/
 ├── Overlay/              floating surfaces above the interface: stacking, pointer capture, focus scopes
 ├── Widgets/              Text, Button, Toggle, Slider, TextField, Image, Separator, Tooltip, ControlSize,
 │                         ControlFeedback (hover and pressed feedback shared by all controls)
-├── Renderer/             the only folder that calls Dawn: Renderer, pipeline, WGSL, buffers, textures; and
-│                         TextureFormat, the API-neutral names of render-target formats
+├── Renderer/             backend-neutral rendering: the public RendererBackend interface, the dispatch from
+│                         core to the installed backend, glyph-atlas and host-texture bookkeeping, TextureFormat
+├── Backends/             the only folder that uses graphics APIs, one subfolder per backend with its public
+│   └── WebGPU/           header, implementation and shaders: WebGPUBackend.h, WebGPURendererInternal, Shaders/
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -49,7 +52,8 @@ Dependency direction (each layer uses only the ones above it):
 ```
 Core → Input → Draw → Text → Animation → Style → Layout → Interaction → Overlay → Widgets
                                                                                     ↑
-Renderer consumes DrawList output and GlyphAtlas pixels; nothing above depends on it.
+Renderer hands DrawList output and GlyphAtlas pixels to the installed backend; nothing above depends on it, and
+only Backends/ depends on a graphics API.
 ```
 
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
@@ -75,7 +79,9 @@ subfolder and use `namespace Carbon::Internal`. Three checks keep the boundary h
   header includes an internal one;
 - CI builds `CarbonExtensions`, `CarbonReflection` and `Examples/CustomComponent` against the *installed*
   package, where internal headers do not exist;
-- only `Renderer/` and three public signatures (below) mention `wgpu::` types.
+- a CMake script (`Framework/CMake/CheckBackendIsolation.cmake`), run as the `BackendIsolation` test, fails if a
+  file outside `Framework/src/Carbon/Backends/` (core, `Extensions/`, `Reflection/`) includes a graphics API's
+  header or names its types or functions.
 
 ## 3. Public API sketch (application side)
 
@@ -84,15 +90,13 @@ subfolder and use `namespace Carbon::Internal`. Three checks keep the boundary h
 
 // ---- Setup ----
 Carbon::ContextDescription description;
-description.Device = device;                                    // wgpu::Device; null = headless (tests)
-description.ColorFormat = surfaceFormat;                        // must match the pass Carbon renders into
-description.DepthStencilFormat = wgpu::TextureFormat::Undefined; // set if the host pass has depth/stencil
-description.SampleCount = 1;                                    // set if the host pass is multisampled
 description.Callbacks.Log = [](Carbon::LogLevel level, std::string_view source, std::string_view message) {};
 description.Callbacks.GetClipboardText = /* std::string() */;
 description.Callbacks.SetClipboardText = /* void(std::string_view) */;
 description.Callbacks.SetCursor = /* void(Carbon::Cursor) */;
-Carbon::Context* context = Carbon::CreateContext(description);  // becomes current if none is
+Carbon::Context* context = Carbon::CreateContext(description);  // becomes current if none is; headless
+Carbon::WebGPUInit({ .Device = device,                          // a renderer backend (Docs/Backends.md)
+                     .ColorFormat = Carbon::TextureFormat::BGRA8Unorm });   // must match the host's pass
 Carbon::SetTheme(Carbon::Theme::Dark());
 
 // ---- Every frame ----
@@ -121,7 +125,7 @@ Carbon::BeginVStack({ .Spacing = 12.0f, .Padding = 20.0f, .Alignment = Carbon::A
 Carbon::EndVStack();
 Carbon::EndFrame();
 
-Carbon::Render(pass);                                           // wgpu::RenderPassEncoder, host-owned
+Carbon::WebGPURender(pass);                                     // wgpu::RenderPassEncoder, host-owned
 ```
 
 Other application-level entry points:
@@ -180,8 +184,7 @@ bool Button(std::string_view label, const ButtonOptions& options = {});
 bool Toggle(std::string_view label, bool* value, const ToggleOptions& options = {});   // .Kind = Switch | Checkbox
 bool Slider(std::string_view label, float* value, float min, float max, const SliderOptions& options = {});
 bool TextField(std::string_view label, std::string* text, const TextFieldOptions& options = {});
-void Image(TextureID texture, Vec2 size, const ImageOptions& options = {});
-void Image(const wgpu::TextureView& view, Vec2 size, const ImageOptions& options = {}); // declared in Renderer/
+void Image(TextureID texture, Vec2 size, const ImageOptions& options = {});   // TextureID from a backend
 void Icon(std::string_view icon, const IconOptions& options = {});
 void Separator(const SeparatorOptions& options = {});
 void Tooltip(std::string_view text);            // attaches to the previous item
@@ -228,7 +231,8 @@ widgets                      allocate rects from layout, run behaviours, emit dr
 EndFrame()                   close root layout, store measured sizes, resolve Tab navigation,
                              assert balanced stacks (ID, style, layout, clip), garbage-collect stale per-ID state,
                              push cursor shape through the callback, finalize draw data (layers merged in order)
-Render(pass)                 Renderer uploads atlas changes + vertex/index/primitive buffers, records draws
+<Name>Render(target)         the backend gets expired textures, atlas changes and the draw data
+                             (RenderDrawData), uploads its buffers and records the draws
 ```
 
 - **Single current context** (`g_Context`), as in Dear ImGui. All free functions operate on it.
@@ -369,7 +373,10 @@ TextureID RegisterHostTexture(uint64_t key);               void ReleaseHostTextu
   buffers once per frame, however often the frame is drawn.
 - **Limits.** `GetCapabilities().MaxTextureSize` caps the glyph atlas (at most 4096 either way).
 
-### Renderer (Dawn)
+### WebGPU backend (Dawn)
+
+The first backend, in `Backends/WebGPU/`; `WebGPUInit`, `WebGPUShutdown`, `WebGPURender(pass)`,
+`WebGPUGetTextureID(view)` and `WebGPUImage(view, ...)` in `WebGPUBackend.h`.
 
 - One render pipeline, created for the host's `ColorFormat`, `DepthStencilFormat` and `SampleCount`. Premultiplied
   alpha blending, no depth write, depth test always.
@@ -381,16 +388,14 @@ TextureID RegisterHostTexture(uint64_t key);               void ReleaseHostTextu
 - Vertex, index and primitive buffers are written with `queue.WriteBuffer`, grow geometrically and are reused.
 - Colors are authored in sRGB. For `…Unorm` targets Carbon writes them as-is (gamma-space blending, which is what
   macOS UI looks like); for `…UnormSrgb` targets the shader linearizes.
-- WGSL lives in `Renderer/Shaders/Carbon.wgsl` and is embedded at build time.
-- Host textures: `GetTextureID(view)` registers a `wgpu::TextureView` and returns an opaque `TextureID`. The
-  renderer keeps the view and its bind group while the texture is registered or drawn, and releases them once a
-  whole frame passes without either.
-- The renderer is a `RendererBackend`. It exists only for a context with a device; a headless context has no
-  backend.
+- WGSL lives in `Backends/WebGPU/Shaders/Carbon.wgsl` and is embedded at build time, only when the backend is
+  built.
+- Host textures: `WebGPUGetTextureID(view)` registers a `wgpu::TextureView` with its pointer as key and returns
+  an opaque `TextureID`. The backend keeps the view and its bind group until core calls `ReleaseTexture`.
 - GPU tests render offscreen and compare every pixel of a squircle with the CPU shape function, so the shader
   cannot drift from `Squircle.cpp` unnoticed. They skip on machines without an adapter.
-- `Render(pass)` sets its own viewport, scissor, pipeline and bind groups and does not restore the host's state;
-  this is documented in `Docs/Integration.md`.
+- `WebGPURender(pass)` sets its own viewport, scissor, pipeline and bind groups and does not restore the host's
+  state; this is documented in `Docs/Backends.md`.
 
 ## 6. Text, fonts and icons
 
@@ -650,8 +655,10 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 - Root `CMakeLists.txt`: options and `add_subdirectory` only. Targets `Carbon` (`Carbon::Carbon`),
   `CarbonExtensions` (`Carbon::Extensions`) and `CarbonReflection` (`Carbon::Reflection`, built when
   `CARBON_BUILD_REFLECTION` and `CARBON_BUILD_EXTENSIONS` are on), all static.
-- `CARBON_DEPS_<NAME>_BUILD` / `CARBON_DEPS_<NAME>_NAME` for FreeType, HarfBuzz, GoogleTest, GLFW and stb; Dawn
-  is always found (`find_package(Dawn CONFIG)` unless `CARBON_DEPS_DAWN_NAME` already exists).
+- `CARBON_DEPS_<NAME>_BUILD` / `CARBON_DEPS_<NAME>_NAME` for FreeType, HarfBuzz, GoogleTest, GLFW and stb. Dawn
+  is found only for the WebGPU backend (`find_package(Dawn CONFIG)` unless `CARBON_DEPS_DAWN_NAME` already
+  exists). `CARBON_BACKEND_<NAME>` selects the backends compiled into `Carbon`; each exports
+  `CARBON_HAS_BACKEND_<NAME>` and makes its graphics library a public dependency.
 - Fonts and shaders are converted to `.cpp` byte arrays at build time by `Framework/CMake/EmbedAsset.cmake`
   (pure CMake, no Python), written to the build tree and never committed. `Icons.h` is generated the same way.
 - Submodules pinned to release tags: FreeType, HarfBuzz, GoogleTest (v1.18.0), GLFW (3.5.1),
@@ -697,7 +704,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 2 | Squircle = superellipse corner patch, apex-matched to the circular arc | Analytic in the fragment shader, exact circle at smoothing 0, zero curvature at the joins |
 | 3 | Stacks are identified by their call site and do not push IDs | Widget state must survive layout changes; call order would make a stack "new" whenever a sibling before it appears |
 | 4 | `ContextDescription` carries `DepthStencilFormat` and `SampleCount` | The pipeline must match the host's pass |
-| 5 | Draw list stores an opaque `TextureID`; `wgpu::` types appear only in `ContextDescription`, `Render` and the `Image` overload | Keeps everything above `Renderer/` GPU-free |
+| 5 | Draw list stores an opaque `TextureID`; `wgpu::` types appear only in `ContextDescription`, `Render` and the `Image` overload | Keeps everything above `Renderer/` GPU-free. Replaced by decision 105 |
 | 6 | Gamma-space blending on `Unorm` targets, linearized on `UnormSrgb` | Matches the look of macOS UI on the common surface formats |
 | 7 | Carbon behaves as if Full Keyboard Access is on; focus ring only after keyboard focus (always for text fields) | The brief requires full keyboard operability; ring behaviour follows macOS |
 | 8 | Shortcut modifier is Ctrl by default (configurable) | Targets are Windows and Linux |
@@ -798,6 +805,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 102 | A backend's device limit also shrinks an atlas that is already larger: it is cleared and rebuilt | Installing a backend after text was laid out must not leave an atlas the device cannot hold |
 | 103 | `CARBON_BACKEND_<NAME>` are declared in `ThirdParty/CMakeLists.txt`, next to the search for their dependency, not in the root file; unset, each defaults to whether its dependency was found, and the result is cached | Their default depends on that search, which a plain `option()` in the root cannot express. Caching keeps a configuration from switching a backend off silently when a dependency goes missing |
 | 104 | Renderer tests are written once against a `BackendHarness` (create a device without a window, install the backend, render offscreen, read back, make a texture) and run per compiled-in backend as value-parameterized tests. They fail on any warning or error Carbon logs, any failed check and any message of the API's validation. Pixel comparisons use WebGPU as the reference, which is also compared with a second rendering of its own | One set of tests holds every backend to the same behavior. Logged warnings are how backends report misuse, so a clean log is part of passing. A reference that is not stable would make every comparison meaningless |
+| 105 | Every backend lives in `Framework/src/Carbon/Backends/<Name>/` with its public header (`<Name>Backend.h`), its implementation and its shaders, and has the API `<Name>Init(const <Name>InitInfo&)`, `<Name>Shutdown()`, `<Name>Render(...)`, `<Name>GetTextureID(...)` and `<Name>Image(...)` as free functions in `namespace Carbon`. `ContextDescription` lost its device, formats and sample count; `Carbon::Render`, `Carbon::GetTextureID`, the `Image(wgpu::TextureView)` overload and `GetEmbeddedShader` were removed without shims | One prefix per backend reads like the rest of Carbon's free functions, and a host that includes one backend's header sees no other API. A context is created without knowing the API, so formats belong to the backend's init info. Carbon is before 1.0, and shims would keep `wgpu::` in core headers. This replaces decision 5 |
+| 106 | `<Name>Init` returns `bool` and logs why it failed; `<Name>Render` and `<Name>GetTextureID` without that backend installed fail a check | A host can fall back to another backend when one cannot start, which is a run-time condition. Rendering with a backend that is not installed is a programming error |
+| 107 | The main examples stay on WebGPU through `Examples/Common`, now split into a backend-neutral library (arguments, GLFW input, PNG screenshots) and the WebGPU host. `MinimalIntegration` became `WebGPUMinimalIntegration`; the main examples are skipped with a message when the WebGPU backend is off | The minimal examples of the other backends share the neutral part and stay self-contained otherwise. The Gallery's images are WebGPU textures |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

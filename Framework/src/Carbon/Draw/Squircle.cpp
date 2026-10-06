@@ -5,7 +5,8 @@
 
 namespace Carbon
 {
-    // NOTE: Renderer/Shaders/Carbon.wgsl contains the same math. Change both together.
+    // NOTE: the shaders of every renderer backend (Backends/<Name>/Shaders) contain the same math. Change them
+    // together; the renderer tests compare each backend's output with this function.
 
     float GetSquircleExtent(Vec2 halfSize, float radius, float smoothing)
     {

@@ -7,7 +7,6 @@
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Log.h"
 #include "Carbon/Core/Version.h"
-#include "Carbon/Renderer/RendererInternal.h"
 #include "Carbon/Text/Internal/TextSystem.h"
 
 namespace Carbon
@@ -49,16 +48,6 @@ namespace Carbon
         {
             context->HostCallbacks.Log(LogLevel::Info, "Core",
                                        std::format("Carbon {} context created", GetVersionString()));
-        }
-
-        // Until the WebGPU backend has its own Init function, a device in the description installs it.
-        if (description.Device != nullptr)
-        {
-            Context* current = Internal::g_CurrentContext;
-            Internal::g_CurrentContext = context;
-            Internal::InstallRenderer(*context, description.Device, description.ColorFormat,
-                                      description.DepthStencilFormat, description.SampleCount);
-            Internal::g_CurrentContext = current;
         }
 
         if (Internal::g_CurrentContext == nullptr)

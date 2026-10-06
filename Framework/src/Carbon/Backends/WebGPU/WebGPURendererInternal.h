@@ -8,22 +8,17 @@
 #include "Carbon/Draw/DrawTypes.h"
 #include "Carbon/Renderer/RendererBackend.h"
 
-namespace Carbon
-{
-    struct Context;
-} // namespace Carbon
-
 namespace Carbon::Internal
 {
-    /// The renderer backend for WebGPU (Dawn): turns draw data into Dawn calls. This is the only class in Carbon
-    /// that talks to the GPU.
-    class Renderer : public RendererBackend
+    /// The WebGPU renderer backend: turns draw data into Dawn calls.
+    class WebGPURenderer : public RendererBackend
     {
     public:
-        Renderer(const wgpu::Device& device, wgpu::TextureFormat colorFormat, wgpu::TextureFormat depthStencilFormat,
-                 uint32_t sampleCount);
+        WebGPURenderer(const wgpu::Device& device, wgpu::TextureFormat colorFormat,
+                       wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount);
 
         std::string_view GetName() const override { return "WebGPU"; }
+        RendererBackendCapabilities GetCapabilities() const override;
         void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) override;
         void Render(const DrawData& drawData) override;
         void ReleaseTexture(TextureID texture) override;
@@ -75,8 +70,4 @@ namespace Carbon::Internal
         wgpu::RenderPassEncoder m_Pass;
         std::unordered_map<uint64_t, HostTexture> m_HostTextures;
     };
-
-    /// Installs a Renderer for `device` as the backend of `context`, which must be the current context.
-    void InstallRenderer(Context& context, const wgpu::Device& device, wgpu::TextureFormat colorFormat,
-                         wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount);
 } // namespace Carbon::Internal

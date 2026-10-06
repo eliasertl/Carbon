@@ -50,7 +50,6 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Layout/Size.h
     src/Carbon/Layout/Stack.h
     src/Carbon/Overlay/Overlay.h
-    src/Carbon/Renderer/Render.h
     src/Carbon/Renderer/RendererBackend.h
     src/Carbon/Renderer/TextureFormat.h
     src/Carbon/Style/Style.h
@@ -86,7 +85,6 @@ set(CARBON_INTERNAL_HEADERS
     src/Carbon/Layout/LayoutInternal.h
     src/Carbon/Overlay/OverlayInternal.h
     src/Carbon/Renderer/RenderStateInternal.h
-    src/Carbon/Renderer/RendererInternal.h
     src/Carbon/Style/StyleInternal.h
     src/Carbon/Text/Internal/FontFace.h
     src/Carbon/Text/Internal/GlyphAtlas.h
@@ -118,7 +116,6 @@ set(CARBON_SOURCES
     src/Carbon/Layout/Stack.cpp
     src/Carbon/Overlay/Overlay.cpp
     src/Carbon/Renderer/RendererBackend.cpp
-    src/Carbon/Renderer/RendererInternal.cpp
     src/Carbon/Renderer/TextureFormat.cpp
     src/Carbon/Style/Style.cpp
     src/Carbon/Style/Theme.cpp
@@ -140,6 +137,17 @@ set(CARBON_SOURCES
     src/Carbon/Widgets/Tooltip.cpp
 )
 
+# Renderer backends: all of a backend's code lives in Backends/<Name>/ and is compiled only when the backend is
+# enabled. Its public header, which includes the graphics API, is installed only then.
+if(CARBON_BACKEND_WEBGPU)
+    list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/WebGPU/WebGPUBackend.h)
+    list(APPEND CARBON_INTERNAL_HEADERS src/Carbon/Backends/WebGPU/WebGPURendererInternal.h)
+    list(APPEND CARBON_SOURCES
+        src/Carbon/Backends/WebGPU/WebGPUBackend.cpp
+        src/Carbon/Backends/WebGPU/WebGPURendererInternal.cpp
+    )
+endif()
+
 # The public headers as they are written in an include directive. The PublicApiBoundary tests use this list to
 # verify that CarbonExtensions and the CustomComponent example stay on the public API.
 set(carbon_public_include_names "Carbon/Text/Icons.h")
@@ -158,7 +166,7 @@ target_sources(Carbon
         FILES ${CARBON_PUBLIC_HEADERS} ${CARBON_GENERATED_PUBLIC_HEADERS}
 )
 
-# Embedded assets: fonts and the shader become byte arrays in generated .cpp files.
+# Embedded assets: the fonts become byte arrays in generated .cpp files.
 carbon_embed_asset(Carbon PublicSansRoman "${PROJECT_SOURCE_DIR}/ThirdParty/PublicSans/fonts/variable/PublicSans[wght].ttf")
 carbon_embed_asset(Carbon PublicSansItalic "${PROJECT_SOURCE_DIR}/ThirdParty/PublicSans/fonts/variable/PublicSans-Italic[wght].ttf")
 carbon_embed_asset(Carbon JetBrainsMonoRoman "${PROJECT_SOURCE_DIR}/ThirdParty/JetBrainsMono/fonts/variable/JetBrainsMono[wght].ttf")
@@ -166,7 +174,6 @@ carbon_embed_asset(Carbon JetBrainsMonoItalic "${PROJECT_SOURCE_DIR}/ThirdParty/
 carbon_embed_asset(Carbon PhosphorRegular "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/regular/Phosphor.ttf")
 carbon_embed_asset(Carbon PhosphorBold "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/bold/Phosphor-Bold.ttf")
 carbon_embed_asset(Carbon PhosphorFill "${PROJECT_SOURCE_DIR}/ThirdParty/Phosphor/src/fill/Phosphor-Fill.ttf")
-carbon_embed_asset(Carbon CarbonShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Renderer/Shaders/Carbon.wgsl")
 
 target_compile_definitions(Carbon PRIVATE
     CARBON_VERSION_MAJOR=${PROJECT_VERSION_MAJOR}
@@ -189,6 +196,7 @@ if(CARBON_BACKEND_WEBGPU)
     list(APPEND CARBON_ENABLED_BACKENDS WebGPU)
     target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_WEBGPU=1)
     target_link_libraries(Carbon PUBLIC ${CARBON_DEPS_DAWN_NAME})
+    carbon_embed_asset(Carbon WebGPUShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/WebGPU/Shaders/Carbon.wgsl")
 endif()
 if(CARBON_ENABLED_BACKENDS)
     list(JOIN CARBON_ENABLED_BACKENDS ", " carbon_backend_text)

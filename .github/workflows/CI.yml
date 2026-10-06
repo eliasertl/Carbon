@@ -202,7 +202,7 @@ jobs:
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Light.png --page selection
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Dark.png --page charts --theme dark
           Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Menu.png --page menus --show menu --scale 2
-          Build/Examples/MinimalIntegration/MinimalIntegration --screenshot Screenshots/MinimalIntegration.png
+          Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --screenshot Screenshots/WebGPUMinimalIntegration.png
           Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
           Build/Examples/CustomTitleBar/CustomTitleBar --screenshot Screenshots/CustomTitleBar.png
 

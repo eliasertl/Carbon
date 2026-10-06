@@ -6,8 +6,9 @@
 
 Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux. It has
 the productivity of an immediate-mode API and the look and feel of macOS: calm, minimal, precise, with smooth
-spring-driven motion. Carbon renders through WebGPU ([Dawn](https://dawn.googlesource.com/dawn)) into a render
-pass that your application owns; it never creates windows, devices or OS hooks.
+spring-driven motion. Carbon renders into a target your application owns through a renderer backend, chosen at
+run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)) today, and your own backend for any other API. It
+never creates windows, devices or OS hooks.
 
 | Light | Dark |
 | --- | --- |
@@ -30,10 +31,10 @@ Carbon::BeginVStack({ .Spacing = 12.0f, .Padding = 20.0f });
 Carbon::EndVStack();
 
 Carbon::EndFrame();
-Carbon::Render(pass); // your wgpu::RenderPassEncoder
+Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGPUInit({ .Device = device })
 ```
 
-![The MinimalIntegration example: Carbon's controls next to a triangle drawn by the host](Docs/Images/MinimalIntegration-Light.png)
+![The WebGPUMinimalIntegration example: Carbon's controls next to a triangle drawn by the host](Docs/Images/WebGPUMinimalIntegration-Light.png)
 
 > **Status: version 0.1.** Everything described below is implemented, documented and tested on Windows (MSVC)
 > and Linux (GCC, Clang). The API may still change before 1.0. Not in scope: windows and docking, translucency
@@ -68,8 +69,9 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
   stack, and per-call options.
 - **Keyboard**: Tab navigation, Space/Enter activation, arrow keys inside controls, menus and lists, Escape for
   overlays, and an animated focus ring.
-- **Integration**: a GPU-free draw list and a Dawn renderer that draws into the host's pass; an input queue
-  that never loses fast clicks or keystrokes; one static library with no asset files to ship; usable through
+- **Integration**: a GPU-free draw list and renderer backends that draw into the host's own pass or command
+  buffer, chosen at run time, with a public interface for writing your own; an input queue that never loses fast
+  clicks or keystrokes; one static library with no asset files to ship; usable through
   `add_subdirectory` or `find_package`.
 - **Lean**: no heap allocations in a settled frame, and nothing is logged or asserted except through the host's
   callbacks.
@@ -78,7 +80,7 @@ Carbon::Render(pass); // your wgpu::RenderPassEncoder
 
 | Example | Shows |
 | --- | --- |
-| [`MinimalIntegration`](Examples/MinimalIntegration/Main.cpp) | The host side, step by step: context, input forwarding, the frame loop, drawing your own content in the same pass |
+| [`WebGPUMinimalIntegration`](Examples/WebGPUMinimalIntegration/Main.cpp) | The host side with WebGPU, step by step: context, backend, input forwarding, the frame loop, drawing your own content in the same pass |
 | [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
 | [`CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
 | [`CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |
@@ -89,7 +91,8 @@ Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x
 
 ## Building
 
-Requirements: CMake 3.25+, a C++20 compiler (MSVC 2022, GCC 13+ or Clang 17+) and an installed Dawn.
+Requirements: CMake 3.25+, a C++20 compiler (MSVC 2022, GCC 13+ or Clang 17+) and, for the WebGPU backend that
+the examples use, an installed Dawn.
 
 ```sh
 git clone --recurse-submodules https://github.com/eliasertl/Carbon.git
@@ -113,6 +116,7 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Architecture](Docs/Architecture.md) — modules, frame lifecycle, draw list, layout, animation, styling
 - [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn
 - [Integration](Docs/Integration.md) — creating a context, forwarding input, the render pass, DPI, fonts
+- [Renderer backends](Docs/Backends.md) — the graphics APIs, choosing one, writing your own backend
 - [Layout](Docs/Layout.md) — stacks, sizes, spacers, scroll views
 - [Animation](Docs/Animation.md) — springs, timing curves, reduce motion, theme switches
 - [Styling](Docs/Styling.md) — the three styling layers, themes, typography, icons, corner shapes

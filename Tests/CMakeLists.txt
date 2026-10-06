@@ -112,6 +112,14 @@ if(TARGET CarbonReflection)
             -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckPublicIncludes.cmake"
     )
 endif()
+# Only the renderer backends may use a graphics API; everything else stays GPU-free.
+add_test(NAME BackendIsolation
+    COMMAND "${CMAKE_COMMAND}"
+        "-DCHECK_DIRS=${PROJECT_SOURCE_DIR}/Framework/src;${PROJECT_SOURCE_DIR}/Extensions/src;${PROJECT_SOURCE_DIR}/Reflection/src"
+        "-DEXCLUDE_DIR=${PROJECT_SOURCE_DIR}/Framework/src/Carbon/Backends"
+        -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckBackendIsolation.cmake"
+)
+
 # A public header must not pull in an internal one either.
 add_test(NAME PublicApiBoundary.PublicHeaders
     COMMAND "${CMAKE_COMMAND}"

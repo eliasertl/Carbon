@@ -4,7 +4,9 @@
 
 - CMake 3.25 or newer
 - A C++20 compiler with `std::format`: MSVC 2022, GCC 13+ or Clang 17+
-- An installed [Dawn](https://dawn.googlesource.com/dawn) (see [Installing Dawn](#installing-dawn))
+- For the WebGPU renderer backend, which the examples use: an installed [Dawn](https://dawn.googlesource.com/dawn)
+  (see [Installing Dawn](#installing-dawn)). Without Dawn, Carbon builds without that backend (headless library and
+  tests only); see [Renderer backends](Backends.md)
 - The git submodules: `git submodule update --init --recursive`
 - Linux, examples only: the X11 and Wayland development packages GLFW needs (on Ubuntu:
   `libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols`)
@@ -24,7 +26,8 @@ With a multi-configuration generator (Visual Studio) pick the configuration at b
 
 ## Installing Dawn
 
-Carbon never builds Dawn. Build and install it once, following Dawn's
+The WebGPU backend renders with Dawn, and the main examples use it. Carbon never builds Dawn. Build and install it
+once, following Dawn's
 [CMake quickstart](https://github.com/google/dawn/blob/main/docs/quickstart-cmake.md):
 
 ```sh
@@ -50,7 +53,7 @@ CMake cannot use with your compiler. This is what Carbon's CI does.
 
 Then point Carbon at the install prefix with `-DCMAKE_PREFIX_PATH=<dawn>/install/Release`, or set `Dawn_DIR` to
 `<prefix>/lib/cmake/Dawn`. Dawn's API changes often; other commits may need small adjustments in
-`Framework/src/Carbon/Renderer/`.
+`Framework/src/Carbon/Backends/WebGPU/`.
 
 **Dawn version.** Carbon is developed and tested against Dawn commit
 `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b` (2026-09-03).
@@ -81,7 +84,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_INSTALL` | `ON` when Carbon is the top-level project | Generate install rules and the `CarbonConfig.cmake` package |
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
-| `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. For now Carbon cannot be built without it |
+| `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. The main examples need it |
 
 The backend options are decided once, at the first configuration, and then cached: after installing a dependency
 later, pass `-DCARBON_BACKEND_<NAME>=ON`. CMake prints the enabled backends (`Carbon: renderer backends: ...`), a
@@ -103,8 +106,8 @@ Every dependency `<NAME>` in `FREETYPE`, `HARFBUZZ`, `GOOGLETEST`, `GLFW`, `STB`
 | `HARFBUZZ` | `harfbuzz` | `Carbon` | `harfbuzz` |
 | `GOOGLETEST` | `GTest::gtest_main` | tests | `GTest` |
 | `GLFW` | `glfw` | examples | `glfw3` |
-| `STB` | `stb` | examples | header search for `stb_image_write.h` |
-| `DAWN` | `dawn::webgpu_dawn` | `Carbon` | `Dawn` (always found, no `_BUILD` switch) |
+| `STB` | `stb` | examples and tests | header search for `stb_image_write.h` |
+| `DAWN` | `dawn::webgpu_dawn` | `Carbon` (WebGPU backend) | `Dawn` (never built; only searched while `CARBON_BACKEND_WEBGPU` is not `OFF`) |
 
 Rules:
 
@@ -137,8 +140,8 @@ Every example accepts `--screenshot <file.png>` (render a settled frame offscree
 `--theme light|dark`, `--scale <factor>` and `--size <width>x<height>`:
 
 ```sh
-Build/Examples/MinimalIntegration/MinimalIntegration --theme dark
-Build/Examples/MinimalIntegration/MinimalIntegration --screenshot shot.png --scale 2
+Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --theme dark
+Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --screenshot shot.png --scale 2
 ```
 
 For screenshots of states that need input, and of parts of a window, there are more options:
@@ -180,7 +183,7 @@ scale 1 and 2 with every backend and compares it with WebGPU's rendering; when i
 difference images are in `<build>/Tests/BackendCompare/`.
 
 On Windows, Dawn needs `d3dcompiler_47.dll` next to the executable (see
-[Integration](Integration.md#windows-d3dcompiler_47dll)). The examples and tests copy it from the Windows SDK;
+[Renderer backends](Backends.md#webgpu)). The examples and tests copy it from the Windows SDK;
 set `CARBON_D3DCOMPILER_DLL` to its path if CMake cannot find it.
 
 ## Using Carbon from a parent project
@@ -223,7 +226,8 @@ What gets installed:
 - `share/doc/Carbon/`: Carbon's license, the third-party notices and, in `Licenses/`, the license texts of the
   embedded fonts, FreeType and HarfBuzz. Ship them with your application.
 
-Dawn is not installed with Carbon; the application's build must be able to find the same Dawn install. With
+`Carbon_BACKENDS` lists the renderer backends the package was built with. Their graphics libraries are not
+installed with Carbon; the application's build must be able to find them: the same Dawn install for WebGPU. With
 MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one minor
 version (0.1.x).
 

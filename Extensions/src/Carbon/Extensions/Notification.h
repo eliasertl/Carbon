@@ -43,8 +43,8 @@ namespace Carbon
         /// Replaces the color of the icon.
         std::optional<Color> IconTint = {};
         /// An image at the leading edge instead of an icon, such as a picture of the sender or a thumbnail. Get the
-        /// ID of a texture view with Carbon::GetTextureID (Carbon/Renderer/Render.h). The texture must stay alive
-        /// while the notification is shown.
+        /// ID of a texture from the renderer backend's GetTextureID function (WebGPUGetTextureID, ...). The texture
+        /// must stay alive while the notification is shown.
         TextureID Image = {};
         /// Draws the image as a circle, as for a person; otherwise it has rounded corners.
         bool ImageIsRound = false;

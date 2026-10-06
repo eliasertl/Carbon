@@ -1,18 +1,19 @@
-#include "Carbon/Renderer/RendererInternal.h"
+#include "Carbon/Backends/WebGPU/WebGPURendererInternal.h"
 
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <string_view>
 
-#include "Carbon/Assets/EmbeddedAssets.h"
 #include "Carbon/Core/Assert.h"
-#include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Log.h"
-#include "Carbon/Renderer/Render.h"
-#include "Carbon/Renderer/RenderStateInternal.h"
 
 namespace Carbon::Internal
 {
+    // Generated from Shaders/Carbon.wgsl by EmbedAsset.cmake.
+    extern const unsigned char g_WebGPUShaderData[];
+    extern const unsigned long long g_WebGPUShaderSize;
+
     namespace
     {
         // Mirrors `struct Frame` in Carbon.wgsl.
@@ -39,8 +40,8 @@ namespace Carbon::Internal
         }
     } // namespace
 
-    Renderer::Renderer(const wgpu::Device& device, wgpu::TextureFormat colorFormat,
-                       wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount)
+    WebGPURenderer::WebGPURenderer(const wgpu::Device& device, wgpu::TextureFormat colorFormat,
+                                   wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount)
         : m_Device(device),
           m_ColorFormat(colorFormat),
           m_DepthStencilFormat(depthStencilFormat),
@@ -50,9 +51,10 @@ namespace Carbon::Internal
         CreatePipeline();
     }
 
-    void Renderer::CreatePipeline()
+    void WebGPURenderer::CreatePipeline()
     {
-        const std::string_view source = GetEmbeddedShader();
+        const std::string_view source(reinterpret_cast<const char*>(g_WebGPUShaderData),
+                                      static_cast<size_t>(g_WebGPUShaderSize));
         wgpu::ShaderSourceWGSL wgsl;
         wgsl.code = wgpu::StringView(source.data(), source.size());
         wgpu::ShaderModuleDescriptor shaderDescriptor;
@@ -174,8 +176,8 @@ namespace Carbon::Internal
         m_FrameBuffer = m_Device.CreateBuffer(&frameBufferDescriptor);
     }
 
-    bool Renderer::EnsureBuffer(wgpu::Buffer& buffer, uint64_t& capacity, uint64_t requiredSize,
-                                wgpu::BufferUsage usage, const char* label)
+    bool WebGPURenderer::EnsureBuffer(wgpu::Buffer& buffer, uint64_t& capacity, uint64_t requiredSize,
+                                      wgpu::BufferUsage usage, const char* label)
     {
         if (buffer != nullptr && capacity >= requiredSize)
             return false;
@@ -194,7 +196,7 @@ namespace Carbon::Internal
         return true;
     }
 
-    void Renderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
+    void WebGPURenderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
         // A full update may come with a new size; the changed rows of a partial one fit the texture there is.
         if (m_AtlasTexture == nullptr || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
@@ -223,7 +225,7 @@ namespace Carbon::Internal
         m_Queue.WriteTexture(&destination, pixels, static_cast<size_t>(extent.width) * extent.height, &layout, &extent);
     }
 
-    wgpu::BindGroup Renderer::CreateTextureBindGroup(const wgpu::TextureView& view) const
+    wgpu::BindGroup WebGPURenderer::CreateTextureBindGroup(const wgpu::TextureView& view) const
     {
         std::array<wgpu::BindGroupEntry, 2> entries;
         entries[0].binding = 0;
@@ -237,7 +239,7 @@ namespace Carbon::Internal
         return m_Device.CreateBindGroup(&descriptor);
     }
 
-    void Renderer::Render(const DrawData& drawData)
+    void WebGPURenderer::Render(const DrawData& drawData)
     {
         CB_VERIFY(m_Pass != nullptr, "The WebGPU renderer has no render pass to draw into");
         if (m_Pass == nullptr)
@@ -324,7 +326,7 @@ namespace Carbon::Internal
         }
     }
 
-    TextureID Renderer::RegisterTexture(const wgpu::TextureView& view)
+    TextureID WebGPURenderer::RegisterTexture(const wgpu::TextureView& view)
     {
         if (view == nullptr)
             return TextureID();
@@ -337,43 +339,17 @@ namespace Carbon::Internal
         return RegisterHostTexture(key);
     }
 
-    void Renderer::ReleaseTexture(TextureID texture)
+    void WebGPURenderer::ReleaseTexture(TextureID texture)
     {
         m_HostTextures.erase(texture.Value);
     }
 
-    void InstallRenderer(Context& context, const wgpu::Device& device, wgpu::TextureFormat colorFormat,
-                         wgpu::TextureFormat depthStencilFormat, uint32_t sampleCount)
+    RendererBackendCapabilities WebGPURenderer::GetCapabilities() const
     {
-        InstallRendererBackend(context,
-                               std::make_unique<Renderer>(device, colorFormat, depthStencilFormat, sampleCount),
-                               &g_RendererBackendTag<Renderer>);
+        RendererBackendCapabilities capabilities;
+        wgpu::Limits limits;
+        if (m_Device.GetLimits(&limits) == wgpu::Status::Success)
+            capabilities.MaxTextureSize = limits.maxTextureDimension2D;
+        return capabilities;
     }
 } // namespace Carbon::Internal
-
-namespace Carbon
-{
-    void Render(const wgpu::RenderPassEncoder& pass)
-    {
-        Internal::Renderer* renderer = GetRendererBackend<Internal::Renderer>();
-        if (renderer != nullptr)
-            renderer->SetRenderPass(pass);
-        // Without a backend this reports that the context cannot render.
-        RenderDrawData();
-        if (renderer != nullptr)
-            renderer->SetRenderPass(nullptr);
-    }
-
-    TextureID GetTextureID(const wgpu::TextureView& view)
-    {
-        Internal::Renderer* renderer = GetRendererBackend<Internal::Renderer>();
-        if (renderer == nullptr)
-            return RegisterHostTexture(reinterpret_cast<uintptr_t>(view.Get()));
-        return renderer->RegisterTexture(view);
-    }
-
-    void Image(const wgpu::TextureView& view, Vec2 size, const ImageOptions& options)
-    {
-        Image(GetTextureID(view), size, options);
-    }
-} // namespace Carbon

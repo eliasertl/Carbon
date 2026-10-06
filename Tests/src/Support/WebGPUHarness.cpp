@@ -7,8 +7,7 @@
 
 #include <webgpu/webgpu_cpp.h>
 
-#include "Carbon/Core/ContextInternal.h"
-#include "Carbon/Renderer/RendererInternal.h"
+#include "Carbon/Backends/WebGPU/WebGPUBackend.h"
 
 namespace Carbon
 {
@@ -84,12 +83,13 @@ namespace Carbon
             bool InitBackend(TextureFormat colorFormat) override
             {
                 m_ColorFormat = ToWebGPU(colorFormat);
-                Internal::InstallRenderer(Internal::GetContext(), m_Device, m_ColorFormat,
-                                          wgpu::TextureFormat::Undefined, 1);
-                return GetRendererBackend() != nullptr;
+                WebGPUInitInfo info;
+                info.Device = m_Device;
+                info.ColorFormat = colorFormat;
+                return WebGPUInit(info);
             }
 
-            void ShutdownBackend() override { RemoveRendererBackend(); }
+            void ShutdownBackend() override { WebGPUShutdown(); }
 
             RenderedImage RenderFrame(uint32_t width, uint32_t height, Color background) override
             {
@@ -121,7 +121,7 @@ namespace Carbon
 
                 const wgpu::CommandEncoder encoder = m_Device.CreateCommandEncoder();
                 const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
-                Render(pass);
+                WebGPURender(pass);
                 pass.End();
 
                 wgpu::TexelCopyTextureInfo source;
@@ -185,7 +185,7 @@ namespace Carbon
                 return m_Textures.size() - 1;
             }
 
-            TextureID GetTextureID(size_t texture) override { return Carbon::GetTextureID(m_Textures[texture]); }
+            TextureID GetTextureID(size_t texture) override { return WebGPUGetTextureID(m_Textures[texture]); }
 
             std::vector<std::string> TakeMessages() override
             {

@@ -9,8 +9,9 @@
 namespace Example
 {
     /// A complete host application around a Carbon interface: the window or screenshot target, the Carbon
-    /// context, input forwarding and the frame loop. It does exactly what Examples/MinimalIntegration spells out
-    /// step by step, so that the other examples can concentrate on their interface.
+    /// context, the WebGPU backend, input forwarding and the frame loop. It does exactly what
+    /// Examples/WebGPUMinimalIntegration spells out step by step, so that the other examples can concentrate on
+    /// their interface.
     class App
     {
     public:
@@ -22,7 +23,7 @@ namespace Example
         App(const App&) = delete;
         App& operator=(const App&) = delete;
 
-        bool IsReady() const { return m_Host.IsReady(); }
+        bool IsReady() const { return m_Host.IsReady() && m_IsBackendReady; }
         Host& GetHost() { return m_Host; }
         const Arguments& GetArguments() const { return m_Host.GetArguments(); }
 
@@ -33,5 +34,6 @@ namespace Example
     private:
         Host m_Host;
         Carbon::Context* m_Context = nullptr;
+        bool m_IsBackendReady = false;
     };
 } // namespace Example

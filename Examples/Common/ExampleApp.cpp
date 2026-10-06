@@ -23,8 +23,6 @@ namespace Example
             return;
 
         Carbon::ContextDescription description;
-        description.Device = m_Host.GetDevice();
-        description.ColorFormat = m_Host.GetColorFormat();
         description.Callbacks.Log = [](Carbon::LogLevel level, std::string_view source, std::string_view message)
         {
             // Carbon never prints on its own; the host decides. The examples show warnings and errors.
@@ -38,9 +36,15 @@ namespace Example
         // A failed check was already logged as Fatal above. The examples carry on instead of breaking into a
         // debugger, which Carbon would do in debug builds when no handler is set.
         description.Callbacks.AssertFailed = [](const Carbon::AssertInfo&) {};
-        InstallPlatformCallbacks(m_Host, description.Callbacks);
+        InstallPlatformCallbacks(m_Host.GetWindow(), description.Callbacks);
         m_Context = Carbon::CreateContext(description);
-        InstallInputCallbacks(m_Host);
+        InstallInputCallbacks(m_Host.GetWindow());
+
+        // The examples render through WebGPU, into the host's surface or screenshot texture.
+        Carbon::WebGPUInitInfo info;
+        info.Device = m_Host.GetDevice();
+        info.ColorFormat = m_Host.GetCarbonColorFormat();
+        m_IsBackendReady = Carbon::WebGPUInit(info);
 
         Carbon::SetTheme(GetArguments().IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
     }
@@ -48,7 +52,10 @@ namespace Example
     App::~App()
     {
         if (m_Context != nullptr)
+        {
+            Carbon::WebGPUShutdown();
             Carbon::DestroyContext(m_Context);
+        }
     }
 
     int App::Run(const std::function<void()>& build)
@@ -97,7 +104,7 @@ namespace Example
 
             const wgpu::CommandEncoder encoder = m_Host.GetDevice().CreateCommandEncoder();
             const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
-            Carbon::Render(pass);
+            Carbon::WebGPURender(pass);
             pass.End();
             const wgpu::CommandBuffer commands = encoder.Finish();
             m_Host.GetDevice().GetQueue().Submit(1, &commands);

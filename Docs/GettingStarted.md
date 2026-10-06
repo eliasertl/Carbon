@@ -5,9 +5,9 @@ project before.
 
 ## 1. Build Carbon and run the examples
 
-You need CMake 3.25 or newer, a C++20 compiler (MSVC 2022, GCC 13+ or Clang 17+) and an installed
-[Dawn](https://dawn.googlesource.com/dawn), Google's implementation of WebGPU. Carbon does not build Dawn;
-[Building](Building.md#installing-dawn) explains how to build and install it once.
+You need CMake 3.25 or newer, a C++20 compiler (MSVC 2022, GCC 13+ or Clang 17+) and, for the examples, an
+installed [Dawn](https://dawn.googlesource.com/dawn), Google's implementation of WebGPU, which the examples render
+with. Carbon does not build Dawn; [Building](Building.md#installing-dawn) explains how to build and install it once.
 
 ```sh
 git clone --recurse-submodules https://github.com/eliasertl/Carbon.git
@@ -25,7 +25,7 @@ Then look around:
 ```sh
 Build/Examples/Gallery/Gallery                 # every component; try the Dark and Reduce Motion switches
 Build/Examples/Gallery/Gallery --theme dark --page charts
-Build/Examples/MinimalIntegration/MinimalIntegration
+Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration
 Build/Examples/CustomComponent/CustomComponent
 Build/Examples/CustomTitleBar/CustomTitleBar      # a window whose title bar is drawn by Carbon
 Build/Examples/Reflection/Reflection              # a settings window generated from a struct
@@ -57,16 +57,21 @@ asset files to ship. Details and all options are in [Building](Building.md).
 ## 3. Create a context
 
 Carbon never opens a window or creates a device. Your application, the *host*, does that with whatever it
-already uses (GLFW, SDL, a game engine) and hands Carbon its WebGPU device:
+already uses (GLFW, SDL, a game engine). It creates a context and connects it to its graphics API with a
+[renderer backend](Backends.md), here WebGPU:
 
 ```cpp
+#include <Carbon/Backends/WebGPU/WebGPUBackend.h> // the WebGPU backend
 #include <Carbon/Carbon.h>                       // core
 #include <Carbon/Extensions/Extensions.h>        // core + extension components
 
 Carbon::ContextDescription description;
-description.Device = device;                     // your wgpu::Device
-description.ColorFormat = surfaceFormat;         // format of the pass Carbon will draw into
 Carbon::Context* context = Carbon::CreateContext(description);
+
+Carbon::WebGPUInitInfo info;
+info.Device = device;                            // your wgpu::Device
+info.ColorFormat = Carbon::TextureFormat::BGRA8Unorm;   // format of the pass Carbon will draw into
+Carbon::WebGPUInit(info);
 ```
 
 ## 4. Run frames
@@ -86,13 +91,13 @@ BuildInterface();                                // step 5
 Carbon::EndFrame();
 
 wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
-Carbon::Render(pass);                            // after your own drawing, if any
+Carbon::WebGPURender(pass);                      // after your own drawing, if any
 pass.End();
 ```
 
 [Integration](Integration.md) covers this side in full: input forwarding, DPI, clipboard and cursor callbacks,
-logging. [Examples/MinimalIntegration](../Examples/MinimalIntegration/Main.cpp) is a complete host in one file,
-with GLFW.
+logging. [Examples/WebGPUMinimalIntegration](../Examples/WebGPUMinimalIntegration/Main.cpp) is a complete host in
+one file, with GLFW.
 
 ## 5. Build an interface
 
@@ -181,6 +186,7 @@ Carbon::EndHStack();
 | Popovers, menus, alerts and sheets | [Overlays](Overlays.md) |
 | Building a component of your own | [Custom components](CustomComponents.md) |
 | The host side: input, render pass, DPI, fonts | [Integration](Integration.md) |
+| Graphics APIs, choosing a backend, writing your own | [Renderer backends](Backends.md) |
 | CMake options, dependencies, installing Dawn and Carbon | [Building](Building.md) |
 | How Carbon works inside | [Architecture](Architecture.md) |
 

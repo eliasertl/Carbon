@@ -5,8 +5,6 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include "ExampleHost.h"
-
 namespace Example
 {
     Carbon::Key ToCarbonKey(int glfwKey)
@@ -123,19 +121,35 @@ namespace Example
         }
     }
 
-    void InstallInputCallbacks(const Host& host)
+    void CursorToPoints(GLFWwindow* window, double cursorX, double cursorY, float& x, float& y)
     {
-        GLFWwindow* window = host.GetWindow();
+        // GLFW reports the cursor in screen coordinates, which are pixels on Windows and X11 but may be scaled
+        // units elsewhere. Going through the framebuffer size handles both; the content scale is the one the host
+        // gave Carbon.
+        int windowWidth = 1;
+        int windowHeight = 1;
+        int pixelWidth = 1;
+        int pixelHeight = 1;
+        glfwGetWindowSize(window, &windowWidth, &windowHeight);
+        glfwGetFramebufferSize(window, &pixelWidth, &pixelHeight);
+        const double pixelsPerUnitX = windowWidth > 0 ? static_cast<double>(pixelWidth) / windowWidth : 1.0;
+        const double pixelsPerUnitY = windowHeight > 0 ? static_cast<double>(pixelHeight) / windowHeight : 1.0;
+        const double contentScale = Carbon::GetIO().GetContentScale();
+        x = static_cast<float>(cursorX * pixelsPerUnitX / contentScale);
+        y = static_cast<float>(cursorY * pixelsPerUnitY / contentScale);
+    }
+
+    void InstallInputCallbacks(GLFWwindow* window)
+    {
         if (window == nullptr)
             return;
 
         glfwSetCursorPosCallback(window,
                                  [](GLFWwindow* source, double cursorX, double cursorY)
                                  {
-                                     const Host* owner = static_cast<const Host*>(glfwGetWindowUserPointer(source));
                                      float x = 0.0f;
                                      float y = 0.0f;
-                                     owner->CursorToPoints(cursorX, cursorY, x, y);
+                                     CursorToPoints(source, cursorX, cursorY, x, y);
                                      Carbon::GetIO().AddMousePosEvent(x, y);
                                  });
         glfwSetCursorEnterCallback(window,
@@ -167,9 +181,8 @@ namespace Example
             window, [](GLFWwindow*, int focused) { Carbon::GetIO().AddFocusEvent(focused == GLFW_TRUE); });
     }
 
-    void InstallPlatformCallbacks(const Host& host, Carbon::Callbacks& callbacks)
+    void InstallPlatformCallbacks(GLFWwindow* window, Carbon::Callbacks& callbacks)
     {
-        GLFWwindow* window = host.GetWindow();
         if (window == nullptr)
             return;
 

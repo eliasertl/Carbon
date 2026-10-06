@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+#include <Carbon/Backends/WebGPU/WebGPUBackend.h>
 #include <Carbon/Extensions/Extensions.h>
 
 namespace Gallery

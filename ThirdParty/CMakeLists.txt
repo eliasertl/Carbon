@@ -190,11 +190,6 @@ if(CARBON_BACKEND_WEBGPU AND NOT carbon_dawn_found)
         "Without Dawn, configure with -DCARBON_BACKEND_WEBGPU=OFF.\n"
         "See Docs/Building.md, section \"Installing Dawn\".")
 endif()
-# Until the WebGPU code moves into Backends/WebGPU, Carbon's core still includes Dawn.
-if(NOT CARBON_BACKEND_WEBGPU)
-    message(FATAL_ERROR
-        "Carbon: the WebGPU backend cannot be switched off yet; Carbon needs Dawn (see Docs/Building.md).")
-endif()
 
 # A static Dawn built for another MSVC runtime (Debug vs. Release) fails at link time with
 # LNK2038. Detect the common mismatch early and explain it.

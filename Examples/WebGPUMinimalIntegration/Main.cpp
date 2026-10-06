@@ -1,14 +1,16 @@
-// Minimal integration of Carbon into a host application.
+// Minimal integration of Carbon into a host application that renders with WebGPU (Dawn).
 //
 // The host owns the window, the WebGPU device and the render pass. Each frame it forwards input to Carbon,
 // builds the interface, draws its own content into the pass and then lets Carbon add the interface on top.
 // The window and device chores live in Examples/Common/ExampleHost; everything Carbon-specific is in this file.
+// VulkanMinimalIntegration and OpenGLMinimalIntegration do the same with the other backends.
 //
-//   MinimalIntegration [--theme light|dark] [--scale <factor>] [--screenshot <file.png>]
+//   WebGPUMinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <cstdio>
 #include <string>
 
+#include <Carbon/Backends/WebGPU/WebGPUBackend.h>
 #include <Carbon/Carbon.h>
 
 #define GLFW_INCLUDE_NONE
@@ -192,22 +194,26 @@ namespace
 int main(int argc, char** argv)
 {
     const Example::Arguments arguments = Example::ParseArguments(argc, argv);
-    Example::Host host(arguments, "Carbon - Minimal Integration", 760, 440);
+    Example::Host host(arguments, "Carbon - WebGPU Minimal Integration", 760, 440);
     if (!host.IsReady())
         return 1;
 
-    // ---- 1. Create the Carbon context on the host's device -------------------------------------------------
+    // ---- 1. Create the Carbon context and install the WebGPU backend on the host's device ---------------------
     Carbon::ContextDescription description;
-    description.Device = host.GetDevice();
-    description.ColorFormat = host.GetColorFormat();
     description.Callbacks.Log = [](Carbon::LogLevel level, std::string_view source, std::string_view message)
     {
         const std::string_view levelName = Carbon::ToString(level);
         std::fprintf(stderr, "[%.*s] %.*s: %.*s\n", static_cast<int>(levelName.size()), levelName.data(),
                      static_cast<int>(source.size()), source.data(), static_cast<int>(message.size()), message.data());
     };
-    Example::InstallPlatformCallbacks(host, description.Callbacks); // clipboard and cursor, through GLFW
+    Example::InstallPlatformCallbacks(host.GetWindow(), description.Callbacks); // clipboard and cursor
     Carbon::Context* context = Carbon::CreateContext(description);
+
+    Carbon::WebGPUInitInfo info;
+    info.Device = host.GetDevice();
+    info.ColorFormat = host.GetCarbonColorFormat(); // the format of the passes Carbon will draw into
+    if (!Carbon::WebGPUInit(info))
+        return 1;
 
     // The host chooses the appearance; Carbon cannot detect the OS setting.
     Settings settings;
@@ -286,7 +292,7 @@ int main(int argc, char** argv)
         const wgpu::CommandEncoder encoder = host.GetDevice().CreateCommandEncoder();
         const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
         triangle.Draw(pass, settings.HostArea, host.GetContentScale(), settings.Brightness);
-        Carbon::Render(pass);
+        Carbon::WebGPURender(pass);
         pass.End();
 
         const wgpu::CommandBuffer commands = encoder.Finish();
@@ -294,6 +300,7 @@ int main(int argc, char** argv)
         host.EndFrame();
     }
 
+    Carbon::WebGPUShutdown();
     Carbon::DestroyContext(context);
     return host.IsReady() ? 0 : 1;
 }

@@ -15,7 +15,7 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include <stb_image_write.h>
+#include "Screenshot.h"
 
 #include "Surface.h"
 
@@ -23,122 +23,12 @@ namespace Example
 {
     namespace
     {
-        // Screenshot mode renders a few frames first so that animations and first-frame layout have settled.
-        constexpr int ScreenshotWarmupFrames = 16;
-        constexpr float ScreenshotDeltaTime = 0.25f;
-
-        // Reads `count` numbers separated by commas, such as "10,20,300,200".
-        bool ParseNumbers(const char* text, float* values, int count)
-        {
-            for (int i = 0; i < count; i++)
-            {
-                char* end = nullptr;
-                values[i] = std::strtof(text, &end);
-                if (end == text || (i + 1 < count && *end != ',') || (i + 1 == count && *end != '\0'))
-                    return false;
-                text = end + 1;
-            }
-            return true;
-        }
-
         void PrintString(const char* prefix, wgpu::StringView message)
         {
             const std::string_view view = message;
             std::fprintf(stderr, "%s%.*s\n", prefix, static_cast<int>(view.size()), view.data());
         }
     } // namespace
-
-    Arguments ParseArguments(int argc, char** argv)
-    {
-        Arguments arguments;
-        for (int i = 1; i < argc; i++)
-        {
-            const std::string_view option = argv[i];
-            const bool hasValue = i + 1 < argc;
-            if (option == "--screenshot" && hasValue)
-            {
-                arguments.ScreenshotPath = argv[++i];
-            }
-            else if (option == "--theme" && hasValue)
-            {
-                const std::string_view theme = argv[++i];
-                if (theme != "light" && theme != "dark")
-                    std::fprintf(stderr, "Unknown theme '%s'; expected light or dark\n", argv[i]);
-                arguments.IsDark = theme == "dark";
-            }
-            else if (option == "--scale" && hasValue)
-            {
-                arguments.Scale = static_cast<float>(std::atof(argv[++i]));
-                if (arguments.Scale <= 0.0f)
-                {
-                    std::fprintf(stderr, "Invalid scale '%s'\n", argv[i]);
-                    arguments.Scale = 0.0f;
-                }
-            }
-            else if (option == "--size" && hasValue)
-            {
-                const std::string size = argv[++i];
-                const size_t separator = size.find('x');
-                if (separator != std::string::npos)
-                {
-                    arguments.Width = std::atoi(size.substr(0, separator).c_str());
-                    arguments.Height = std::atoi(size.substr(separator + 1).c_str());
-                }
-                if (arguments.Width <= 0 || arguments.Height <= 0)
-                {
-                    std::fprintf(stderr, "Invalid size '%s'; expected <width>x<height>\n", argv[i]);
-                    arguments.Width = 0;
-                    arguments.Height = 0;
-                }
-            }
-            else if (option == "--page" && hasValue)
-            {
-                arguments.Page = argv[++i];
-            }
-            else if (option == "--show" && hasValue)
-            {
-                arguments.Show = argv[++i];
-            }
-            else if ((option == "--crop" || option == "--extend") && hasValue)
-            {
-                float* values = option == "--crop" ? arguments.Crop : arguments.Extend;
-                if (!ParseNumbers(argv[++i], values, 4))
-                {
-                    std::fprintf(stderr, "Invalid area '%s'; expected four numbers separated by commas\n", argv[i]);
-                    std::fill(values, values + 4, 0.0f);
-                }
-            }
-            else if (option == "--section" && hasValue)
-            {
-                arguments.Section = argv[++i];
-            }
-            else if ((option == "--pointer" || option == "--click" || option == "--right-click") && hasValue)
-            {
-                arguments.ClickButton = option == "--click" ? 0 : (option == "--right-click" ? 1 : -1);
-                const std::string position = argv[++i];
-                const size_t separator = position.find('x');
-                if (separator != std::string::npos)
-                {
-                    arguments.PointerX = static_cast<float>(std::atof(position.substr(0, separator).c_str()));
-                    arguments.PointerY = static_cast<float>(std::atof(position.substr(separator + 1).c_str()));
-                }
-                else
-                {
-                    std::fprintf(stderr, "Invalid position '%s'; expected <x>x<y>\n", argv[i]);
-                }
-            }
-            else
-            {
-                std::fprintf(stderr, "Unknown option '%s'\n", argv[i]);
-                std::fprintf(stderr,
-                             "Options: --screenshot <file.png>  --theme light|dark  --scale <factor>  "
-                             "--size <width>x<height>  --page <name>  --show <name>  --pointer <x>x<y>  "
-                             "--click <x>x<y>  --right-click <x>x<y>  --crop <x>,<y>,<w>,<h>  "
-                             "--section <key>[,<key>...]  --extend <left>,<top>,<right>,<bottom>\n");
-            }
-        }
-        return arguments;
-    }
 
     Host::Host(const Arguments& arguments, const char* title, int width, int height) : m_Arguments(arguments)
     {
@@ -452,39 +342,31 @@ namespace Example
             return false;
         }
 
-        // The area to keep: what the example asked for, or --crop, grown by --extend and kept inside the window.
-        const float* area = m_Area[2] > 0.0f ? m_Area : m_Arguments.Crop;
-        uint32_t left = 0;
-        uint32_t top = 0;
-        uint32_t right = m_PixelWidth;
-        uint32_t bottom = m_PixelHeight;
-        if (area[2] > 0.0f && area[3] > 0.0f)
-        {
-            const float* extend = m_Arguments.Extend;
-            const auto toPixels = [this](float points, uint32_t limit)
-            {
-                return static_cast<uint32_t>(
-                    std::clamp(std::lround(points * m_ContentScale), 0L, static_cast<long>(limit)));
-            };
-            left = toPixels(area[0] - extend[0], m_PixelWidth);
-            top = toPixels(area[1] - extend[1], m_PixelHeight);
-            right = std::max(toPixels(area[0] + area[2] + extend[2], m_PixelWidth), left + 1);
-            bottom = std::max(toPixels(area[1] + area[3] + extend[3], m_PixelHeight), top + 1);
-        }
-
         const uint8_t* pixels =
             static_cast<const uint8_t*>(buffer.GetConstMappedRange(0, static_cast<size_t>(bufferSize)));
-        const uint8_t* first = pixels + static_cast<size_t>(top) * bytesPerRow + static_cast<size_t>(left) * 4;
-        const int written = stbi_write_png(m_Arguments.ScreenshotPath.c_str(), static_cast<int>(right - left),
-                                           static_cast<int>(bottom - top), 4, first, static_cast<int>(bytesPerRow));
+        const float* area = m_Area[2] > 0.0f ? m_Area : nullptr;
+        const bool isSaved = Example::SaveScreenshot(m_Arguments, pixels, m_PixelWidth, m_PixelHeight, bytesPerRow,
+                                                     m_ContentScale, area);
         buffer.Unmap();
-        if (written == 0)
+        return isSaved;
+    }
+
+    Carbon::TextureFormat Host::GetCarbonColorFormat() const
+    {
+        switch (m_ColorFormat)
         {
-            std::fprintf(stderr, "Could not write '%s'\n", m_Arguments.ScreenshotPath.c_str());
-            return false;
+            case wgpu::TextureFormat::RGBA8Unorm:
+                return Carbon::TextureFormat::RGBA8Unorm;
+            case wgpu::TextureFormat::RGBA8UnormSrgb:
+                return Carbon::TextureFormat::RGBA8UnormSrgb;
+            case wgpu::TextureFormat::BGRA8UnormSrgb:
+                return Carbon::TextureFormat::BGRA8UnormSrgb;
+            case wgpu::TextureFormat::RGB10A2Unorm:
+                return Carbon::TextureFormat::RGB10A2Unorm;
+            case wgpu::TextureFormat::RGBA16Float:
+                return Carbon::TextureFormat::RGBA16Float;
+            default:
+                return Carbon::TextureFormat::BGRA8Unorm;
         }
-        std::printf("Saved %s (%u x %u pixels, scale %.2f)\n", m_Arguments.ScreenshotPath.c_str(), right - left,
-                    bottom - top, static_cast<double>(m_ContentScale));
-        return true;
     }
 } // namespace Example

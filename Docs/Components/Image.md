@@ -6,16 +6,16 @@ HIG: [Image views](https://developer.apple.com/design/human-interface-guidelines
 ![Images with rounded corners, a tint and a part of a texture, separated by separators](../Images/Components/Image.png)
 
 ```cpp
-#include <Carbon/Renderer/Render.h>
-
-Carbon::Image(sceneView, Carbon::Vec2(320.0f, 180.0f));                              // a wgpu::TextureView
-Carbon::Image(coverView, Carbon::Vec2(64.0f, 64.0f), { .CornerRadius = 12.0f });
-
-Carbon::TextureID id = Carbon::GetTextureID(sceneView);                               // or by ID
+Carbon::TextureID id = Carbon::WebGPUGetTextureID(sceneView);                         // from the renderer backend
 Carbon::Image(id, Carbon::Vec2(320.0f, 180.0f));
+Carbon::Image(id, Carbon::Vec2(64.0f, 64.0f), { .CornerRadius = 12.0f });
+
+Carbon::WebGPUImage(coverView, Carbon::Vec2(64.0f, 64.0f));                           // the same in one call
 ```
 
-The size is in points; the texture is stretched to it.
+The size is in points; the texture is stretched to it. A `TextureID` comes from the renderer backend that draws
+the frame (`WebGPUGetTextureID` for a `wgpu::TextureView`; see [Renderer backends](../Backends.md)), and every
+backend has an `Image` function that takes its own texture type directly (`WebGPUImage`).
 
 ## Options
 
@@ -28,11 +28,12 @@ The size is in points; the texture is stretched to it.
 
 ## Notes
 
-- Carbon holds a reference to the view while the image is drawn and releases it once a frame passes without it.
+- Carbon keeps what the backend needs to draw the texture while it is drawn, and releases it once a frame passes
+  without it. Keep the texture alive until then.
 - Textures are sampled with linear filtering and treated as straight (non-premultiplied) alpha.
 - Carbon does not load image files. Decode them with a library of your choice and upload them as textures.
 - To show your own 3D viewport inside the interface, render it to a texture and pass the view here, or reserve
-  the area with `AllocateItem` and draw into the same pass yourself, as `Examples/MinimalIntegration` does.
+  the area with `AllocateItem` and draw into the same pass yourself, as `Examples/WebGPUMinimalIntegration` does.
 
 ## Keyboard
 

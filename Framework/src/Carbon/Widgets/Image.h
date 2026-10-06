@@ -22,7 +22,8 @@ namespace Carbon
         Rect UV = Rect(0.0f, 0.0f, 1.0f, 1.0f);
     };
 
-    /// Displays a texture at `size` points. Get the TextureID of one of your wgpu::TextureViews with
-    /// GetTextureID, or use the overload in Carbon/Renderer/Render.h that takes the view directly.
+    /// Displays a texture at `size` points. Get the TextureID of one of your textures from the renderer
+    /// backend's GetTextureID function (WebGPUGetTextureID, VulkanGetTextureID, ...), or use its Image function
+    /// that takes the texture directly (WebGPUImage, ...).
     void Image(TextureID texture, Vec2 size, const ImageOptions& options = {});
 } // namespace Carbon

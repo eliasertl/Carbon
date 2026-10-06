@@ -37,14 +37,6 @@ namespace Carbon
         EXPECT_NE(bold.size(), fill.size());
     }
 
-    TEST(EmbeddedAssetsTests, ShaderSourceIsEmbedded)
-    {
-        const std::string_view shader = GetEmbeddedShader();
-        EXPECT_NE(shader.find("@vertex"), std::string_view::npos);
-        EXPECT_NE(shader.find("@fragment"), std::string_view::npos);
-        EXPECT_NE(shader.find("fn SquircleDistance"), std::string_view::npos);
-    }
-
     TEST(EmbeddedAssetsTests, IconConstantsAreSingleCodepointsInThePrivateUseArea)
     {
         EXPECT_EQ(Icons::Count, 1530u);

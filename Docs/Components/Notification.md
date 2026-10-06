@@ -39,7 +39,7 @@ for (const Carbon::NotificationEvent& event : events)
 | `Style` | `NotificationStyle` | `Plain` | `Plain` (no icon), `Info`, `Success`, `Warning` or `Error`: the icon and its color |
 | `Icon` | `std::string_view` | from `Style` | An icon of your own at the leading edge |
 | `IconTint` | `Color` | from `Style` | |
-| `Image` | `TextureID` | none | An image instead of the icon, such as a picture of the sender. Get the ID with `Carbon::GetTextureID(view)`; keep the texture alive while the notification is shown. |
+| `Image` | `TextureID` | none | An image instead of the icon, such as a picture of the sender. Get the ID from the renderer backend (`Carbon::WebGPUGetTextureID(view)`); keep the texture alive while the notification is shown. |
 | `ImageIsRound` | `bool` | `false` | A circle, as for a person; otherwise rounded corners |
 | `PrimaryAction`, `SecondaryAction` | `std::string_view` | none | Up to two buttons below the message |
 | `Duration` | `float` | 5 | Seconds before it goes away by itself; 0 keeps it until dismissed |

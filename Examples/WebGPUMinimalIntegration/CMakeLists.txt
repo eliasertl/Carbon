@@ -1,0 +1,4 @@
+add_executable(WebGPUMinimalIntegration Main.cpp)
+target_link_libraries(WebGPUMinimalIntegration PRIVATE CarbonExampleCommon)
+carbon_configure_target(WebGPUMinimalIntegration)
+carbon_copy_dawn_runtime(WebGPUMinimalIntegration)

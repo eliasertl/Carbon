@@ -1,7 +1,8 @@
 # Carbon — working rules
 
-Carbon is an immediate-mode C++20 UI framework with a macOS look, rendered through WebGPU (Dawn). The design
-contract is [Docs/Architecture.md](Docs/Architecture.md); read it before changing public API.
+Carbon is an immediate-mode C++20 UI framework with a macOS look, rendered through renderer backends (WebGPU on
+Dawn first) that the host picks at run time. The design contract is [Docs/Architecture.md](Docs/Architecture.md);
+read it before changing public API.
 
 ## Code conventions
 
@@ -26,15 +27,18 @@ contract is [Docs/Architecture.md](Docs/Architecture.md); read it before changin
 - Every public function and type gets a short `///` comment.
 - Internal headers end in `Internal.h` or live in an `Internal/` folder, and are not listed as public headers in
   CMake. `Extensions/` and `Examples/CustomComponent` may include public Carbon headers only.
-- Only `Framework/src/Carbon/Renderer/` calls Dawn. Everything else must stay GPU-free and unit-testable.
+- Only `Framework/src/Carbon/Backends/` calls graphics APIs; each backend keeps its public header, implementation
+  and shaders in `Backends/<Name>/`. Everything else (core, `Renderer/`, extensions, reflection) includes no
+  graphics header and must stay GPU-free and unit-testable; the `BackendIsolation` test checks this.
 - No per-frame heap allocations in steady state: reuse buffers, cache shaped text, take `std::string_view`.
 - Format messages with `std::format`. No logging library; logs and asserts go through the host's callbacks.
 
 ## Build
 
 - CMake 3.25+, C++20. Windows: MSVC 2022. Linux: GCC 13+ or Clang 17+.
-- Dawn is never built by Carbon. Pass its install prefix: `-DCMAKE_PREFIX_PATH=<dawn-install>`. With MSVC the
-  Dawn configuration must match (Debug Dawn for Debug Carbon); see [Docs/Building.md](Docs/Building.md).
+- Dawn is never built by Carbon. For the WebGPU backend, pass its install prefix:
+  `-DCMAKE_PREFIX_PATH=<dawn-install>`. With MSVC the Dawn configuration must match (Debug Dawn for Debug
+  Carbon); see [Docs/Building.md](Docs/Building.md).
 - The root `CMakeLists.txt` holds only options and `add_subdirectory` calls. Never use `CMAKE_SOURCE_DIR`; never
   set global flags or output directories. Warning flags apply to Carbon targets only (`carbon_configure_target`).
 - Embedded assets (fonts, shaders, generated icon constants) are generated into the build tree. Never commit them.
