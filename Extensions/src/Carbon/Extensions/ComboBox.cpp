@@ -2,6 +2,9 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
+
+#include "Carbon/Extensions/Internal/RowClipping.h"
 
 namespace Carbon
 {
@@ -58,6 +61,38 @@ namespace Carbon
                     return i;
             }
             return -1;
+        }
+
+        // The items a filtered list shows, as indices into all items. Finding them means looking at every item,
+        // so they are found when the text or the items change and kept while the list stays open. One list is
+        // open at a time, so one set of matches is enough; its storage is reused.
+        struct Matches
+        {
+            ID Owner;
+            uint64_t Key = 0;
+            std::vector<int> Indices;
+        };
+        Matches s_Matches;
+
+        // The items are told apart by where they are and how many: an application that rewrites an item's
+        // characters in place sees the matches of before until the text changes.
+        std::span<const int> GetMatches(ID id, std::span<const std::string_view> items, std::string_view text)
+        {
+            uint64_t key = HashBytes(text);
+            key = HashCombine(key, reinterpret_cast<uintptr_t>(items.data()));
+            key = HashCombine(key, items.size());
+            if (s_Matches.Owner != id || s_Matches.Key != key)
+            {
+                s_Matches.Owner = id;
+                s_Matches.Key = key;
+                s_Matches.Indices.clear();
+                for (size_t i = 0; i < items.size(); i++)
+                {
+                    if (Contains(items[i], text))
+                        s_Matches.Indices.push_back(static_cast<int>(i));
+                }
+            }
+            return s_Matches.Indices;
         }
 
         // The accent-colored button with a chevron, inside the field's trailing edge.
@@ -209,23 +244,42 @@ namespace Carbon
         overlay.CornerRadius = 8.0f;
         if (BeginOverlay(list, overlay))
         {
-            int shown = 0;
-            for (int i = 0; i < count; i++)
-            {
-                if (state.ShowsAll || Contains(items[static_cast<size_t>(i)], *text))
-                    shown++;
-            }
+            // The rows of the list: every item, or the items that match the text.
+            const std::span<const int> matches = state.ShowsAll ? std::span<const int>() : GetMatches(id, items, *text);
+            const int shown = state.ShowsAll ? count : static_cast<int>(matches.size());
             BeginScrollView(
                 "##rows", {.Height = RowHeight * static_cast<float>(std::min(shown, MaxVisibleRows)), .Spacing = 0.0f});
             const Vec2 delta = GetMouseDelta();
             const bool hasPointerMoved = delta.X != 0.0f || delta.Y != 0.0f;
             const TextSpec spec = GetTextSpec(TextStyle::Body);
-            int row = 0;
-            for (int i = 0; i < count; i++)
+            if (state.RevealHighlight && state.Highlight >= 0)
             {
+                // Keep the highlighted row inside the visible rows.
+                int highlightRow = state.Highlight;
+                if (!state.ShowsAll)
+                {
+                    const auto found = std::lower_bound(matches.begin(), matches.end(), state.Highlight);
+                    highlightRow = found != matches.end() && *found == state.Highlight
+                                       ? static_cast<int>(found - matches.begin())
+                                       : -1;
+                }
+                if (highlightRow >= 0)
+                {
+                    Vec2 offset = GetScrollOffset("##rows");
+                    const float top = RowHeight * static_cast<float>(highlightRow);
+                    const float visible = RowHeight * static_cast<float>(MaxVisibleRows);
+                    offset.Y = std::clamp(offset.Y, top + RowHeight - visible, top);
+                    SetScrollOffset("##rows", offset, true);
+                }
+            }
+
+            // Only the rows in view are built; the others take their space in two pieces, before and after.
+            const RowRange visibleRows = Internal::GetVisibleRows(shown, RowHeight, 0.0f, GetDrawList().GetClipRect());
+            Internal::ReserveRows(visibleRows.First, RowHeight, 0.0f);
+            for (int row = visibleRows.First; row < visibleRows.End; row++)
+            {
+                const int i = state.ShowsAll ? row : matches[static_cast<size_t>(row)];
                 const std::string_view item = items[static_cast<size_t>(i)];
-                if (!state.ShowsAll && !Contains(item, *text))
-                    continue;
                 ItemOptions itemOptions;
                 itemOptions.Width = Size::Fill();
                 const Rect rowRect = AllocateItem(Vec2(0.0f, RowHeight), itemOptions);
@@ -236,15 +290,6 @@ namespace Carbon
                     state.Highlight = i;
                 if (interaction.Clicked)
                     pick = i;
-                if (state.RevealHighlight && i == state.Highlight)
-                {
-                    // Keep the highlighted row inside the visible rows.
-                    Vec2 offset = GetScrollOffset("##rows");
-                    const float top = RowHeight * static_cast<float>(row);
-                    const float visible = RowHeight * static_cast<float>(MaxVisibleRows);
-                    offset.Y = std::clamp(offset.Y, top + RowHeight - visible, top);
-                    SetScrollOffset("##rows", offset, true);
-                }
 
                 const bool isHighlighted = i == state.Highlight;
                 if (isHighlighted)
@@ -257,8 +302,8 @@ namespace Carbon
                 rowSpec.Wraps = false;
                 DrawLabel(GetDrawList(), rowRect, rowRect.X + RowPadding, item, rowSpec,
                           GetStyleColor(isHighlighted ? StyleColor::OnAccent : StyleColor::Label));
-                row++;
             }
+            Internal::ReserveRows(shown - visibleRows.End, RowHeight, 0.0f);
             state.RevealHighlight = false;
             EndScrollView();
             EndOverlay();

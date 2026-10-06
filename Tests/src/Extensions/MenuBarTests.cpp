@@ -1,6 +1,8 @@
 #include <Carbon/Extensions/Extensions.h>
 
+#include <format>
 #include <string>
+#include <vector>
 
 #include "Support/WidgetTest.h"
 
@@ -233,6 +235,45 @@ namespace Carbon
         // Typing goes on after the picked text: the caret is at its end.
         Type("e", Interface());
         EXPECT_EQ(m_Text, "Berne");
+    }
+
+    TEST_F(ComboBoxTests, LongListsBuildOnlyTheRowsInView)
+    {
+        // 2,000 items, of which the list shows eight at a time: the rows out of view are not built, and the keyboard
+        // and the filter still reach every item.
+        std::vector<std::string> names;
+        for (int i = 0; i < 2000; i++)
+            names.push_back(std::format("Item {:04}", i));
+        const std::vector<std::string_view> items(names.begin(), names.end());
+        std::string text;
+        const Builder build = [&] { ComboBox("Item", &text, items, {.Width = 200.0f}); };
+
+        Settle(build);
+        Click(Vec2(100.0f, 12.0f), build);
+        TapKey(Key::DownArrow, build);
+        Settle(build);
+        // The field, its button and eight rows of the list: a few dozen quads, not thousands.
+        EXPECT_LT(GetDrawData().Vertices.size(), 4u * 200u);
+
+        // Twenty steps down scroll the highlight along, far past the rows that were in view.
+        for (int i = 0; i < 20; i++)
+            TapKey(Key::DownArrow, build);
+        TapKey(Key::Enter, build);
+        EXPECT_EQ(text, "Item 0020");
+
+        // Typing filters: of the items that contain "199" (0199, 1199 and 1990 to 1999), the third is picked.
+        text.clear();
+        Frame(
+            [&]
+            {
+                ReloadTextField("Item");
+                build();
+            });
+        Type("199", build);
+        TapKey(Key::DownArrow, build);
+        TapKey(Key::DownArrow, build);
+        TapKey(Key::Enter, build);
+        EXPECT_EQ(text, "Item 1990");
     }
 
     TEST_F(ComboBoxTests, AValueThatIsNotAnItemIsKept)

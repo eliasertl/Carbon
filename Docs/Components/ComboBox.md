@@ -37,6 +37,9 @@ added to the items. `ComboBox` returns `true` on frames the text changed, by typ
 - It does not take the keyboard: typing goes on in the field while it is open.
 - It closes when an item is picked, when the field loses focus and with Escape.
 - Picking an item replaces the text and puts the caret at its end.
+- The list can be long: only the rows in view are built, and the items are filtered when the text changes, not
+  every frame. Keep the items where they are while the list is open; they are told apart by their address and
+  their number.
 
 ## Keyboard
 
