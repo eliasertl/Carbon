@@ -125,7 +125,7 @@ namespace Carbon::Internal
         if (m_AtlasOverflowed || contentScale != m_ContentScale)
         {
             m_Atlas.Clear();
-            m_Glyphs.clear();
+            ClearGlyphs();
             m_AtlasOverflowed = false;
         }
         m_ContentScale = contentScale;
@@ -190,6 +190,7 @@ namespace Carbon::Internal
             node.key() = key;
             line = &m_ShapedLines.insert(std::move(node)).position->second;
             line->Glyphs.clear();
+            line->Slots.clear();
             line->Width = 0.0f;
         }
         else
@@ -205,7 +206,13 @@ namespace Carbon::Internal
     void TextSystem::SetMaxAtlasSize(uint32_t size)
     {
         if (m_Atlas.SetMaxSize(std::clamp(size, InitialAtlasSize, MaxAtlasSize)))
-            m_Glyphs.clear();
+            ClearGlyphs();
+    }
+
+    void TextSystem::ClearGlyphs()
+    {
+        m_Glyphs.clear();
+        m_GlyphEpoch++;
     }
 
     const ShapedLine& TextSystem::Shape(std::string_view line, const TextSpec& spec)
@@ -554,11 +561,11 @@ namespace Carbon::Internal
         shaped.Width = pen;
     }
 
-    const TextSystem::CachedGlyph* TextSystem::GetGlyph(const ShapedGlyph& glyph, float pixelSize, uint8_t subpixelBin)
+    const CachedGlyph* TextSystem::GetGlyph(const ShapedGlyph& glyph, uint32_t pixelSize, uint8_t subpixelBin)
     {
         GlyphKey key;
         key.Glyph = glyph.Glyph;
-        key.PixelSize = static_cast<uint32_t>(std::lround(pixelSize * 64.0f));
+        key.PixelSize = pixelSize;
         key.Face = glyph.Face;
         key.Weight = glyph.Weight;
         key.SubpixelBin = subpixelBin;
@@ -626,6 +633,14 @@ namespace Carbon::Internal
         const float originX = position.X * scale;
         const float baselineY = std::round((position.Y + metrics.Baseline) * scale);
 
+        // The glyphs are looked up in the glyph cache once and remembered with the line; see GlyphSlot.
+        if (shaped.SlotEpoch != m_GlyphEpoch || shaped.Slots.size() != shaped.Glyphs.size())
+        {
+            shaped.Slots.assign(shaped.Glyphs.size(), GlyphSlot());
+            shaped.SlotEpoch = m_GlyphEpoch;
+        }
+        const uint32_t pixelSize = static_cast<uint32_t>(std::lround(pixelsPerEm * 64.0f));
+
         for (size_t i = first; i < end; i++)
         {
             const ShapedGlyph& glyph = shaped.Glyphs[i];
@@ -635,7 +650,18 @@ namespace Carbon::Internal
             const float wholeX = std::floor(quantized / static_cast<float>(SubpixelBins));
             const uint8_t bin = static_cast<uint8_t>(quantized - wholeX * static_cast<float>(SubpixelBins));
 
-            const CachedGlyph* cached = GetGlyph(glyph, pixelsPerEm * glyph.Scale, bin);
+            // Icons are drawn larger than the text around them.
+            const uint32_t glyphPixelSize =
+                glyph.Scale == 1.0f ? pixelSize : static_cast<uint32_t>(std::lround(pixelsPerEm * glyph.Scale * 64.0f));
+            GlyphSlot& slot = shaped.Slots[i];
+            if (slot.Glyph == nullptr || slot.PixelSize != glyphPixelSize || slot.SubpixelBin != bin)
+            {
+                // A glyph that does not fit into the atlas is looked up again in the next frame.
+                slot.Glyph = GetGlyph(glyph, glyphPixelSize, bin);
+                slot.PixelSize = glyphPixelSize;
+                slot.SubpixelBin = bin;
+            }
+            const CachedGlyph* cached = slot.Glyph;
             if (cached == nullptr || cached->Region.Width == 0)
                 continue;
 

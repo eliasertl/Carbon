@@ -49,10 +49,33 @@ namespace Carbon::Internal
         uint32_t Cluster = 0;
     };
 
+    /// A rasterized glyph in the atlas.
+    struct CachedGlyph
+    {
+        AtlasRegion Region;
+        int32_t Left = 0;
+        int32_t Top = 0;
+    };
+
+    /// Where a glyph of a shaped line was found in the glyph cache the last time the line was drawn. A line that
+    /// is drawn at the same size and position in the next frame, which is the usual case, finds its glyphs here
+    /// without hashing a key for each.
+    struct GlyphSlot
+    {
+        const CachedGlyph* Glyph = nullptr;
+        /// What the slot is valid for: the pixel size in 26.6 fixed point and the sub-pixel bin.
+        uint32_t PixelSize = 0;
+        uint8_t SubpixelBin = 0;
+    };
+
     /// A shaped line of text, cached between frames.
     struct ShapedLine
     {
         std::vector<ShapedGlyph> Glyphs;
+        /// One per glyph once the line has been drawn; mutable because drawing does not change the shaped line.
+        /// Valid while SlotEpoch is the text system's glyph epoch.
+        mutable std::vector<GlyphSlot> Slots;
+        mutable uint64_t SlotEpoch = 0;
         /// Advance width in ems.
         float Width = 0.0f;
         uint64_t LastUsedFrame = 0;
@@ -133,13 +156,6 @@ namespace Carbon::Internal
             float Width = 0.0f;
         };
 
-        struct CachedGlyph
-        {
-            AtlasRegion Region;
-            int32_t Left = 0;
-            int32_t Top = 0;
-        };
-
         /// Moves a cached line to the front of the order of last use.
         void TouchLine(ShapedLine& line);
         void LinkNewest(ShapedLine& line);
@@ -155,7 +171,10 @@ namespace Carbon::Internal
                              const TextSpec& spec) const;
         void ShapeRun(std::string_view line, size_t start, size_t length, uint16_t face, uint16_t primaryFace,
                       const TextSpec& spec, ShapedLine& shaped);
-        const CachedGlyph* GetGlyph(const ShapedGlyph& glyph, float pixelSize, uint8_t subpixelBin);
+        /// `pixelSize` is in 26.6 fixed point.
+        const CachedGlyph* GetGlyph(const ShapedGlyph& glyph, uint32_t pixelSize, uint8_t subpixelBin);
+        /// Empties the glyph cache; every GlyphSlot that points into it becomes invalid.
+        void ClearGlyphs();
         /// Pen position of a glyph in points; for index == glyph count, the end of the line.
         static float GetGlyphX(const ShapedLine& shaped, const TextSpec& spec, size_t index);
         /// Splits a shaped paragraph into visual lines no wider than the spec's MaxWidth.
@@ -180,6 +199,8 @@ namespace Carbon::Internal
 
         GlyphAtlas m_Atlas;
         std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> m_Glyphs;
+        /// Changes whenever m_Glyphs is emptied. Starts at 1, so that a new line's slots are never valid.
+        uint64_t m_GlyphEpoch = 1;
         std::unordered_map<uint64_t, ShapedLine> m_ShapedLines;
         /// The ends of the list of cached lines in the order of their last use.
         ShapedLine* m_NewestLine = nullptr;
