@@ -11,6 +11,7 @@ library and can switch by shutting one down and initializing another.
 | OpenGL 3.3 | `CARBON_BACKEND_OPENGL` | `Carbon/Backends/OpenGL/OpenGLBackend.h` | None: the host loads OpenGL |
 | OpenGL ES 3.0 / WebGL 2 | `CARBON_BACKEND_OPENGLES` | `Carbon/Backends/OpenGLES/OpenGLESBackend.h` | None: the host creates the context |
 | Direct3D 11 | `CARBON_BACKEND_DX11` | `Carbon/Backends/DX11/DX11Backend.h` | Windows, and `fxc` from the Windows SDK |
+| Direct3D 9 | `CARBON_BACKEND_DX9` | `Carbon/Backends/DX9/DX9Backend.h` | Windows, and `fxc` from the Windows SDK |
 
 A context has at most one backend. Without one it is *headless*: it builds the same draw data
 (`Carbon::GetDrawData()`) but cannot render, which is what the unit tests use.
@@ -22,7 +23,7 @@ built when its dependency is found; set to `ON`, a missing dependency stops the 
 CMake prints the result:
 
 ```text
--- Carbon: renderer backends: WebGPU, Vulkan, OpenGLES, OpenGL, DX11
+-- Carbon: renderer backends: WebGPU, Vulkan, OpenGLES, OpenGL, DX11, DX9
 ```
 
 Code that links `Carbon::Carbon` sees `CARBON_HAS_BACKEND_<NAME>` defined for every backend that was built, and an
@@ -369,6 +370,65 @@ build time into bytecode headers in the build tree; CMake finds `fxc` in the new
 `-DCARBON_FXC_EXECUTABLE=<path>`. Primitives reach the pixel shader through a `Buffer<uint4>`, two elements each,
 whose floats are read back with `asfloat`. The glyph atlas is an `R8_UNORM` texture, updated row range by row range
 with `UpdateSubresource`.
+
+## Direct3D 9
+
+The Direct3D 9 backend needs a device with vertex and pixel shader 3.0 and 32-bit indices, which every Direct3D 9
+GPU of the last fifteen years has, and draws into render target 0 between the host's `BeginScene` and `EndScene`.
+It is meant for applications and engines that still render with Direct3D 9; new code is better served by
+Direct3D 11. [Examples/DX9MinimalIntegration](../Examples/DX9MinimalIntegration/Main.cpp) is a complete host with
+GLFW, a device reset on resize and a fixed-function host triangle.
+
+```cpp
+#include <d3d9.h>
+#include <Carbon/Backends/DX9/DX9Backend.h>
+
+Carbon::DX9InitInfo info;
+info.Device = device;                                    // Carbon holds a reference; a 9Ex device works too
+info.ColorFormat = Carbon::TextureFormat::BGRA8Unorm;    // BGRA8UnormSrgb to write through D3DRS_SRGBWRITEENABLE
+if (!Carbon::DX9Init(info))
+    return;
+
+// Every frame, after EndFrame:
+device->BeginScene();
+DrawScene();                                             // your own content, if any
+Carbon::DX9Render();                                     // Carbon's interface on top
+device->EndScene();
+device->Present(nullptr, nullptr, nullptr, nullptr);
+
+// Before resetting the device:
+Carbon::DX9InvalidateDeviceObjects();                    // Carbon creates its objects again in the next DX9Render
+device->Reset(&presentParameters);
+
+// A texture of yours (an IDirect3DTexture9*):
+Carbon::DX9Image(sceneTexture, Carbon::Vec2(320, 180));
+
+Carbon::DX9Shutdown();                                   // before the device is released
+```
+
+**Device resets.** Carbon keeps its vertex and index buffers, its glyph atlas and its state block in
+`D3DPOOL_DEFAULT` (the managed pool does not exist on Direct3D 9Ex devices). `DX9InvalidateDeviceObjects` releases
+them and Carbon's references to host textures, as `IDirect3DDevice9::Reset` requires; the next `DX9Render` creates
+them again and uploads the whole glyph atlas. While the device is lost, `DX9Render` draws nothing and the frame's
+atlas changes wait. Carbon's tests run every renderer test a second time with the objects released before every
+frame (`DX9Invalidate`).
+
+**State.** `DX9Render` captures the device's state in a `D3DSBT_ALL` state block, created once and captured again
+every frame, and applies it after drawing; the viewport and scissor rectangle are restored separately. Carbon draws
+with shaders, so a host that uses the fixed-function pipeline gets its texture stage states back unchanged.
+
+**No integer attributes, no buffer reads.** Shader model 3.0 cannot index a buffer from the pixel shader, so Carbon
+copies each vertex's primitive (size, radius, smoothing, stroke, softness and kind) into the vertex itself while it
+fills the vertex buffer: 56 bytes per vertex. Direct3D 9 puts pixel centers on integer coordinates; the vertex
+shader moves everything by half a pixel, so the output matches the other backends.
+
+**sRGB and textures.** Direct3D 9 has no sRGB surface formats: with an sRGB `ColorFormat` Carbon writes linear values
+with `D3DRS_SRGBWRITEENABLE`. `DX9GetTextureID(texture)` and `MakeTextureID(texture)` take an `IDirect3DTexture9*`;
+level 0 is sampled with linear filtering, clamped, without `D3DSAMP_SRGBTEXTURE`. The glyph atlas is a dynamic `L8`
+texture.
+
+**Shaders.** `Backends/DX9/Shaders/Carbon.hlsl` is a port of the WGSL to shader model 3.0, compiled by `fxc` at
+build time like the Direct3D 11 backend's.
 
 ## Writing your own backend
 

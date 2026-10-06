@@ -174,6 +174,14 @@ if(CARBON_BACKEND_DX11)
         src/Carbon/Backends/DX11/DX11RendererInternal.cpp
     )
 endif()
+if(CARBON_BACKEND_DX9)
+    list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/DX9/DX9Backend.h)
+    list(APPEND CARBON_INTERNAL_HEADERS src/Carbon/Backends/DX9/DX9RendererInternal.h)
+    list(APPEND CARBON_SOURCES
+        src/Carbon/Backends/DX9/DX9Backend.cpp
+        src/Carbon/Backends/DX9/DX9RendererInternal.cpp
+    )
+endif()
 if(CARBON_BACKEND_VULKAN)
     list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/Vulkan/VulkanBackend.h)
     list(APPEND CARBON_INTERNAL_HEADERS
@@ -269,6 +277,15 @@ if(CARBON_BACKEND_DX11)
         "${CARBON_GENERATED_DIR}/Carbon/Backends/DX11/CarbonVertex.h")
     carbon_compile_hlsl(Carbon "${carbon_dx11_shader}" PixelMain ps_4_0 g_DX11PixelShader
         "${CARBON_GENERATED_DIR}/Carbon/Backends/DX11/CarbonPixel.h")
+endif()
+if(CARBON_BACKEND_DX9)
+    list(APPEND CARBON_ENABLED_BACKENDS DX9)
+    target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_DX9=1)
+    set(carbon_dx9_shader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/DX9/Shaders/Carbon.hlsl")
+    carbon_compile_hlsl(Carbon "${carbon_dx9_shader}" VertexMain vs_3_0 g_DX9VertexShader
+        "${CARBON_GENERATED_DIR}/Carbon/Backends/DX9/CarbonVertex.h")
+    carbon_compile_hlsl(Carbon "${carbon_dx9_shader}" PixelMain ps_3_0 g_DX9PixelShader
+        "${CARBON_GENERATED_DIR}/Carbon/Backends/DX9/CarbonPixel.h")
 endif()
 if(CARBON_ENABLED_BACKENDS)
     list(JOIN CARBON_ENABLED_BACKENDS ", " carbon_backend_text)

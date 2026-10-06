@@ -8,7 +8,7 @@ Carbon is an immediate-mode C++20 UI framework for tools, editors and applicatio
 web browsers through Emscripten. It has
 the productivity of an immediate-mode API and the look and feel of macOS: calm, minimal, precise, with smooth
 spring-driven motion. Carbon renders into a target your application owns through a renderer backend, chosen at
-run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan, OpenGL 3.3, OpenGL ES 3.0 or Direct3D 11, or a backend
+run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan, OpenGL 3.3, OpenGL ES 3.0, Direct3D 11 or Direct3D 9, or a backend
 of your own for any other API. It
 never creates windows, devices or OS hooks.
 
@@ -87,6 +87,7 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
 | [`OpenGLMinimalIntegration`](Examples/OpenGLMinimalIntegration/Main.cpp) | The same with OpenGL 3.3: Carbon resolves its functions through `glfwGetProcAddress` and restores the host's state |
 | [`OpenGLESMinimalIntegration`](Examples/OpenGLESMinimalIntegration/Main.cpp) | The same with OpenGL ES 3.0, natively or in a browser (WebGL 2) |
 | [`DX11MinimalIntegration`](Examples/DX11MinimalIntegration/Main.cpp) | The same with Direct3D 11: a flip-model swap chain, the host's triangle and Carbon in one render target |
+| [`DX9MinimalIntegration`](Examples/DX9MinimalIntegration/Main.cpp) | The same with Direct3D 9: a device reset on resize and a fixed-function triangle under Carbon's interface |
 | [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
 | [`CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
 | [`CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |

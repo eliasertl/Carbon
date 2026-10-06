@@ -18,6 +18,11 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_DX11)
         names.emplace_back("DX11");
 #endif
+#if defined(CARBON_HAS_BACKEND_DX9)
+        // Also once with Carbon's device objects released before every frame, as before a device reset.
+        names.emplace_back("DX9");
+        names.emplace_back("DX9Invalidate");
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         // Both of the Vulkan backend's pipeline modes.
         names.emplace_back("Vulkan");
@@ -43,6 +48,10 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_DX11)
         if (name == "DX11")
             return CreateDX11Harness();
+#endif
+#if defined(CARBON_HAS_BACKEND_DX9)
+        if (name == "DX9" || name == "DX9Invalidate")
+            return CreateDX9Harness(name == "DX9Invalidate");
 #endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         if (name == "Vulkan" || name == "VulkanRenderPass")

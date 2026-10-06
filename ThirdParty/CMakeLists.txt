@@ -248,7 +248,7 @@ if(WIN32)
         set(carbon_fxc_found ON)
     endif()
 endif()
-foreach(carbon_d3d_backend IN ITEMS DX11)
+foreach(carbon_d3d_backend IN ITEMS DX11 DX9)
     carbon_declare_backend(${carbon_d3d_backend} ${carbon_fxc_found}
         "Build the ${carbon_d3d_backend} renderer backend (Windows; needs fxc from the Windows SDK)")
     if(CARBON_BACKEND_${carbon_d3d_backend} AND NOT carbon_fxc_found)

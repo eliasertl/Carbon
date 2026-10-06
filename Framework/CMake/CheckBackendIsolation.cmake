@@ -18,7 +18,7 @@ endif()
 # words ("glyph", "global") do not match.
 set(include_pattern "#[ \t]*include[ \t]*[<\"](webgpu/|dawn/|vulkan/|GL/|GLES[0-9]*/|EGL/|glad/|KHR/|d3d|dxgi|Metal/|nvrhi/)")
 # CMake's regular expressions have no \b, so an identifier's start is "line start or not an identifier character".
-set(symbol_pattern "(wgpu::|WGPU[A-Z][A-Za-z]+|ID3D1[12]|IDXGI|(^|[^A-Za-z0-9_])(Vk[A-Z][A-Za-z]+|vk[A-Z][A-Za-z]+\\(|VK_[A-Z]|gl[A-Z][A-Za-z]+\\(|GL_[A-Z]|GLuint|GLenum))")
+set(symbol_pattern "(wgpu::|WGPU[A-Z][A-Za-z]+|ID3D1[12]|IDirect3D|IDXGI|(^|[^A-Za-z0-9_])(Vk[A-Z][A-Za-z]+|vk[A-Z][A-Za-z]+\\(|VK_[A-Z]|gl[A-Z][A-Za-z]+\\(|GL_[A-Z]|GLuint|GLenum))")
 
 set(violations "")
 set(checked_count 0)

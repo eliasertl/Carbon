@@ -81,6 +81,11 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_DX11)
     std::unique_ptr<BackendHarness> CreateDX11Harness();
 #endif
+#if defined(CARBON_HAS_BACKEND_DX9)
+    /// The Direct3D 9 backend ("DX9"), or the same with DX9InvalidateDeviceObjects before every frame
+    /// ("DX9Invalidate").
+    std::unique_ptr<BackendHarness> CreateDX9Harness(bool invalidateEveryFrame);
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
     /// The Vulkan backend with a VkRenderPass ("VulkanRenderPass") or with dynamic rendering ("Vulkan").
     std::unique_ptr<BackendHarness> CreateVulkanHarness(bool useRenderPass);

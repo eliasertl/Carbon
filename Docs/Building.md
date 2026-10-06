@@ -93,6 +93,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_BACKEND_OPENGLES` | `ON` | Compile the OpenGL ES 3.0 / WebGL 2 renderer backend into `Carbon`. It has no build dependency; it shares its renderer with the OpenGL backend |
 | `CARBON_BACKEND_VULKAN` | `ON` when the Vulkan headers, loader and `glslc` are found | Compile the Vulkan renderer backend into `Carbon`; `ON` without them, or without `glslc`, stops the configuration with an explanation. `Vulkan_GLSLC_EXECUTABLE` points CMake at a `glslc` elsewhere |
 | `CARBON_BACKEND_DX11` | `ON` on Windows when `fxc` is found | Compile the Direct3D 11 renderer backend into `Carbon`. `fxc`, the HLSL compiler of the Windows SDK, compiles its shaders; CMake looks in the newest Windows SDK, and `CARBON_FXC_EXECUTABLE` points it elsewhere. `ON` elsewhere than on Windows, or without `fxc`, stops the configuration with an explanation |
+| `CARBON_BACKEND_DX9` | `ON` on Windows when `fxc` is found | Compile the Direct3D 9 renderer backend into `Carbon`, with the same requirements as `CARBON_BACKEND_DX11` |
 
 The backend options are decided once, at the first configuration, and then cached: after installing a dependency
 later, pass `-DCARBON_BACKEND_<NAME>=ON`. CMake prints the enabled backends (`Carbon: renderer backends: ...`), a

@@ -31,6 +31,7 @@ add_executable(CarbonTests
     src/Support/BackendTest.h
     src/Support/ContextTest.h
     src/Support/DX11Harness.cpp
+    src/Support/DX9Harness.cpp
     src/Support/ImageCompare.cpp
     src/Support/ImageCompare.h
     src/Support/OpenGLHarness.cpp
@@ -59,6 +60,9 @@ endif()
 # The Direct3D backends' tests create their own devices.
 if(CARBON_BACKEND_DX11)
     target_link_libraries(CarbonTests PRIVATE d3d11)
+endif()
+if(CARBON_BACKEND_DX9)
+    target_link_libraries(CarbonTests PRIVATE d3d9)
 endif()
 # Tests that compare images write the images of a failure below <build>/Tests.
 target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_OUTPUT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}\"")

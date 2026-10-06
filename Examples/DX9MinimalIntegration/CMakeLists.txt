@@ -1,0 +1,3 @@
+add_executable(DX9MinimalIntegration Main.cpp)
+target_link_libraries(DX9MinimalIntegration PRIVATE CarbonExampleBase d3d9)
+carbon_configure_target(DX9MinimalIntegration)

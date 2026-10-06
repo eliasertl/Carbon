@@ -48,7 +48,8 @@ Framework/src/Carbon/
 │   ├── OpenGL/           OpenGLBackend.h, OpenGLRendererInternal, OpenGLFunctionsInternal, Shaders/ (GLSL 330 and
 │   │                     GLSL ES 300), shared with OpenGL ES
 │   ├── OpenGLES/         OpenGLESBackend.h: the OpenGL ES 3.0 / WebGL 2 API over the OpenGL renderer
-│   └── DX11/             DX11Backend.h, DX11RendererInternal, Shaders/ (HLSL, shader model 4.0)
+│   ├── DX11/             DX11Backend.h, DX11RendererInternal, Shaders/ (HLSL, shader model 4.0)
+│   └── DX9/              DX9Backend.h, DX9RendererInternal, Shaders/ (HLSL, shader model 3.0)
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -495,6 +496,19 @@ In `Backends/DX11/`: `DX11Init`, `DX11Shutdown`, `DX11Render(context)`, `DX11Get
 - `DX11Render` saves the pipeline state it changes and restores it; it records into the init context or a context
   it is given, which may be deferred. Host views are held through `ComPtr` while in use.
 
+### Direct3D 9 backend
+
+In `Backends/DX9/`: `DX9Init`, `DX9Shutdown`, `DX9Render()`, `DX9InvalidateDeviceObjects()`,
+`DX9GetTextureID(texture)` and `DX9Image(...)`, for shader model 3.0.
+
+- `Shaders/Carbon.hlsl` (vs_3_0, ps_3_0) is compiled by `fxc` like the Direct3D 11 shaders. Primitives are copied
+  into the vertices on the CPU (`DX9Vertex`, 56 bytes), because shader model 3.0 has neither integer attributes nor
+  buffers a pixel shader can index. The vertex shader adds Direct3D 9's half-pixel offset.
+- Vertex and index buffers (32-bit indices), the `L8` glyph atlas and the state block live in `D3DPOOL_DEFAULT`;
+  `DX9InvalidateDeviceObjects` releases them before a device reset, and they are created again on demand.
+- `DX9Render` captures a `D3DSBT_ALL` state block and applies it afterwards; it skips the frame while the device is
+  lost, which leaves the atlas changes pending.
+
 ## 7. Layout algorithm
 
 Layout is single-pass with one frame of latency for anything that needs a size it cannot know yet.
@@ -763,6 +777,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | M17 OpenGL backend | `Backends/OpenGL/`, GLSL 330, private function table, `OpenGLMinimalIntegration` | Smoke and pixel comparison against WebGPU |
 | M18 OpenGL ES and the web | `Backends/OpenGLES/` over the OpenGL renderer, Emscripten build, `OpenGLESMinimalIntegration` in a browser | Smoke and pixel comparison against WebGPU; tests in Node |
 | M19 Direct3D 11 backend | `Backends/DX11/`, HLSL compiled by `fxc`, `DX11MinimalIntegration` | Smoke and pixel comparison against WebGPU; debug layer clean |
+| M20 Direct3D 9 backend | `Backends/DX9/`, shader model 3.0, device resets, `DX9MinimalIntegration` | Smoke and pixel comparison against WebGPU, also with the objects released every frame |
 
 ## 16. Decision log
 
@@ -890,6 +905,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 119 | OpenGL ES 3.0 (and WebGL 2) is a backend of its own (`OpenGLES*` API, `CARBON_BACKEND_OPENGLES`) that shares the OpenGL backend's renderer and shaders in an ES mode. Both now store primitives in an `RGBA32UI` 2D texture instead of a texture buffer, and the shaders get their `#version` line from the renderer | A host on Android or in a browser should not need desktop names, and one renderer keeps the two from drifting apart. OpenGL ES 3.0 and WebGL 2 have no texture buffers, and 2048 texels is the widest texture OpenGL ES 3.0 guarantees, so 1024 primitives per row |
 | 120 | Web browsers are a build target (Emscripten), not a backend: they render through WebGL 2 with the OpenGL ES backend, the examples use Emscripten's GLFW 3.4 port instead of the submodule, and the tests run in Node without the GPU tests. WebGPU in the browser (Dawn's emdawnwebgpu) is left for later | WebGL 2 is OpenGL ES 3.0, so no new renderer is needed and every browser that runs WebGL 2 works. The GLFW port maps the canvas to a window with Hi-DPI support; the submodule cannot be built for the web. Node has no canvas to create a context on |
 | 121 | Direct3D 11 is a backend for feature level 10.0 and later, with shaders compiled by `fxc` at build time (shader model 4.0) and a public header that only forward-declares the D3D interfaces. Primitives go into a `Buffer<uint4>`. `DX11Render` takes an optional context so that deferred contexts work. The option defaults to `ON` on Windows when `fxc` is found; CI requires it on Windows, where WARP runs its tests | `fxc` ships with every Windows SDK, so the build needs nothing else; DXC does not compile shader model 4. Feature level 10.0 covers every Direct3D 11 device, and typed buffers exist there while structured buffers need 11.0. A host's `windows.h` settings (`NOMINMAX`, `WIN32_LEAN_AND_MEAN`) are not overridden by a Carbon header. Unlike OpenGL, WARP gives the Windows runners a real device |
+| 122 | Direct3D 9 is a backend for shader model 3.0 with 32-bit indices. Primitives are copied into the vertices on the CPU; everything Carbon creates in `D3DPOOL_DEFAULT` is released by `DX9InvalidateDeviceObjects`, which the host calls before `Reset`, and created again on demand; state is saved with one `D3DSBT_ALL` state block that is captured again every frame | Shader model 3.0 has no integer vertex attributes and no buffer a pixel shader can index; a float texture of primitives would need a second sampler and loses the integer kind's exactness. The managed pool does not exist on Direct3D 9Ex, so the default pool with explicit invalidation (as Dear ImGui does) works on both device kinds. A state block covers the fixed-function state a Direct3D 9 host may rely on, which a hand-written list would miss; creating it once avoids a driver allocation per frame. Shader model 2.0 hardware is left out: its instruction limit cannot hold the squircle function |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

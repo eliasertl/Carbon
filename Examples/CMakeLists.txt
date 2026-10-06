@@ -21,6 +21,9 @@ endif()
 if(CARBON_BACKEND_DX11)
     add_subdirectory(DX11MinimalIntegration)
 endif()
+if(CARBON_BACKEND_DX9)
+    add_subdirectory(DX9MinimalIntegration)
+endif()
 
 # The main examples run on WebGPU.
 if(NOT CARBON_BACKEND_WEBGPU)
