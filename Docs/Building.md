@@ -181,7 +181,8 @@ What changes in a web build:
   `Examples/Common/Shell.html` is a minimal page whose canvas covers the whole viewport. A page has no window to
   wait for, so the frame function polls events and returns.
 - **Tests** run in Node (`-sNODERAWFS`). Node has no canvas, so the GPU tests are not instantiated there; the rest
-  of the suite runs as on the desktop.
+  of the suite runs as on the desktop, as four CTest entries (`CarbonTests.Part1` to `Part4`) instead of one per
+  test, because every start of the executable compiles the module again.
 - The examples are built for the OpenGL ES backend only: `OpenGLESMinimal`, `OpenGLESGallery`,
   `OpenGLESCustomComponent` and `Reflection`. CustomTitleBar is left out, since a page has no window to move.
 
@@ -226,12 +227,17 @@ antialiased edges, which the script ignores (it compares pixels with Pillow, `pi
 push to `main`, CI renders the screenshots on Windows and commits the images that changed, so the documentation
 follows the code. To add a screenshot, add a line to the list and reference the image from the page.
 
-`ctest` runs headless. Most tests need no GPU at all. The renderer tests run once per compiled-in backend
-(`Backends/RendererTests.<Name>/WebGPU`): they create a device without a window, render offscreen and compare
-pixels, and fail on any warning or error Carbon or the API's validation reports. On a machine where a backend
-cannot create a device they report as skipped. `BackendCompareTests` renders a fixed scene in both themes at
-scale 1 and 2 with every backend and compares it with WebGPU's rendering; when it fails, the actual, reference and
-difference images are in `<build>/Tests/BackendCompare/`.
+`ctest` runs headless, and `ctest --parallel <n>` runs it several times faster: starting the test executable
+costs more than most tests. Most tests need no GPU at all and are CTest entries of their own. The renderer tests
+run once per compiled-in backend (`Backends/RendererTests.<Name>/WebGPU` in GoogleTest's terms) and are one CTest
+entry per backend (`Backends.WebGPU`, `Backends.Vulkan`, ...): the tests of an entry share one device, which takes
+longer to create than a test takes to run, and the entries take turns on the GPU. They create a device without a
+window, render offscreen and compare pixels, and fail on any warning or error Carbon or the API's validation
+reports. On a machine where a backend cannot create a device its entry reports as skipped. To run a single
+renderer test, start the executable: `Build/Tests/CarbonTests --gtest_filter=Backends/RendererTests.*/DX11`.
+`BackendCompareTests` renders a fixed scene in both themes at scale 1 and 2 with every backend and compares it
+with WebGPU's rendering; when it fails, the actual, reference and difference images are in
+`<build>/Tests/BackendCompare/`.
 
 On Windows, Dawn needs `d3dcompiler_47.dll` next to the executable (see
 [Renderer backends](Backends.md#webgpu)). The examples and tests copy it from the Windows SDK;

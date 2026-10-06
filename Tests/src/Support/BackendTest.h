@@ -12,8 +12,13 @@
 
 namespace Carbon
 {
-    /// Test fixture that runs once for every renderer backend compiled into Carbon. Each test gets a context with
-    /// the backend installed on a fresh headless device of its API.
+    /// The harness of a backend from GetCompiledBackends with its device created, shared by all tests of the
+    /// process: creating an instance and a device takes far longer than a test. Null, with the reason in `reason`,
+    /// when the machine cannot create the device. The harnesses are destroyed after the last test.
+    BackendHarness* GetSharedBackendHarness(const std::string& name, std::string& reason);
+
+    /// Test fixture that runs once for every renderer backend compiled into Carbon. Each test gets a new context
+    /// with the backend installed on the shared headless device of its API.
     ///
     /// A test is skipped when the machine cannot create a device for the backend (no GPU, no driver, no software
     /// rasterizer), so the suite stays green everywhere. Any warning or error Carbon logs, any failed check and
@@ -33,7 +38,7 @@ namespace Carbon
         void ExpectProblem(std::string_view text);
 
     protected:
-        std::unique_ptr<BackendHarness> m_Harness;
+        BackendHarness* m_Harness = nullptr;
         Context* m_Context = nullptr;
         /// Warnings and errors logged by Carbon and failed checks, in order.
         std::vector<std::string> m_Problems;

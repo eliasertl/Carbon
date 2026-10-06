@@ -17,6 +17,7 @@ add_executable(CarbonTests
     src/Layout/GridTests.cpp
     src/Layout/LayoutTests.cpp
     src/Layout/ScrollViewTests.cpp
+    src/Main.cpp
     src/Overlay/OverlayTests.cpp
     src/Renderer/BackendCompareTests.cpp
     src/Renderer/BackendSmokeTests.cpp
@@ -149,5 +150,53 @@ add_test(NAME PublicApiBoundary.PublicHeaders
         -P "${PROJECT_SOURCE_DIR}/Framework/CMake/CheckPublicIncludes.cmake"
 )
 
-# PRE_TEST discovery keeps the build independent of being able to run the test binary.
-gtest_discover_tests(CarbonTests DISCOVERY_MODE PRE_TEST)
+# How CTest runs CarbonTests. Starting the executable costs more than most tests, so `ctest --parallel` is what
+# makes the suite fast; everything below is safe to run in parallel.
+if(EMSCRIPTEN)
+    # In Node, starting the executable means compiling the module, and there are no GPU tests: a few entries that
+    # each run the suites of a part of the alphabet.
+    set(carbon_test_shards
+        "A*:B*:C*:D*"
+        "E*:F*:G*:H*:I*:J*:K*:L*"
+        "M*:N*:O*:P*:Q*:R*"
+        "S*:T*:U*:V*:W*:X*:Y*:Z*"
+    )
+    set(carbon_test_shard 1)
+    foreach(filter IN LISTS carbon_test_shards)
+        add_test(NAME CarbonTests.Part${carbon_test_shard} COMMAND CarbonTests "--gtest_filter=${filter}")
+        set_tests_properties(CarbonTests.Part${carbon_test_shard} PROPERTIES SKIP_RETURN_CODE 77)
+        math(EXPR carbon_test_shard "${carbon_test_shard} + 1")
+    endforeach()
+else()
+    # The tests that need no GPU are entries of their own. PRE_TEST discovery keeps the build independent of
+    # being able to run the test binary.
+    gtest_discover_tests(CarbonTests DISCOVERY_MODE PRE_TEST TEST_FILTER "-Backends/*")
+
+    # The tests of the renderer backends (Backends/<Suite>.<Test>/<Backend>) run as one entry per backend: its
+    # tests share one device, which takes longer to create than a test takes to run, and the entries take turns
+    # on the GPU. An entry whose backend has no device on this machine is shown as skipped. The names are those
+    # of GetCompiledBackends in src/Support/BackendHarness.cpp.
+    set(carbon_test_backends)
+    if(CARBON_BACKEND_WEBGPU)
+        list(APPEND carbon_test_backends WebGPU)
+    endif()
+    if(CARBON_BACKEND_OPENGL)
+        list(APPEND carbon_test_backends OpenGL)
+    endif()
+    if(CARBON_BACKEND_OPENGLES)
+        list(APPEND carbon_test_backends OpenGLES)
+    endif()
+    if(CARBON_BACKEND_DX11)
+        list(APPEND carbon_test_backends DX11)
+    endif()
+    if(CARBON_BACKEND_DX9)
+        list(APPEND carbon_test_backends DX9 DX9Invalidate)
+    endif()
+    if(CARBON_BACKEND_VULKAN)
+        list(APPEND carbon_test_backends Vulkan VulkanRenderPass)
+    endif()
+    foreach(backend IN LISTS carbon_test_backends)
+        add_test(NAME Backends.${backend} COMMAND CarbonTests "--gtest_filter=Backends/*/${backend}")
+        set_tests_properties(Backends.${backend} PROPERTIES RESOURCE_LOCK CarbonGpu SKIP_RETURN_CODE 77)
+    endforeach()
+endif()

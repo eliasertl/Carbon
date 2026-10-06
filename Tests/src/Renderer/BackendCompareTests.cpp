@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 
 #include <format>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -34,6 +35,21 @@ namespace Carbon
         };
 
         constexpr SceneCase Cases[] = {{false, 1.0f}, {true, 1.0f}, {false, 2.0f}, {true, 2.0f}};
+
+        // The reference rendering of a case, made once per process: every backend is compared with the same image.
+        const RenderedImage& GetReferenceImage(BackendHarness& reference, const SceneCase& sceneCase,
+                                               std::vector<std::string>& problems)
+        {
+            static std::map<std::string, RenderedImage> s_Images;
+            const std::string name = sceneCase.GetName();
+            auto found = s_Images.find(name);
+            if (found == s_Images.end())
+            {
+                found = s_Images.emplace(name, RenderTestScene(reference, sceneCase.IsDark, sceneCase.Scale, problems))
+                            .first;
+            }
+            return found->second;
+        }
     } // namespace
 
     /// Renders the test scene with every backend and compares it with the WebGPU rendering. On failure the
@@ -47,20 +63,18 @@ namespace Carbon
 
     TEST_P(BackendCompareTests, TestSceneMatchesTheReference)
     {
-        const std::unique_ptr<BackendHarness> reference = CreateBackendHarness(ReferenceBackend);
+        std::string reason;
+        BackendHarness* reference = GetSharedBackendHarness(std::string(ReferenceBackend), reason);
         if (reference == nullptr)
-            GTEST_SKIP() << "The reference backend (WebGPU) is not compiled in";
-        if (const std::string reason = reference->CreateDevice(); !reason.empty())
             GTEST_SKIP() << "No reference: " << reason;
-        const std::unique_ptr<BackendHarness> harness = CreateBackendHarness(GetParam());
-        ASSERT_NE(harness, nullptr);
-        if (const std::string reason = harness->CreateDevice(); !reason.empty())
+        BackendHarness* harness = GetSharedBackendHarness(GetParam(), reason);
+        if (harness == nullptr)
             GTEST_SKIP() << reason;
 
         for (const SceneCase& sceneCase : Cases)
         {
             std::vector<std::string> problems;
-            const RenderedImage expected = RenderTestScene(*reference, sceneCase.IsDark, sceneCase.Scale, problems);
+            const RenderedImage& expected = GetReferenceImage(*reference, sceneCase, problems);
             const RenderedImage actual = RenderTestScene(*harness, sceneCase.IsDark, sceneCase.Scale, problems);
             for (const std::string& problem : problems)
                 ADD_FAILURE() << sceneCase.GetName() << ": " << problem;

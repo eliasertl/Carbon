@@ -10,7 +10,7 @@ meanwhile. Per configuration (Debug, Release), with Ninja, each `--runs` times, 
     steps added up from .ninja_log ("CPU seconds": what the build costs on one core);
   - the rebuild after touching Framework/src/Carbon/Core/Log.h, and after changing the project version in the root
     CMakeLists.txt (which is restored afterwards);
-  - Release only: `ctest` for the whole suite and for the renderer backends' tests.
+  - Release only: `ctest` for the whole suite and for the renderer backends' tests (`Backends.*`).
 
 It also reads the duration of every job of the latest successful CI run on main from GitHub's public API.
 `--only` limits what is measured, `--ctest-args` adds arguments to ctest (for example "--parallel 8").
@@ -142,7 +142,7 @@ def measure_configuration(arguments, source, work, build_type, steps):
         result["ctest_s"], result["ctest_backends_s"] = [], []
         for index in range(arguments.runs):
             result["ctest_s"].append(run(ctest))
-            result["ctest_backends_s"].append(run(ctest + ["-R", "^Backends/"]))
+            result["ctest_backends_s"].append(run(ctest + ["-R", "^Backends[./]"]))
             print(f"  ctest {index + 1}: {result['ctest_s'][-1]:.1f} s, backends "
                   f"{result['ctest_backends_s'][-1]:.1f} s", flush=True)
         listing = subprocess.run(["ctest", "--test-dir", str(build), "-N"], stdout=subprocess.PIPE, text=True).stdout

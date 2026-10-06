@@ -3,16 +3,62 @@
 #include <algorithm>
 #include <cmath>
 #include <format>
+#include <map>
 
 namespace Carbon
 {
+    namespace
+    {
+        struct SharedHarness
+        {
+            std::unique_ptr<BackendHarness> Harness;
+            /// Why the device could not be created; empty when it was.
+            std::string Reason;
+        };
+
+        std::map<std::string, SharedHarness>& GetSharedHarnesses()
+        {
+            static std::map<std::string, SharedHarness> s_Harnesses;
+            return s_Harnesses;
+        }
+
+        // Destroys the devices after the last test, while the libraries they come from are still in working
+        // order, instead of from a static destructor.
+        class SharedHarnessEnvironment : public ::testing::Environment
+        {
+        public:
+            void TearDown() override { GetSharedHarnesses().clear(); }
+        };
+
+        // GoogleTest owns the environment.
+        const ::testing::Environment* const s_SharedHarnessEnvironment =
+            ::testing::AddGlobalTestEnvironment(new SharedHarnessEnvironment());
+    } // namespace
+
+    BackendHarness* GetSharedBackendHarness(const std::string& name, std::string& reason)
+    {
+        std::map<std::string, SharedHarness>& harnesses = GetSharedHarnesses();
+        auto found = harnesses.find(name);
+        if (found == harnesses.end())
+        {
+            SharedHarness shared;
+            shared.Harness = CreateBackendHarness(name);
+            shared.Reason = shared.Harness != nullptr ? shared.Harness->CreateDevice()
+                                                      : std::format("No harness for backend {}", name);
+            found = harnesses.emplace(name, std::move(shared)).first;
+        }
+        reason = found->second.Reason;
+        return reason.empty() ? found->second.Harness.get() : nullptr;
+    }
+
     void BackendTest::SetUp()
     {
-        m_Harness = CreateBackendHarness(GetParam());
-        ASSERT_NE(m_Harness, nullptr) << "No harness for backend " << GetParam();
-        const std::string reason = m_Harness->CreateDevice();
-        if (!reason.empty())
+        std::string reason;
+        m_Harness = GetSharedBackendHarness(GetParam(), reason);
+        if (m_Harness == nullptr)
             GTEST_SKIP() << reason;
+        // Messages of the API that came after the last test took them belong to nobody.
+        m_Harness->TakeMessages();
 
         ContextDescription description;
         description.Callbacks.Log = [this](LogLevel level, std::string_view source, std::string_view message)
@@ -38,7 +84,7 @@ namespace Carbon
         {
             for (std::string& message : m_Harness->TakeMessages())
                 m_Problems.push_back(std::format("[{}] {}", m_Harness->GetName(), message));
-            m_Harness.reset();
+            m_Harness = nullptr;
         }
         std::string problems;
         for (const std::string& problem : m_Problems)
