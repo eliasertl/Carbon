@@ -1,4 +1,4 @@
-// The host's own content in DX11MinimalIntegration: one colored triangle, without vertex buffers.
+// The host's own content in DX11Minimal: one colored triangle, without vertex buffers.
 
 cbuffer Constants : register(b0)
 {

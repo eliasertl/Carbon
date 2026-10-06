@@ -44,10 +44,11 @@ def read_manifest():
 
 
 def find_example(build, example):
-    for name in (example + '.exe', example):
-        path = os.path.join(build, 'Examples', example, name)
-        if os.path.isfile(path):
-            return path
+    # Examples are built once per backend into the folder of their sources: Examples/Gallery/WebGPUGallery.
+    for directory, _, files in os.walk(os.path.join(build, 'Examples')):
+        for name in (example + '.exe', example):
+            if name in files:
+                return os.path.abspath(os.path.join(directory, name))
     sys.exit(f'{example} was not found in {build}; build the examples first')
 
 

@@ -1,21 +1,21 @@
 #pragma once
 
-#include <webgpu/webgpu_cpp.h>
+#include <memory>
 
-#include <Carbon/Backends/WebGPU/WebGPUBackend.h>
 #include <Carbon/Carbon.h>
 
 #include "ExampleArguments.h"
+#include "GraphicsDevice.h"
 
 struct GLFWwindow;
 
 namespace Example
 {
-    /// The parts of a host application that have nothing to do with Carbon: the window, the WebGPU instance,
-    /// adapter and device, the surface, and the offscreen target used for screenshots.
+    /// The parts of a host application that have nothing to do with Carbon: the window, its size and content scale,
+    /// timing, the graphics device of the backend this executable was built for, and screenshots.
     ///
     /// Carbon itself never does any of this; the examples keep it here so that each Main.cpp can concentrate on
-    /// how Carbon is integrated.
+    /// how Carbon is used.
     class Host
     {
     public:
@@ -32,12 +32,8 @@ namespace Example
         const Arguments& GetArguments() const { return m_Arguments; }
 
         /// The GLFW window; null in screenshot mode.
-        GLFWwindow* GetWindow() const { return m_Window; }
-        const wgpu::Device& GetDevice() const { return m_Device; }
-        /// Format of the texture returned by GetTargetView.
-        wgpu::TextureFormat GetColorFormat() const { return m_ColorFormat; }
-        /// The same format in Carbon's terms, for WebGPUInitInfo::ColorFormat.
-        Carbon::TextureFormat GetCarbonColorFormat() const;
+        GLFWwindow* GetWindow() const { return m_IsVisible ? m_Window : nullptr; }
+        GraphicsDevice& GetDevice() const { return *m_Device; }
 
         /// Pixels per point.
         float GetContentScale() const { return m_ContentScale; }
@@ -52,11 +48,10 @@ namespace Example
         /// Converts a GLFW cursor position (screen coordinates) to points.
         void CursorToPoints(double cursorX, double cursorY, float& x, float& y) const;
 
-        /// Polls window events and acquires the texture to render into. Returns false when the application
-        /// should exit (window closed, or screenshot taken).
+        /// Polls window events and prepares the device's frame. Returns false when the application should exit
+        /// (window closed, or screenshot taken); in a browser, where a page never exits, when this frame is
+        /// skipped.
         bool BeginFrame();
-        /// The texture view to render this frame into. Valid between BeginFrame and EndFrame.
-        const wgpu::TextureView& GetTargetView() const { return m_TargetView; }
         /// Presents the frame. In screenshot mode, saves the image after a few warm-up frames.
         void EndFrame();
 
@@ -68,25 +63,17 @@ namespace Example
         float GetPointerOriginY() const { return m_PointerOriginY; }
 
     private:
-        bool CreateDevice();
-        void ConfigureSurface();
+        bool UpdateWindowMetrics();
         bool SaveScreenshot();
 
     private:
         Arguments m_Arguments;
+        std::unique_ptr<GraphicsDevice> m_Device;
         GLFWwindow* m_Window = nullptr;
-        wgpu::Instance m_Instance;
-        wgpu::Adapter m_Adapter;
-        wgpu::Device m_Device;
-        wgpu::Surface m_Surface;
-        wgpu::Texture m_OffscreenTexture;
-        wgpu::TextureView m_TargetView;
-        wgpu::TextureFormat m_ColorFormat = wgpu::TextureFormat::BGRA8Unorm;
+        bool m_IsVisible = false;
 
         uint32_t m_PixelWidth = 0;
         uint32_t m_PixelHeight = 0;
-        uint32_t m_ConfiguredWidth = 0;
-        uint32_t m_ConfiguredHeight = 0;
         float m_ContentScale = 1.0f;
         float m_DeltaTime = 1.0f / 60.0f;
         double m_LastTime = 0.0;

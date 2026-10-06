@@ -3,10 +3,10 @@
 // The host owns the window, the Vulkan device, the swapchain and the render pass. Each frame it forwards input to
 // Carbon, builds the interface, draws its own content into the render pass and then lets Carbon add the interface
 // on top, in the same render pass. The Vulkan chores (instance, device, swapchain, frames in flight) live in the
-// VulkanHost class below; everything Carbon-specific is in main(). WebGPUMinimalIntegration and
-// OpenGLMinimalIntegration do the same with the other backends.
+// VulkanHost class below; everything Carbon-specific is in main(). WebGPUMinimal and
+// OpenGLMinimal do the same with the other backends.
 //
-//   VulkanMinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
+//   VulkanMinimal [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <algorithm>
 #include <cmath>
@@ -244,7 +244,7 @@ namespace
             }
             VkApplicationInfo application = {};
             application.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-            application.pApplicationName = "VulkanMinimalIntegration";
+            application.pApplicationName = "VulkanMinimal";
             application.apiVersion = VK_API_VERSION_1_1;
             VkInstanceCreateInfo instanceInfo = {};
             instanceInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
@@ -836,7 +836,7 @@ int main(int argc, char** argv)
         Carbon::SetTheme(settings.IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
 
         // ---- 2. Forward the window's input events to Carbon --------------------------------------------------
-        // WebGPUMinimalIntegration writes these callbacks out one by one; this is the same code.
+        // WebGPUMinimal writes these callbacks out one by one; this is the same code.
         Example::InstallInputCallbacks(window);
 
         // ---- 3. The frame loop -------------------------------------------------------------------------------

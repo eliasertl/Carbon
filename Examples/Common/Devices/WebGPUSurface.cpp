@@ -1,6 +1,6 @@
 // webgpu_cpp.h must come before the native window-system headers: X11 defines macros such as `None`, `Always` and
 // `Success` that collide with WebGPU's enumerators.
-#include "Surface.h"
+#include "WebGPUSurface.h"
 
 #if defined(_WIN32)
 #define GLFW_EXPOSE_NATIVE_WIN32

@@ -1,11 +1,9 @@
 #include "ExampleHost.h"
 
-#include <algorithm>
 #include <cmath>
 #include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <string_view>
+#include <format>
+#include <string>
 #include <vector>
 
 #if defined(_MSC_VER)
@@ -15,22 +13,16 @@
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
 
-#include "Screenshot.h"
+#if defined(__EMSCRIPTEN__)
+#include <GLFW/emscripten_glfw3.h>
+#endif
 
-#include "Surface.h"
+#include "Screenshot.h"
 
 namespace Example
 {
-    namespace
-    {
-        void PrintString(const char* prefix, wgpu::StringView message)
-        {
-            const std::string_view view = message;
-            std::fprintf(stderr, "%s%.*s\n", prefix, static_cast<int>(view.size()), view.data());
-        }
-    } // namespace
-
-    Host::Host(const Arguments& arguments, const char* title, int width, int height) : m_Arguments(arguments)
+    Host::Host(const Arguments& arguments, const char* title, int width, int height)
+        : m_Arguments(arguments), m_Device(CreateGraphicsDevice())
     {
 #if defined(_MSC_VER) && defined(_DEBUG)
         // Screenshot mode runs unattended: a failed assertion of the debug runtime must end up on stderr, not in
@@ -49,14 +41,17 @@ namespace Example
             height = arguments.Height;
         }
 
-        if (IsScreenshotMode())
+        const bool isOffscreen = IsScreenshotMode();
+        if (isOffscreen)
         {
             m_ContentScale = arguments.Scale > 0.0f ? arguments.Scale : 1.0f;
             m_PixelWidth = static_cast<uint32_t>(std::lround(static_cast<float>(width) * m_ContentScale));
             m_PixelHeight = static_cast<uint32_t>(std::lround(static_cast<float>(height) * m_ContentScale));
             m_DeltaTime = ScreenshotDeltaTime;
         }
-        else
+
+        // Screenshot mode opens no window, unless the API needs one for its device; that one stays hidden.
+        if (!isOffscreen || m_Device->NeedsWindowOffscreen())
         {
             glfwSetErrorCallback([](int code, const char* description)
                                  { std::fprintf(stderr, "GLFW error %d: %s\n", code, description); });
@@ -64,139 +59,55 @@ namespace Example
                 return;
             m_IsGlfwInitialized = true;
 
-            // Carbon renders through WebGPU; GLFW must not create an OpenGL context.
-            glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+            m_Device->SetWindowHints();
+            glfwWindowHint(GLFW_VISIBLE, isOffscreen ? GLFW_FALSE : GLFW_TRUE);
+#if defined(__EMSCRIPTEN__)
+            // The canvas's framebuffer follows the device pixel ratio; a page has no window frame.
+            glfwWindowHint(GLFW_SCALE_FRAMEBUFFER, GLFW_TRUE);
+#else
             // Let the window system scale the window with the monitor unless a scale was forced.
             glfwWindowHint(GLFW_SCALE_TO_MONITOR, arguments.Scale > 0.0f ? GLFW_FALSE : GLFW_TRUE);
             glfwWindowHint(GLFW_DECORATED, arguments.IsFrameless ? GLFW_FALSE : GLFW_TRUE);
+#endif
             const float windowScale = arguments.Scale > 0.0f ? arguments.Scale : 1.0f;
+            // The title names the backend, since every example exists once per backend.
+            const std::string windowTitle = std::format("{} ({})", title, m_Device->GetName());
             m_Window = glfwCreateWindow(static_cast<int>(std::lround(static_cast<float>(width) * windowScale)),
-                                        static_cast<int>(std::lround(static_cast<float>(height) * windowScale)), title,
-                                        nullptr, nullptr);
+                                        static_cast<int>(std::lround(static_cast<float>(height) * windowScale)),
+                                        windowTitle.c_str(), nullptr, nullptr);
             if (m_Window == nullptr)
+            {
+                std::fprintf(stderr, "The window could not be created for %.*s\n",
+                             static_cast<int>(m_Device->GetName().size()), m_Device->GetName().data());
                 return;
+            }
+            m_IsVisible = !isOffscreen;
             glfwSetWindowUserPointer(m_Window, this);
         }
 
-        if (!CreateDevice())
+        if (!isOffscreen && !UpdateWindowMetrics())
+        {
+            m_PixelWidth = static_cast<uint32_t>(width);
+            m_PixelHeight = static_cast<uint32_t>(height);
+        }
+        if (!m_Device->Create(m_Window, isOffscreen, m_PixelWidth, m_PixelHeight))
             return;
-
-        if (IsScreenshotMode())
-        {
-            // RGBA so the pixels can be written to a PNG without conversion.
-            m_ColorFormat = wgpu::TextureFormat::RGBA8Unorm;
-            wgpu::TextureDescriptor descriptor;
-            descriptor.label = "Screenshot target";
-            descriptor.size = {m_PixelWidth, m_PixelHeight, 1};
-            descriptor.format = m_ColorFormat;
-            descriptor.usage = wgpu::TextureUsage::RenderAttachment | wgpu::TextureUsage::CopySrc;
-            m_OffscreenTexture = m_Device.CreateTexture(&descriptor);
-        }
-        else
-        {
-            // Prefer a non-sRGB format: Carbon then blends in gamma space, like macOS UI.
-            wgpu::SurfaceCapabilities capabilities;
-            m_Surface.GetCapabilities(m_Adapter, &capabilities);
-            if (capabilities.formatCount == 0)
-            {
-                std::fprintf(stderr, "The surface reports no supported formats\n");
-                return;
-            }
-            m_ColorFormat = capabilities.formats[0];
-            for (size_t i = 0; i < capabilities.formatCount; i++)
-            {
-                if (capabilities.formats[i] == wgpu::TextureFormat::BGRA8Unorm ||
-                    capabilities.formats[i] == wgpu::TextureFormat::RGBA8Unorm)
-                {
-                    m_ColorFormat = capabilities.formats[i];
-                    break;
-                }
-            }
+#if defined(__EMSCRIPTEN__)
+        // In a browser the window is the page's canvas; it follows the size of the browser window.
+        emscripten::glfw3::MakeCanvasResizable(m_Window, "window");
+#endif
+        if (m_IsGlfwInitialized)
             m_LastTime = glfwGetTime();
-        }
-
         m_IsReady = true;
     }
 
     Host::~Host()
     {
-        m_TargetView = nullptr;
-        m_OffscreenTexture = nullptr;
-        m_Surface = nullptr;
-        m_Device = nullptr;
-        m_Adapter = nullptr;
-        m_Instance = nullptr;
+        m_Device.reset(); // before the window its surface or context belongs to
         if (m_Window != nullptr)
             glfwDestroyWindow(m_Window);
         if (m_IsGlfwInitialized)
             glfwTerminate();
-    }
-
-    bool Host::CreateDevice()
-    {
-        static const wgpu::InstanceFeatureName InstanceFeatures[] = {wgpu::InstanceFeatureName::TimedWaitAny};
-        wgpu::InstanceDescriptor instanceDescriptor;
-        instanceDescriptor.requiredFeatureCount = 1;
-        instanceDescriptor.requiredFeatures = InstanceFeatures;
-        m_Instance = wgpu::CreateInstance(&instanceDescriptor);
-        if (m_Instance == nullptr)
-        {
-            std::fprintf(stderr, "Could not create a WebGPU instance\n");
-            return false;
-        }
-
-        if (m_Window != nullptr)
-        {
-            m_Surface = CreateSurfaceForWindow(m_Instance, m_Window);
-            if (m_Surface == nullptr)
-            {
-                std::fprintf(stderr, "Could not create a surface for the window\n");
-                return false;
-            }
-        }
-
-        wgpu::RequestAdapterOptions adapterOptions;
-        adapterOptions.compatibleSurface = m_Surface;
-        adapterOptions.powerPreference = wgpu::PowerPreference::HighPerformance;
-        m_Instance.WaitAny(
-            m_Instance.RequestAdapter(
-                &adapterOptions, wgpu::CallbackMode::WaitAnyOnly,
-                [](wgpu::RequestAdapterStatus, wgpu::Adapter adapter, wgpu::StringView, wgpu::Adapter* out)
-                { *out = std::move(adapter); }, &m_Adapter),
-            UINT64_MAX);
-        if (m_Adapter == nullptr)
-        {
-            std::fprintf(stderr, "No WebGPU adapter is available on this machine\n");
-            return false;
-        }
-
-        wgpu::DeviceDescriptor deviceDescriptor;
-        deviceDescriptor.SetUncapturedErrorCallback([](const wgpu::Device&, wgpu::ErrorType, wgpu::StringView message)
-                                                    { PrintString("WebGPU error: ", message); });
-        m_Instance.WaitAny(m_Adapter.RequestDevice(
-                               &deviceDescriptor, wgpu::CallbackMode::WaitAnyOnly,
-                               [](wgpu::RequestDeviceStatus, wgpu::Device device, wgpu::StringView, wgpu::Device* out)
-                               { *out = std::move(device); }, &m_Device),
-                           UINT64_MAX);
-        if (m_Device == nullptr)
-        {
-            std::fprintf(stderr, "Could not create a WebGPU device\n");
-            return false;
-        }
-        return true;
-    }
-
-    void Host::ConfigureSurface()
-    {
-        wgpu::SurfaceConfiguration configuration;
-        configuration.device = m_Device;
-        configuration.format = m_ColorFormat;
-        configuration.width = m_PixelWidth;
-        configuration.height = m_PixelHeight;
-        configuration.presentMode = wgpu::PresentMode::Fifo;
-        m_Surface.Configure(&configuration);
-        m_ConfiguredWidth = m_PixelWidth;
-        m_ConfiguredHeight = m_PixelHeight;
     }
 
     void Host::CursorToPoints(double cursorX, double cursorY, float& x, float& y) const
@@ -213,6 +124,29 @@ namespace Example
         y = static_cast<float>(cursorY * pixelsPerUnitY / m_ContentScale);
     }
 
+    bool Host::UpdateWindowMetrics()
+    {
+        int framebufferWidth = 0;
+        int framebufferHeight = 0;
+        glfwGetFramebufferSize(m_Window, &framebufferWidth, &framebufferHeight);
+        if (framebufferWidth <= 0 || framebufferHeight <= 0)
+            return false;
+        m_PixelWidth = static_cast<uint32_t>(framebufferWidth);
+        m_PixelHeight = static_cast<uint32_t>(framebufferHeight);
+        if (m_Arguments.Scale > 0.0f)
+        {
+            m_ContentScale = m_Arguments.Scale;
+        }
+        else
+        {
+            float scaleX = 1.0f;
+            float scaleY = 1.0f;
+            glfwGetWindowContentScale(m_Window, &scaleX, &scaleY);
+            m_ContentScale = scaleX > 0.0f ? scaleX : 1.0f;
+        }
+        return true;
+    }
+
     bool Host::BeginFrame()
     {
         if (!m_IsReady)
@@ -222,55 +156,33 @@ namespace Example
         {
             if (m_FrameIndex >= ScreenshotWarmupFrames)
                 return false;
-            m_TargetView = m_OffscreenTexture.CreateView();
-            return true;
+            return m_Device->BeginFrame(m_PixelWidth, m_PixelHeight);
         }
 
+#if defined(__EMSCRIPTEN__)
+        // The browser calls each frame; a page never waits. GLFW applies the canvas's new size in glfwPollEvents.
+        // Without a canvas size or a device the frame is skipped.
+        glfwPollEvents();
+        if (!UpdateWindowMetrics() || !m_Device->BeginFrame(m_PixelWidth, m_PixelHeight))
+            return false;
+#else
         while (true)
         {
             glfwPollEvents();
             if (glfwWindowShouldClose(m_Window))
                 return false;
-
-            int framebufferWidth = 0;
-            int framebufferHeight = 0;
-            glfwGetFramebufferSize(m_Window, &framebufferWidth, &framebufferHeight);
-            if (framebufferWidth <= 0 || framebufferHeight <= 0)
+            // Minimized: nothing to render into. Sleep until something happens. A device that cannot render now
+            // (a lost Direct3D 9 device) is asked again shortly.
+            if (!UpdateWindowMetrics())
             {
-                // Minimized: nothing to render into. Sleep until something happens.
                 glfwWaitEvents();
                 continue;
             }
-            m_PixelWidth = static_cast<uint32_t>(framebufferWidth);
-            m_PixelHeight = static_cast<uint32_t>(framebufferHeight);
-
-            if (m_Arguments.Scale > 0.0f)
-            {
-                m_ContentScale = m_Arguments.Scale;
-            }
-            else
-            {
-                float scaleX = 1.0f;
-                float scaleY = 1.0f;
-                glfwGetWindowContentScale(m_Window, &scaleX, &scaleY);
-                m_ContentScale = scaleX > 0.0f ? scaleX : 1.0f;
-            }
-
-            if (m_PixelWidth != m_ConfiguredWidth || m_PixelHeight != m_ConfiguredHeight)
-                ConfigureSurface();
-
-            wgpu::SurfaceTexture surfaceTexture;
-            m_Surface.GetCurrentTexture(&surfaceTexture);
-            if (surfaceTexture.status != wgpu::SurfaceGetCurrentTextureStatus::SuccessOptimal &&
-                surfaceTexture.status != wgpu::SurfaceGetCurrentTextureStatus::SuccessSuboptimal)
-            {
-                // The surface went stale (resize, display change): configure it again and retry.
-                ConfigureSurface();
-                continue;
-            }
-            m_TargetView = surfaceTexture.texture.CreateView();
-            break;
+            if (m_Device->BeginFrame(m_PixelWidth, m_PixelHeight))
+                break;
+            glfwWaitEventsTimeout(0.1);
         }
+#endif
 
         const double now = glfwGetTime();
         m_DeltaTime = static_cast<float>(now - m_LastTime);
@@ -280,19 +192,10 @@ namespace Example
 
     void Host::EndFrame()
     {
-        m_TargetView = nullptr;
+        m_Device->EndFrame();
         m_FrameIndex++;
-
-        if (IsScreenshotMode())
-        {
-            if (m_FrameIndex == ScreenshotWarmupFrames)
-                m_IsReady = SaveScreenshot();
-            m_Instance.ProcessEvents();
-            return;
-        }
-
-        m_Surface.Present();
-        m_Instance.ProcessEvents();
+        if (IsScreenshotMode() && m_FrameIndex == ScreenshotWarmupFrames)
+            m_IsReady = SaveScreenshot();
     }
 
     void Host::SetScreenshotArea(float x, float y, float width, float height, float anchorX, float anchorY)
@@ -307,66 +210,14 @@ namespace Example
 
     bool Host::SaveScreenshot()
     {
-        // Rows in a buffer copy must be aligned to 256 bytes.
-        const uint32_t bytesPerRow = (m_PixelWidth * 4 + 255) & ~255u;
-        const uint64_t bufferSize = static_cast<uint64_t>(bytesPerRow) * m_PixelHeight;
-
-        wgpu::BufferDescriptor bufferDescriptor;
-        bufferDescriptor.label = "Screenshot readback";
-        bufferDescriptor.size = bufferSize;
-        bufferDescriptor.usage = wgpu::BufferUsage::MapRead | wgpu::BufferUsage::CopyDst;
-        const wgpu::Buffer buffer = m_Device.CreateBuffer(&bufferDescriptor);
-
-        wgpu::TexelCopyTextureInfo source;
-        source.texture = m_OffscreenTexture;
-        wgpu::TexelCopyBufferInfo destination;
-        destination.buffer = buffer;
-        destination.layout.bytesPerRow = bytesPerRow;
-        destination.layout.rowsPerImage = m_PixelHeight;
-        const wgpu::Extent3D extent = {m_PixelWidth, m_PixelHeight, 1};
-
-        const wgpu::CommandEncoder encoder = m_Device.CreateCommandEncoder();
-        encoder.CopyTextureToBuffer(&source, &destination, &extent);
-        const wgpu::CommandBuffer commands = encoder.Finish();
-        m_Device.GetQueue().Submit(1, &commands);
-
-        bool isMapped = false;
-        m_Instance.WaitAny(buffer.MapAsync(
-                               wgpu::MapMode::Read, 0, static_cast<size_t>(bufferSize), wgpu::CallbackMode::WaitAnyOnly,
-                               [](wgpu::MapAsyncStatus status, wgpu::StringView, bool* result)
-                               { *result = status == wgpu::MapAsyncStatus::Success; }, &isMapped),
-                           UINT64_MAX);
-        if (!isMapped)
+        std::vector<uint8_t> pixels;
+        if (!m_Device->ReadPixels(pixels))
         {
             std::fprintf(stderr, "Could not read back the screenshot\n");
             return false;
         }
-
-        const uint8_t* pixels =
-            static_cast<const uint8_t*>(buffer.GetConstMappedRange(0, static_cast<size_t>(bufferSize)));
         const float* area = m_Area[2] > 0.0f ? m_Area : nullptr;
-        const bool isSaved = Example::SaveScreenshot(m_Arguments, pixels, m_PixelWidth, m_PixelHeight, bytesPerRow,
-                                                     m_ContentScale, area);
-        buffer.Unmap();
-        return isSaved;
-    }
-
-    Carbon::TextureFormat Host::GetCarbonColorFormat() const
-    {
-        switch (m_ColorFormat)
-        {
-            case wgpu::TextureFormat::RGBA8Unorm:
-                return Carbon::TextureFormat::RGBA8Unorm;
-            case wgpu::TextureFormat::RGBA8UnormSrgb:
-                return Carbon::TextureFormat::RGBA8UnormSrgb;
-            case wgpu::TextureFormat::BGRA8UnormSrgb:
-                return Carbon::TextureFormat::BGRA8UnormSrgb;
-            case wgpu::TextureFormat::RGB10A2Unorm:
-                return Carbon::TextureFormat::RGB10A2Unorm;
-            case wgpu::TextureFormat::RGBA16Float:
-                return Carbon::TextureFormat::RGBA16Float;
-            default:
-                return Carbon::TextureFormat::BGRA8Unorm;
-        }
+        return Example::SaveScreenshot(m_Arguments, pixels.data(), m_PixelWidth, m_PixelHeight, m_PixelWidth * 4,
+                                       m_ContentScale, area);
     }
 } // namespace Example

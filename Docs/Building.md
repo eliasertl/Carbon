@@ -157,8 +157,8 @@ source ./emsdk_env.sh                                  # emsdk_env.bat or emsdk_
 emcmake cmake -S . -B Build/Web -G Ninja -DCMAKE_BUILD_TYPE=Release
 cmake --build Build/Web
 ctest --test-dir Build/Web                             # the tests run in Node
-python -m http.server --directory Build/Web/Examples/OpenGLESMinimalIntegration
-# then open http://localhost:8000/OpenGLESMinimalIntegration.html
+python -m http.server --directory Build/Web/Examples
+# then open http://localhost:8000/Gallery/OpenGLESGallery.html or OpenGLESMinimal/OpenGLESMinimal.html
 ```
 
 What changes in a web build:
@@ -174,11 +174,13 @@ What changes in a web build:
   (Carbon resolves its WebGL functions by name) and, because fonts and text need more than Emscripten's defaults,
   `-sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=1MB`. The browser drives the frame loop: hand your frame function to
   `emscripten_set_main_loop`, as
-  [Examples/OpenGLESMinimalIntegration](../Examples/OpenGLESMinimalIntegration/Main.cpp) does; its `Shell.html` is
-  a minimal page whose canvas covers the whole viewport.
+  [Examples/OpenGLESMinimal](../Examples/OpenGLESMinimal/Main.cpp) and `Examples/Common/ExampleApp.cpp` do;
+  `Examples/Common/Shell.html` is a minimal page whose canvas covers the whole viewport. A page has no window to
+  wait for, so the frame function polls events and returns.
 - **Tests** run in Node (`-sNODERAWFS`). Node has no canvas, so the GPU tests are not instantiated there; the rest
   of the suite runs as on the desktop.
-- Only `OpenGLESMinimalIntegration` is built: the other examples render with WebGPU through Dawn.
+- The examples are built for the OpenGL ES backend only: `OpenGLESMinimal`, `OpenGLESGallery`,
+  `OpenGLESCustomComponent` and `Reflection`. CustomTitleBar is left out, since a page has no window to move.
 
 ## Examples and tests
 
@@ -186,8 +188,8 @@ Every example accepts `--screenshot <file.png>` (render a settled frame offscree
 `--theme light|dark`, `--scale <factor>` and `--size <width>x<height>`:
 
 ```sh
-Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --theme dark
-Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --screenshot shot.png --scale 2
+Build/Examples/WebGPUMinimal/WebGPUMinimal --theme dark
+Build/Examples/WebGPUMinimal/WebGPUMinimal --screenshot shot.png --scale 2
 ```
 
 For screenshots of states that need input, and of parts of a window, there are more options:

@@ -9,9 +9,9 @@
 namespace Example
 {
     /// A complete host application around a Carbon interface: the window or screenshot target, the Carbon
-    /// context, the WebGPU backend, input forwarding and the frame loop. It does exactly what
-    /// Examples/WebGPUMinimalIntegration spells out step by step, so that the other examples can concentrate on
-    /// their interface.
+    /// context, the backend of the graphics device this executable was built for, input forwarding and the frame
+    /// loop. It does what the *Minimal examples spell out step by step, so that the other examples can concentrate
+    /// on their interface.
     class App
     {
     public:
@@ -28,12 +28,18 @@ namespace Example
         const Arguments& GetArguments() const { return m_Host.GetArguments(); }
 
         /// Runs until the window is closed (or the screenshot is saved). `build` is called once per frame, between
-        /// NewFrame and EndFrame, and builds the interface. Returns the process exit code.
+        /// NewFrame and EndFrame, and builds the interface. Returns the process exit code. In a browser the page
+        /// drives the frames and this never returns; what `build` refers to stays alive.
         int Run(const std::function<void()>& build);
+
+    private:
+        /// Builds and renders one frame. False when there is no frame to render.
+        bool RunFrame();
 
     private:
         Host m_Host;
         Carbon::Context* m_Context = nullptr;
         bool m_IsBackendReady = false;
+        std::function<void()> m_Build;
     };
 } // namespace Example

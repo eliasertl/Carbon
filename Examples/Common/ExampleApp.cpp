@@ -2,6 +2,10 @@
 
 #include <cstdio>
 
+#if defined(__EMSCRIPTEN__)
+#include <emscripten/emscripten.h>
+#endif
+
 #include "GlfwInput.h"
 
 namespace Example
@@ -40,11 +44,8 @@ namespace Example
         m_Context = Carbon::CreateContext(description);
         InstallInputCallbacks(m_Host.GetWindow());
 
-        // The examples render through WebGPU, into the host's surface or screenshot texture.
-        Carbon::WebGPUInitInfo info;
-        info.Device = m_Host.GetDevice();
-        info.ColorFormat = m_Host.GetCarbonColorFormat();
-        m_IsBackendReady = Carbon::WebGPUInit(info);
+        // Carbon renders through the backend of the device this executable was built for.
+        m_IsBackendReady = m_Host.GetDevice().InitCarbon();
 
         Carbon::SetTheme(GetArguments().IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
     }
@@ -53,63 +54,65 @@ namespace Example
     {
         if (m_Context != nullptr)
         {
-            Carbon::WebGPUShutdown();
+            if (m_IsBackendReady)
+                m_Host.GetDevice().ShutdownCarbon();
             Carbon::DestroyContext(m_Context);
         }
+    }
+
+    bool App::RunFrame()
+    {
+        if (!m_Host.BeginFrame())
+            return false;
+
+        Carbon::IO& io = Carbon::GetIO();
+        io.SetDisplaySize(m_Host.GetWidth(), m_Host.GetHeight());
+        io.SetContentScale(m_Host.GetContentScale());
+        io.SetDeltaTime(m_Host.GetDeltaTime());
+
+        // Screenshots can be taken with the pointer somewhere, or after a click: the input is scripted. It starts
+        // once the layout has settled, so that positions relative to a section (--section) are final.
+        const Arguments& arguments = GetArguments();
+        if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f)
+        {
+            const int frame = m_Host.GetFrameIndex();
+            const Carbon::MouseButton button =
+                arguments.ClickButton == 1 ? Carbon::MouseButton::Right : Carbon::MouseButton::Left;
+            if (frame == 6)
+                io.AddMousePosEvent(m_Host.GetPointerOriginX() + arguments.PointerX,
+                                    m_Host.GetPointerOriginY() + arguments.PointerY);
+            if (frame == 8 && arguments.ClickButton >= 0)
+                io.AddMouseButtonEvent(button, true);
+            if (frame == 9 && arguments.ClickButton >= 0)
+                io.AddMouseButtonEvent(button, false);
+        }
+
+        Carbon::NewFrame();
+        m_Build();
+        Carbon::EndFrame();
+
+        // The host clears to the theme's background, which glides during a theme switch, and Carbon draws on top.
+        m_Host.GetDevice().Render(Carbon::GetStyleColor(Carbon::StyleColor::Background));
+        m_Host.EndFrame();
+        return true;
     }
 
     int App::Run(const std::function<void()>& build)
     {
         if (!IsReady())
             return 1;
+        m_Build = build;
 
-        while (m_Host.BeginFrame())
+#if defined(__EMSCRIPTEN__)
+        // The browser calls the frame function once per display refresh. Simulating an infinite loop leaves main
+        // without returning, so the application and everything `build` refers to stay alive.
+        emscripten_set_main_loop_arg([](void* app) { static_cast<App*>(app)->RunFrame(); }, this, 0, true);
+        return 0;
+#else
+        while (RunFrame())
         {
-            Carbon::IO& io = Carbon::GetIO();
-            io.SetDisplaySize(m_Host.GetWidth(), m_Host.GetHeight());
-            io.SetContentScale(m_Host.GetContentScale());
-            io.SetDeltaTime(m_Host.GetDeltaTime());
-
-            // Screenshots can be taken with the pointer somewhere, or after a click: the input is scripted. It starts
-            // once the layout has settled, so that positions relative to a section (--section) are final.
-            const Arguments& arguments = GetArguments();
-            if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f)
-            {
-                const int frame = m_Host.GetFrameIndex();
-                const Carbon::MouseButton button =
-                    arguments.ClickButton == 1 ? Carbon::MouseButton::Right : Carbon::MouseButton::Left;
-                if (frame == 6)
-                    io.AddMousePosEvent(m_Host.GetPointerOriginX() + arguments.PointerX,
-                                        m_Host.GetPointerOriginY() + arguments.PointerY);
-                if (frame == 8 && arguments.ClickButton >= 0)
-                    io.AddMouseButtonEvent(button, true);
-                if (frame == 9 && arguments.ClickButton >= 0)
-                    io.AddMouseButtonEvent(button, false);
-            }
-
-            Carbon::NewFrame();
-            build();
-            Carbon::EndFrame();
-
-            // The host clears to the theme's background, which glides during a theme switch.
-            const Carbon::Color background = Carbon::GetStyleColor(Carbon::StyleColor::Background);
-            wgpu::RenderPassColorAttachment colorAttachment;
-            colorAttachment.view = m_Host.GetTargetView();
-            colorAttachment.loadOp = wgpu::LoadOp::Clear;
-            colorAttachment.storeOp = wgpu::StoreOp::Store;
-            colorAttachment.clearValue = {background.R, background.G, background.B, 1.0};
-            wgpu::RenderPassDescriptor passDescriptor;
-            passDescriptor.colorAttachmentCount = 1;
-            passDescriptor.colorAttachments = &colorAttachment;
-
-            const wgpu::CommandEncoder encoder = m_Host.GetDevice().CreateCommandEncoder();
-            const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
-            Carbon::WebGPURender(pass);
-            pass.End();
-            const wgpu::CommandBuffer commands = encoder.Finish();
-            m_Host.GetDevice().GetQueue().Submit(1, &commands);
-            m_Host.EndFrame();
         }
         return m_Host.IsReady() ? 0 : 1;
+#endif
     }
 } // namespace Example

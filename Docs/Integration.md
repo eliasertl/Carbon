@@ -4,7 +4,7 @@ Carbon never creates windows, devices or OS hooks. Your application (the *host*)
 to Carbon and gives it a place to draw. This guide covers the host's side: creating a context, connecting a
 renderer backend, forwarding input, driving frames and handling DPI.
 
-[Examples/WebGPUMinimalIntegration](../Examples/WebGPUMinimalIntegration/Main.cpp) is the complete, runnable version
+[Examples/WebGPUMinimal](../Examples/WebGPUMinimal/Main.cpp) is the complete, runnable version
 of this guide. [Renderer backends](Backends.md) covers each graphics API in detail.
 
 For what goes between `NewFrame` and `EndFrame`, see [Layout](Layout.md) and the

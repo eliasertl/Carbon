@@ -2,10 +2,11 @@
 //
 // The host owns the window, the WebGPU device and the render pass. Each frame it forwards input to Carbon,
 // builds the interface, draws its own content into the pass and then lets Carbon add the interface on top.
-// The window and device chores live in Examples/Common/ExampleHost; everything Carbon-specific is in this file.
-// VulkanMinimalIntegration and OpenGLMinimalIntegration do the same with the other backends.
+// The window and device chores live in Examples/Common (ExampleHost, Devices/WebGPUDevice); everything
+// Carbon-specific is in this file.
+// VulkanMinimal and OpenGLMinimal do the same with the other backends.
 //
-//   WebGPUMinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
+//   WebGPUMinimal [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <cstdio>
 #include <string>
@@ -18,6 +19,7 @@
 
 #include "ExampleHost.h"
 #include "GlfwInput.h"
+#include "WebGPUDevice.h"
 
 namespace
 {
@@ -197,6 +199,8 @@ int main(int argc, char** argv)
     Example::Host host(arguments, "Carbon - WebGPU Minimal Integration", 760, 440);
     if (!host.IsReady())
         return 1;
+    // This executable links the WebGPU device of Examples/Common.
+    const Example::WebGPUDevice& gpu = static_cast<const Example::WebGPUDevice&>(host.GetDevice());
 
     // ---- 1. Create the Carbon context and install the WebGPU backend on the host's device ---------------------
     Carbon::ContextDescription description;
@@ -210,8 +214,8 @@ int main(int argc, char** argv)
     Carbon::Context* context = Carbon::CreateContext(description);
 
     Carbon::WebGPUInitInfo info;
-    info.Device = host.GetDevice();
-    info.ColorFormat = host.GetCarbonColorFormat(); // the format of the passes Carbon will draw into
+    info.Device = gpu.GetDevice();
+    info.ColorFormat = gpu.GetCarbonColorFormat(); // the format of the passes Carbon will draw into
     if (!Carbon::WebGPUInit(info))
         return 1;
 
@@ -263,7 +267,7 @@ int main(int argc, char** argv)
             window, [](GLFWwindow*, int focused) { Carbon::GetIO().AddFocusEvent(focused == GLFW_TRUE); });
     }
 
-    const HostTriangle triangle(host.GetDevice(), host.GetColorFormat());
+    const HostTriangle triangle(gpu.GetDevice(), gpu.GetColorFormat());
 
     // ---- 3. The frame loop ----------------------------------------------------------------------------------
     while (host.BeginFrame())
@@ -281,7 +285,7 @@ int main(int argc, char** argv)
         // The render pass belongs to the host. It clears the target, draws its own content, then Carbon's.
         const Carbon::Color background = Carbon::GetStyleColor(Carbon::StyleColor::Background);
         wgpu::RenderPassColorAttachment colorAttachment;
-        colorAttachment.view = host.GetTargetView();
+        colorAttachment.view = gpu.GetTargetView();
         colorAttachment.loadOp = wgpu::LoadOp::Clear;
         colorAttachment.storeOp = wgpu::StoreOp::Store;
         colorAttachment.clearValue = {background.R, background.G, background.B, 1.0};
@@ -289,14 +293,14 @@ int main(int argc, char** argv)
         passDescriptor.colorAttachmentCount = 1;
         passDescriptor.colorAttachments = &colorAttachment;
 
-        const wgpu::CommandEncoder encoder = host.GetDevice().CreateCommandEncoder();
+        const wgpu::CommandEncoder encoder = gpu.GetDevice().CreateCommandEncoder();
         const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
         triangle.Draw(pass, settings.HostArea, host.GetContentScale(), settings.Brightness);
         Carbon::WebGPURender(pass);
         pass.End();
 
         const wgpu::CommandBuffer commands = encoder.Finish();
-        host.GetDevice().GetQueue().Submit(1, &commands);
+        gpu.GetDevice().GetQueue().Submit(1, &commands);
         host.EndFrame();
     }
 

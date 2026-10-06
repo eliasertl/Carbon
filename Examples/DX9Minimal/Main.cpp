@@ -5,9 +5,9 @@
 // EndScene. Carbon captures the device state and restores it. When the window is resized the host resets the
 // device, and calls DX9InvalidateDeviceObjects first, because Carbon's buffers live in D3DPOOL_DEFAULT. The Direct3D
 // chores (device, reset, the triangle) live in the DX9Host class below; everything Carbon-specific is in main(). The
-// other *MinimalIntegration examples do the same with the other backends.
+// other *Minimal examples do the same with the other backends.
 //
-//   DX9MinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
+//   DX9Minimal [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <cmath>
 #include <cstdint>
@@ -337,7 +337,7 @@ int main(int argc, char** argv)
         Carbon::SetTheme(settings.IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
 
         // ---- 2. Forward the window's input events to Carbon --------------------------------------------------
-        // WebGPUMinimalIntegration writes these callbacks out one by one; this is the same code.
+        // WebGPUMinimal writes these callbacks out one by one; this is the same code.
         Example::InstallInputCallbacks(window);
 
         // ---- 3. The frame loop -------------------------------------------------------------------------------

@@ -4,7 +4,6 @@
 #include <string>
 #include <vector>
 
-#include <Carbon/Backends/WebGPU/WebGPUBackend.h>
 #include <Carbon/Extensions/Extensions.h>
 
 namespace Gallery
@@ -63,7 +62,8 @@ namespace Gallery
         std::string Password = "hunter2";
         std::string Search;
         int Clicks = 0;
-        wgpu::TextureView Artwork;
+        /// A texture of the host's, made by its graphics device.
+        Carbon::TextureID Artwork;
         std::string FormName = "Ada Lovelace";
         bool FormUpdates = true;
         bool FormBeta = false;

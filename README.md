@@ -36,7 +36,7 @@ Carbon::EndFrame();
 Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGPUInit({ .Device = device })
 ```
 
-![The WebGPUMinimalIntegration example: Carbon's controls next to a triangle drawn by the host](Docs/Images/WebGPUMinimalIntegration-Light.png)
+![The WebGPUMinimal example: Carbon's controls next to a triangle drawn by the host](Docs/Images/WebGPUMinimal-Light.png)
 
 > **Status: version 0.1.** Everything described below is implemented, documented and tested on Windows (MSVC)
 > and Linux (GCC, Clang). The API may still change before 1.0. Not in scope: windows and docking, translucency
@@ -80,18 +80,23 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
 
 ## Examples
 
+Every example is built once per renderer backend that is compiled in, named after it: `WebGPUGallery`, `VulkanGallery`,
+`OpenGLGallery`, `OpenGLESGallery`, `DX11Gallery`, `DX9Gallery`, and so on. The `*Minimal` examples spell out one
+backend's integration each; the others are written once against `Examples/Common`, whose graphics device for
+each backend is the only difference between the builds.
+
 | Example | Shows |
 | --- | --- |
-| [`WebGPUMinimalIntegration`](Examples/WebGPUMinimalIntegration/Main.cpp) | The host side with WebGPU, step by step: context, backend, input forwarding, the frame loop, drawing your own content in the same pass |
-| [`VulkanMinimalIntegration`](Examples/VulkanMinimalIntegration/Main.cpp) | The same with Vulkan: a swapchain, frames in flight, Carbon and the host's triangle in one render pass |
-| [`OpenGLMinimalIntegration`](Examples/OpenGLMinimalIntegration/Main.cpp) | The same with OpenGL 3.3: Carbon resolves its functions through `glfwGetProcAddress` and restores the host's state |
-| [`OpenGLESMinimalIntegration`](Examples/OpenGLESMinimalIntegration/Main.cpp) | The same with OpenGL ES 3.0, natively or in a browser (WebGL 2) |
-| [`DX11MinimalIntegration`](Examples/DX11MinimalIntegration/Main.cpp) | The same with Direct3D 11: a flip-model swap chain, the host's triangle and Carbon in one render target |
-| [`DX9MinimalIntegration`](Examples/DX9MinimalIntegration/Main.cpp) | The same with Direct3D 9: a device reset on resize and a fixed-function triangle under Carbon's interface |
-| [`Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
-| [`CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
-| [`CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |
-| [`Reflection`](Examples/Reflection/Main.cpp) | A settings window generated from one `AppSettings` struct: a sidebar of sections, each drawn by a single `Carbon::Reflect` call |
+| [`WebGPUMinimal`](Examples/WebGPUMinimal/Main.cpp) | The host side with WebGPU, step by step: context, backend, input forwarding, the frame loop, drawing your own content in the same pass |
+| [`VulkanMinimal`](Examples/VulkanMinimal/Main.cpp) | The same with Vulkan: a swapchain, frames in flight, Carbon and the host's triangle in one render pass |
+| [`OpenGLMinimal`](Examples/OpenGLMinimal/Main.cpp) | The same with OpenGL 3.3: Carbon resolves its functions through `glfwGetProcAddress` and restores the host's state |
+| [`OpenGLESMinimal`](Examples/OpenGLESMinimal/Main.cpp) | The same with OpenGL ES 3.0, natively or in a browser (WebGL 2) |
+| [`DX11Minimal`](Examples/DX11Minimal/Main.cpp) | The same with Direct3D 11: a flip-model swap chain, the host's triangle and Carbon in one render target |
+| [`DX9Minimal`](Examples/DX9Minimal/Main.cpp) | The same with Direct3D 9: a device reset on resize and a fixed-function triangle under Carbon's interface |
+| [`<Backend>Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
+| [`<Backend>CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
+| [`<Backend>CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |
+| [`Reflection`](Examples/Reflection/Main.cpp) | A settings window generated from one `AppSettings` struct: a sidebar of sections, each drawn by a single `Carbon::Reflect` call (built once, on the first backend) |
 
 Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
 `--screenshot <file.png>`.
@@ -107,11 +112,11 @@ cd Carbon
 cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install>
 cmake --build Build
 ctest --test-dir Build
-Build/Examples/Gallery/Gallery
+Build/Examples/Gallery/WebGPUGallery
 ```
 
 With Visual Studio generators, add `--config Release` (or the configuration your Dawn install was built for) to
-the build command and `-C Release` to `ctest`; the Gallery is then at `Build/Examples/Gallery/Release/Gallery.exe`.
+the build command and `-C Release` to `ctest`; the Gallery is then at `Build/Examples/Gallery/Release/WebGPUGallery.exe`.
 [Docs/Building.md](Docs/Building.md) explains how to install Dawn, documents every CMake option and shows how to
 use Carbon from your own project, as a subdirectory or as an installed package (`find_package(Carbon)`).
 

@@ -1,6 +1,6 @@
-add_executable(DX11MinimalIntegration Main.cpp)
-target_link_libraries(DX11MinimalIntegration PRIVATE CarbonExampleBase d3d11 dxgi)
-carbon_configure_target(DX11MinimalIntegration)
+add_executable(DX11Minimal Main.cpp)
+target_link_libraries(DX11Minimal PRIVATE CarbonExampleBase d3d11 dxgi)
+carbon_configure_example(DX11Minimal DX11)
 
 # The host triangle's shaders, compiled by fxc into bytecode headers that Main.cpp includes.
 set(shader "${CMAKE_CURRENT_SOURCE_DIR}/Triangle.hlsl")
@@ -20,6 +20,6 @@ foreach(stage IN ITEMS Vertex Pixel)
         COMMENT "Compiling Triangle.hlsl (${stage}Main)"
         VERBATIM
     )
-    target_sources(DX11MinimalIntegration PRIVATE "${output}")
+    target_sources(DX11Minimal PRIVATE "${output}")
 endforeach()
-target_include_directories(DX11MinimalIntegration PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Shaders")
+target_include_directories(DX11Minimal PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Shaders")

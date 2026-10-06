@@ -327,14 +327,13 @@ namespace Gallery
                      "Image shows any texture view of the host, optionally with squircle "
                      "corners. Separators adapt to the direction of their stack.");
         BeginHStack({.Spacing = 16.0f, .Alignment = VerticalAlignment::Center});
-        WebGPUImage(state.Artwork, Vec2(72.0f, 72.0f));
-        WebGPUImage(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f});
-        WebGPUImage(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 36.0f});
+        Image(state.Artwork, Vec2(72.0f, 72.0f));
+        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f});
+        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 36.0f});
         Separator();
-        WebGPUImage(state.Artwork, Vec2(128.0f, 72.0f), {.CornerRadius = 10.0f, .UV = Rect(0.0f, 0.25f, 1.0f, 0.5f)});
+        Image(state.Artwork, Vec2(128.0f, 72.0f), {.CornerRadius = 10.0f, .UV = Rect(0.0f, 0.25f, 1.0f, 0.5f)});
         Separator();
-        WebGPUImage(state.Artwork, Vec2(72.0f, 72.0f),
-                    {.CornerRadius = 16.0f, .Tint = GetStyleColor(StyleColor::Accent)});
+        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f, .Tint = GetStyleColor(StyleColor::Accent)});
         EndHStack();
         EndSection();
     }

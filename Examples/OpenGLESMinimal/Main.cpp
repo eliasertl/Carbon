@@ -4,8 +4,8 @@
 // The host owns the window, the OpenGL ES context and the framebuffer. Each frame it forwards input to Carbon, builds
 // the interface, draws its own content and then lets Carbon add the interface on top, into the same framebuffer.
 // Carbon saves and restores all OpenGL ES state it touches. The context chores (window, functions, the triangle)
-// live in the OpenGLESHost class below; everything Carbon-specific is in Run and RunFrame. WebGPUMinimalIntegration,
-// VulkanMinimalIntegration and OpenGLMinimalIntegration do the same with the other backends.
+// live in the OpenGLESHost class below; everything Carbon-specific is in Run and RunFrame. WebGPUMinimal,
+// VulkanMinimal and OpenGLMinimal do the same with the other backends.
 //
 // Carbon needs no OpenGL ES loader of the host's: it takes glfwGetProcAddress and resolves what it uses itself. This
 // host loads its own few functions the same way; an Android application would use eglGetProcAddress.
@@ -13,7 +13,7 @@
 // In a browser, the page drives the frame loop (emscripten_set_main_loop), and the canvas fills the browser window,
 // follows its size and the device pixel ratio. Natively:
 //
-//   OpenGLESMinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
+//   OpenGLESMinimal [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <cmath>
 #include <cstdint>
@@ -496,7 +496,7 @@ namespace
         Carbon::SetTheme(app.Interface.IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
 
         // ---- 2. Forward the window's input events to Carbon --------------------------------------------------
-        // WebGPUMinimalIntegration writes these callbacks out one by one; this is the same code.
+        // WebGPUMinimal writes these callbacks out one by one; this is the same code.
         Example::InstallInputCallbacks(app.Window);
         app.LastTime = glfwGetTime();
         return true;

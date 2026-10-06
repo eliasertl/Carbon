@@ -4,7 +4,7 @@
 //
 // Carbon draws and reports, the host acts: TitleBar.cpp is Carbon code, WindowControls.cpp is the window side.
 //
-//   CustomTitleBar [--theme light|dark] [--scale <factor>] [--screenshot <file.png>]
+//   <Backend>CustomTitleBar [--theme light|dark] [--scale <factor>] [--screenshot <file.png>]
 
 #include <format>
 #include <string>

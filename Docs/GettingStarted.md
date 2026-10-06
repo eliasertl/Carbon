@@ -23,16 +23,17 @@ use the configuration your Dawn install was built for.
 Then look around:
 
 ```sh
-Build/Examples/Gallery/Gallery                 # every component; try the Dark and Reduce Motion switches
-Build/Examples/Gallery/Gallery --theme dark --page charts
-Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration
-Build/Examples/CustomComponent/CustomComponent
-Build/Examples/CustomTitleBar/CustomTitleBar      # a window whose title bar is drawn by Carbon
-Build/Examples/Reflection/Reflection              # a settings window generated from a struct
+Build/Examples/Gallery/WebGPUGallery              # every component; try the Dark and Reduce Motion switches
+Build/Examples/Gallery/VulkanGallery --theme dark --page charts   # the same on another backend
+Build/Examples/WebGPUMinimal/WebGPUMinimal
+Build/Examples/CustomComponent/WebGPUCustomComponent
+Build/Examples/CustomTitleBar/WebGPUCustomTitleBar  # a window whose title bar is drawn by Carbon
+Build/Examples/Reflection/Reflection               # a settings window generated from a struct
 ```
 
 (With a Visual Studio generator the executables are in a configuration subfolder, for example
-`Build/Examples/Gallery/Release/Gallery.exe`.)
+`Build/Examples/Gallery/Release/WebGPUGallery.exe`. Each example exists once per backend that was built,
+named `<Backend><Example>`.)
 
 ## 2. Add Carbon to your project
 
@@ -96,7 +97,7 @@ pass.End();
 ```
 
 [Integration](Integration.md) covers this side in full: input forwarding, DPI, clipboard and cursor callbacks,
-logging. [Examples/WebGPUMinimalIntegration](../Examples/WebGPUMinimalIntegration/Main.cpp) is a complete host in
+logging. [Examples/WebGPUMinimal](../Examples/WebGPUMinimal/Main.cpp) is a complete host in
 one file, with GLFW.
 
 ## 5. Build an interface

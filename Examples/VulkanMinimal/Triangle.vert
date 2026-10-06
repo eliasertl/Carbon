@@ -1,6 +1,6 @@
 #version 450
 
-// The host's own content in VulkanMinimalIntegration: one colored triangle, without vertex buffers.
+// The host's own content in VulkanMinimal: one colored triangle, without vertex buffers.
 
 layout(location = 0) out vec3 outColor;
 

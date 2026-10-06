@@ -4,9 +4,9 @@
 // Carbon, builds the interface, draws its own content and then lets Carbon add the interface on top, into the same
 // render target. Carbon saves and restores all pipeline state it touches. The Direct3D chores (device, swap chain,
 // the triangle) live in the DX11Host class below; everything Carbon-specific is in main(). The other
-// *MinimalIntegration examples do the same with the other backends.
+// *Minimal examples do the same with the other backends.
 //
-//   DX11MinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
+//   DX11Minimal [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <cmath>
 #include <cstdint>
@@ -349,7 +349,7 @@ int main(int argc, char** argv)
         Carbon::SetTheme(settings.IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
 
         // ---- 2. Forward the window's input events to Carbon --------------------------------------------------
-        // WebGPUMinimalIntegration writes these callbacks out one by one; this is the same code.
+        // WebGPUMinimal writes these callbacks out one by one; this is the same code.
         Example::InstallInputCallbacks(window);
 
         // ---- 3. The frame loop -------------------------------------------------------------------------------

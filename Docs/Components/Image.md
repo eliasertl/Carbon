@@ -37,7 +37,7 @@ OpenGL texture name) into an ID that can be drawn without registering it.
 - Textures are sampled with linear filtering and treated as straight (non-premultiplied) alpha.
 - Carbon does not load image files. Decode them with a library of your choice and upload them as textures.
 - To show your own 3D viewport inside the interface, render it to a texture and pass the view here, or reserve
-  the area with `AllocateItem` and draw into the same pass yourself, as `Examples/WebGPUMinimalIntegration` does.
+  the area with `AllocateItem` and draw into the same pass yourself, as `Examples/WebGPUMinimal` does.
 
 ## Keyboard
 

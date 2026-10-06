@@ -2,7 +2,7 @@
 // StarRating.h and StarRating.cpp are the component; this file is an application that uses it. The walk-through
 // is in Docs/CustomComponents.md.
 //
-//   CustomComponent [--theme light|dark] [--scale <factor>] [--screenshot <file.png>]
+//   <Backend>CustomComponent [--theme light|dark] [--scale <factor>] [--screenshot <file.png>]
 
 #include <format>
 

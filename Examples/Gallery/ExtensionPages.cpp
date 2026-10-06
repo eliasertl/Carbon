@@ -141,7 +141,7 @@ namespace Gallery
                 options.Icon = Icons::ChatCircle;
             if (state.NotificationHasImage)
             {
-                options.Image = WebGPUGetTextureID(state.Artwork);
+                options.Image = state.Artwork;
                 options.ImageIsRound = sample == 0;
             }
             if (state.NotificationHasActions)

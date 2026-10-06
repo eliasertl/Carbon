@@ -1,6 +1,6 @@
-add_executable(VulkanMinimalIntegration Main.cpp)
-target_link_libraries(VulkanMinimalIntegration PRIVATE CarbonExampleBase)
-carbon_configure_target(VulkanMinimalIntegration)
+add_executable(VulkanMinimal Main.cpp)
+target_link_libraries(VulkanMinimal PRIVATE CarbonExampleBase)
+carbon_configure_example(VulkanMinimal Vulkan)
 
 # The host triangle's shaders, compiled to SPIR-V words that Main.cpp includes.
 foreach(shader IN ITEMS Triangle.vert Triangle.frag)
@@ -13,6 +13,6 @@ foreach(shader IN ITEMS Triangle.vert Triangle.frag)
         COMMENT "Compiling ${shader} to SPIR-V"
         VERBATIM
     )
-    target_sources(VulkanMinimalIntegration PRIVATE "${output}")
+    target_sources(VulkanMinimal PRIVATE "${output}")
 endforeach()
-target_include_directories(VulkanMinimalIntegration PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Shaders")
+target_include_directories(VulkanMinimal PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/Shaders")

@@ -3,67 +3,68 @@
 #
 #   <image>  <example>  <options>
 #
-# Options are those of the examples (Docs/Building.md): --page, --show, --theme, --size, --pointer, --click,
-# --right-click, --crop, and for the Gallery --section <key>[,<key>...] with --extend <left>,<top>,<right>,<bottom>.
+# Examples are named <Backend><Example>; the documentation shows the WebGPU builds. Options are those of the
+# examples (Docs/Building.md): --page, --show, --theme, --size, --pointer, --click, --right-click, --crop, and for
+# the Gallery --section <key>[,<key>...] with --extend <left>,<top>,<right>,<bottom>.
 # A section's key is its title in lower case without spaces or punctuation. With --section, pointer positions are
 # relative to the section's box. The scale is 2 unless --scale is given.
 
 # ---- README, integration and custom components ----------------------------------------------------------------
-Gallery-Light.png                 Gallery  --page selection
-Gallery-Dark.png                  Gallery  --page selection --theme dark
-Gallery-Lists-Light.png           Gallery  --page lists
-Gallery-Charts-Dark.png           Gallery  --page charts --theme dark
-WebGPUMinimalIntegration-Light.png  WebGPUMinimalIntegration
-CustomComponent-Light.png         CustomComponent
-CustomTitleBar-Dark.png           CustomTitleBar  --theme dark --pointer 878x20
+Gallery-Light.png                 WebGPUGallery  --page selection
+Gallery-Dark.png                  WebGPUGallery  --page selection --theme dark
+Gallery-Lists-Light.png           WebGPUGallery  --page lists
+Gallery-Charts-Dark.png           WebGPUGallery  --page charts --theme dark
+WebGPUMinimal-Light.png           WebGPUMinimal
+CustomComponent-Light.png         WebGPUCustomComponent
+CustomTitleBar-Dark.png           WebGPUCustomTitleBar  --theme dark --pointer 878x20
 
 # ---- Core components --------------------------------------------------------------------------------------------
-Components/Text.png               Gallery  --page typography --section typography
-Components/Icon.png               Gallery  --page icons --section icons
-Components/Button.png             Gallery  --page buttons --section buttons
-Components/Tooltip.png            Gallery  --page buttons --section buttons --pointer 210x28
-Components/Toggle.png             Gallery  --page toggles --section toggles
-Components/Slider.png             Gallery  --page sliders --section sliders
-Components/TextField.png          Gallery  --page textfields --section textfields
-Components/Image.png              Gallery  --page images --section imagesandseparators
-Components/Stack.png              Gallery  --page layout --section layout
-Components/Grid.png               Gallery  --page layout --section grid
-Components/ScrollView.png         Gallery  --page layout --section scrollview
+Components/Text.png               WebGPUGallery  --page typography --section typography
+Components/Icon.png               WebGPUGallery  --page icons --section icons
+Components/Button.png             WebGPUGallery  --page buttons --section buttons
+Components/Tooltip.png            WebGPUGallery  --page buttons --section buttons --pointer 210x28
+Components/Toggle.png             WebGPUGallery  --page toggles --section toggles
+Components/Slider.png             WebGPUGallery  --page sliders --section sliders
+Components/TextField.png          WebGPUGallery  --page textfields --section textfields
+Components/Image.png              WebGPUGallery  --page images --section imagesandseparators
+Components/Stack.png              WebGPUGallery  --page layout --section layout
+Components/Grid.png               WebGPUGallery  --page layout --section grid
+Components/ScrollView.png         WebGPUGallery  --page layout --section scrollview
 
 # ---- Extension components ---------------------------------------------------------------------------------------
-Components/Sidebar.png            Gallery  --page buttons --crop 0,0,210,520
-Components/TabView.png            Gallery  --page navigation --section tabview
-Components/SplitView.png          Gallery  --page navigation --section splitview
-Components/SegmentedControl.png   Gallery  --page selection --section segmentedcontrol
-Components/RadioGroup.png         Gallery  --page selection --section radiobuttons
-Components/PopUpButton.png        Gallery  --page selection --section popupandpulldownbuttons --click 229x24 --extend 0,30,0,40
-Components/PullDownButton.png     Gallery  --page selection --section popupandpulldownbuttons --click 216x60 --extend 0,0,0,90
-Components/ComboBox.png           Gallery  --page selection --section combobox
-Components/TokenField.png         Gallery  --page selection --section tokenfield
-Components/Stepper.png            Gallery  --page selection --section stepper
-Components/ColorWell.png          Gallery  --page selection --section colorwell --click 199x24 --extend 0,186,0,0
-Components/SearchField.png        Gallery  --page selection --section searchfield
-Components/DatePicker.png         Gallery  --page dates --section datepicker --show datepicker --extend 0,0,0,140
-Components/DatePickerCalendar.png Gallery  --page dates --section calendar
-Components/MenuBar.png            Gallery  --page menus --section menubar --click 42x27 --extend 0,0,0,170
-Components/Menu.png               Gallery  --page menus --section menu --show menu --extend 0,0,0,270
-Components/ContextMenu.png        Gallery  --page menus --section contextmenu --right-click 300x40 --extend 0,0,0,80
-Components/Popover.png            Gallery  --page menus --section popover --size 1040x1000 --show popover --extend 0,0,0,60
-Components/Toolbar.png            Gallery  --page toolbars --section displaymodes
-Components/Alert.png              Gallery  --page dialogs --show alert --theme dark --size 920x520
-Components/Sheet.png              Gallery  --page dialogs --show sheet --size 920x600
-Components/Notification.png       Gallery  --page notifications --show notification --pointer 800x70 --crop 640,0,400,150
-Components/ProgressIndicator.png  Gallery  --page progress --section progressbar,spinner
-Components/List.png               Gallery  --page lists --section list
-Components/Table.png              Gallery  --page lists --section table
-Components/OutlineView.png        Gallery  --page hierarchies --section outlineview
-Components/ColumnView.png         Gallery  --page hierarchies --section columnview
-Components/PathControl.png        Gallery  --page hierarchies --section pathcontrol
-Components/Chart.png              Gallery  --page charts --section linechart,barchart --theme dark
+Components/Sidebar.png            WebGPUGallery  --page buttons --crop 0,0,210,520
+Components/TabView.png            WebGPUGallery  --page navigation --section tabview
+Components/SplitView.png          WebGPUGallery  --page navigation --section splitview
+Components/SegmentedControl.png   WebGPUGallery  --page selection --section segmentedcontrol
+Components/RadioGroup.png         WebGPUGallery  --page selection --section radiobuttons
+Components/PopUpButton.png        WebGPUGallery  --page selection --section popupandpulldownbuttons --click 229x24 --extend 0,30,0,40
+Components/PullDownButton.png     WebGPUGallery  --page selection --section popupandpulldownbuttons --click 216x60 --extend 0,0,0,90
+Components/ComboBox.png           WebGPUGallery  --page selection --section combobox
+Components/TokenField.png         WebGPUGallery  --page selection --section tokenfield
+Components/Stepper.png            WebGPUGallery  --page selection --section stepper
+Components/ColorWell.png          WebGPUGallery  --page selection --section colorwell --click 199x24 --extend 0,186,0,0
+Components/SearchField.png        WebGPUGallery  --page selection --section searchfield
+Components/DatePicker.png         WebGPUGallery  --page dates --section datepicker --show datepicker --extend 0,0,0,140
+Components/DatePickerCalendar.png WebGPUGallery  --page dates --section calendar
+Components/MenuBar.png            WebGPUGallery  --page menus --section menubar --click 42x27 --extend 0,0,0,170
+Components/Menu.png               WebGPUGallery  --page menus --section menu --show menu --extend 0,0,0,270
+Components/ContextMenu.png        WebGPUGallery  --page menus --section contextmenu --right-click 300x40 --extend 0,0,0,80
+Components/Popover.png            WebGPUGallery  --page menus --section popover --size 1040x1000 --show popover --extend 0,0,0,60
+Components/Toolbar.png            WebGPUGallery  --page toolbars --section displaymodes
+Components/Alert.png              WebGPUGallery  --page dialogs --show alert --theme dark --size 920x520
+Components/Sheet.png              WebGPUGallery  --page dialogs --show sheet --size 920x600
+Components/Notification.png       WebGPUGallery  --page notifications --show notification --pointer 800x70 --crop 640,0,400,150
+Components/ProgressIndicator.png  WebGPUGallery  --page progress --section progressbar,spinner
+Components/List.png               WebGPUGallery  --page lists --section list
+Components/Table.png              WebGPUGallery  --page lists --section table
+Components/OutlineView.png        WebGPUGallery  --page hierarchies --section outlineview
+Components/ColumnView.png         WebGPUGallery  --page hierarchies --section columnview
+Components/PathControl.png        WebGPUGallery  --page hierarchies --section pathcontrol
+Components/Chart.png              WebGPUGallery  --page charts --section linechart,barchart --theme dark
 
 # ---- Reflection ---------------------------------------------------------------------------------------------------
-Components/Reflect.png            Gallery  --page reflection --section metadata --size 1040x1300
-Reflection-Structs-Light.png      Gallery  --page reflection --section structs
-Reflection-Enums-Dark.png         Gallery  --page reflection --section enumstyles --theme dark
+Components/Reflect.png            WebGPUGallery  --page reflection --section metadata --size 1040x1300
+Reflection-Structs-Light.png      WebGPUGallery  --page reflection --section structs
+Reflection-Enums-Dark.png         WebGPUGallery  --page reflection --section enumstyles --theme dark
 Reflection-Example-Light.png      Reflection  --page audio
 Reflection-Example-Dark.png       Reflection  --page general --theme dark

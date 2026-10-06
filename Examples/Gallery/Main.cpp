@@ -1,8 +1,8 @@
 // Carbon Gallery: every component, in both themes. This is Carbon's visual benchmark; it should look like a
 // macOS app without the window chrome.
 //
-//   Gallery [--theme light|dark] [--scale <factor>] [--size <width>x<height>] [--page <name>]
-//           [--screenshot <file.png>] [--show menu|popover|alert|sheet] [--pointer <x>x<y>] [--click <x>x<y>]
+//   <Backend>Gallery [--theme light|dark] [--scale <factor>] [--size <width>x<height>] [--page <name>]
+//                    [--screenshot <file.png>] [--show menu|popover|alert|sheet] [--pointer <x>x<y>] [--click <x>x<y>]
 
 #include <cstdio>
 #include <vector>
@@ -65,8 +65,8 @@ namespace Gallery
             return Pages[static_cast<size_t>(page)];
         }
 
-        // A small procedural texture, to show that Image displays the host's own texture views.
-        wgpu::TextureView CreateArtwork(const wgpu::Device& device)
+        // A small procedural texture, to show that Image displays the host's own textures.
+        Carbon::TextureID CreateArtwork(Example::GraphicsDevice& device)
         {
             const uint32_t size = 128;
             std::vector<uint8_t> pixels(size * size * 4);
@@ -83,20 +83,7 @@ namespace Gallery
                     pixel[3] = 255;
                 }
             }
-
-            wgpu::TextureDescriptor descriptor;
-            descriptor.size = {size, size, 1};
-            descriptor.format = wgpu::TextureFormat::RGBA8Unorm;
-            descriptor.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-            const wgpu::Texture texture = device.CreateTexture(&descriptor);
-            wgpu::TexelCopyTextureInfo destination;
-            destination.texture = texture;
-            wgpu::TexelCopyBufferLayout layout;
-            layout.bytesPerRow = size * 4;
-            layout.rowsPerImage = size;
-            const wgpu::Extent3D extent = {size, size, 1};
-            device.GetQueue().WriteTexture(&destination, pixels.data(), pixels.size(), &layout, &extent);
-            return texture.CreateView();
+            return device.CreateTexture(size, size, pixels);
         }
 
         void BuildPage(GalleryState& state)

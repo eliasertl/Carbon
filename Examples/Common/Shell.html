@@ -3,7 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Carbon - OpenGL ES Minimal Integration</title>
+    <title>Carbon</title>
     <style>
         /* The canvas fills the whole viewport; Carbon draws everything inside it. The example sizes its
            framebuffer to the window (MakeCanvasResizable), so the page itself never scrolls. */
@@ -23,7 +23,11 @@
             canvas: document.getElementById('canvas'),
             print: function (text) { console.log(text); },
             printErr: function (text) { console.error(text); },
-            setStatus: function (text) { document.getElementById('status').textContent = text; },
+            // Emscripten reports its progress here, also after the page has started; then there is no status any more.
+            setStatus: function (text) {
+                var status = document.getElementById('status');
+                if (status) status.textContent = text;
+            },
             onRuntimeInitialized: function () {
                 document.getElementById('status').remove();
                 document.getElementById('canvas').focus();

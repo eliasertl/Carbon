@@ -3,13 +3,13 @@
 // The host owns the window, the OpenGL context and the framebuffer. Each frame it forwards input to Carbon, builds
 // the interface, draws its own content and then lets Carbon add the interface on top, into the same framebuffer.
 // Carbon saves and restores all OpenGL state it touches. The OpenGL chores (context, functions, the triangle) live
-// in the OpenGLHost class below; everything Carbon-specific is in main(). WebGPUMinimalIntegration and
-// VulkanMinimalIntegration do the same with the other backends.
+// in the OpenGLHost class below; everything Carbon-specific is in main(). WebGPUMinimal and
+// VulkanMinimal do the same with the other backends.
 //
 // Carbon needs no OpenGL loader of the host's: it takes glfwGetProcAddress and resolves what it uses itself. This
 // host loads its own few functions the same way; a real application would use glad or a similar loader.
 //
-//   OpenGLMinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
+//   OpenGLMinimal [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
 #include <cmath>
 #include <cstdint>
@@ -419,7 +419,7 @@ int main(int argc, char** argv)
         Carbon::SetTheme(settings.IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
 
         // ---- 2. Forward the window's input events to Carbon --------------------------------------------------
-        // WebGPUMinimalIntegration writes these callbacks out one by one; this is the same code.
+        // WebGPUMinimal writes these callbacks out one by one; this is the same code.
         Example::InstallInputCallbacks(window);
 
         // ---- 3. The frame loop -------------------------------------------------------------------------------

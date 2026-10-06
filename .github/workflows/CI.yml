@@ -113,7 +113,8 @@ jobs:
           cmake --install dawn-build --prefix dawn-install
 
   # A web build: Carbon compiled with Emscripten, the OpenGL ES backend for WebGL 2, the tests in Node and the
-  # OpenGLESMinimalIntegration page as an artifact. It needs no Dawn.
+  # example pages (OpenGLESMinimal, OpenGLESGallery, OpenGLESCustomComponent, Reflection) as an artifact. It needs
+  # no Dawn.
   emscripten:
     name: Emscripten (WebGL 2)
     runs-on: ubuntu-24.04
@@ -145,11 +146,14 @@ jobs:
           source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
           ctest --test-dir Build --output-on-failure
 
-      - name: Upload the web example
+      - name: Upload the web examples
         uses: actions/upload-artifact@v7
         with:
-          name: Web example (OpenGLESMinimalIntegration)
-          path: Build/Examples/OpenGLESMinimalIntegration/OpenGLESMinimalIntegration.*
+          name: Web examples
+          path: |
+            Build/Examples/**/*.html
+            Build/Examples/**/*.js
+            Build/Examples/**/*.wasm
 
   build:
     name: ${{ matrix.name }}
@@ -268,21 +272,26 @@ jobs:
         shell: bash
         run: |
           mkdir -p Screenshots
-          Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Light.png --page selection
-          Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Dark.png --page charts --theme dark
-          Build/Examples/Gallery/Gallery --screenshot Screenshots/Gallery-Menu.png --page menus --show menu --scale 2
-          Build/Examples/WebGPUMinimalIntegration/WebGPUMinimalIntegration --screenshot Screenshots/WebGPUMinimalIntegration.png
-          Build/Examples/VulkanMinimalIntegration/VulkanMinimalIntegration --screenshot Screenshots/VulkanMinimalIntegration.png || true
+          Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Light.png --page selection
+          Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Dark.png --page charts --theme dark
+          Build/Examples/Gallery/WebGPUGallery --screenshot Screenshots/WebGPUGallery-Menu.png --page menus --show menu --scale 2
+          Build/Examples/WebGPUMinimal/WebGPUMinimal --screenshot Screenshots/WebGPUMinimal.png
+          Build/Examples/VulkanMinimal/VulkanMinimal --screenshot Screenshots/VulkanMinimal.png || true
+          Build/Examples/Gallery/VulkanGallery --screenshot Screenshots/VulkanGallery.png --page images || true
           if [ "$RUNNER_OS" = "Windows" ]; then
-            Build/Examples/DX11MinimalIntegration/DX11MinimalIntegration --screenshot Screenshots/DX11MinimalIntegration.png
-            Build/Examples/DX9MinimalIntegration/DX9MinimalIntegration --screenshot Screenshots/DX9MinimalIntegration.png || true
+            Build/Examples/DX11Minimal/DX11Minimal --screenshot Screenshots/DX11Minimal.png
+            Build/Examples/Gallery/DX11Gallery --screenshot Screenshots/DX11Gallery.png --page images
+            Build/Examples/DX9Minimal/DX9Minimal --screenshot Screenshots/DX9Minimal.png || true
+            Build/Examples/Gallery/DX9Gallery --screenshot Screenshots/DX9Gallery.png --page images || true
           fi
           if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a Build/Examples/OpenGLMinimalIntegration/OpenGLMinimalIntegration --screenshot Screenshots/OpenGLMinimalIntegration.png
-            xvfb-run -a Build/Examples/OpenGLESMinimalIntegration/OpenGLESMinimalIntegration --screenshot Screenshots/OpenGLESMinimalIntegration.png
+            xvfb-run -a Build/Examples/OpenGLMinimal/OpenGLMinimal --screenshot Screenshots/OpenGLMinimal.png
+            xvfb-run -a Build/Examples/OpenGLESMinimal/OpenGLESMinimal --screenshot Screenshots/OpenGLESMinimal.png
+            xvfb-run -a Build/Examples/Gallery/OpenGLGallery --screenshot Screenshots/OpenGLGallery.png --page images
+            xvfb-run -a Build/Examples/Gallery/OpenGLESGallery --screenshot Screenshots/OpenGLESGallery.png --page images
           fi
-          Build/Examples/CustomComponent/CustomComponent --screenshot Screenshots/CustomComponent.png
-          Build/Examples/CustomTitleBar/CustomTitleBar --screenshot Screenshots/CustomTitleBar.png
+          Build/Examples/CustomComponent/WebGPUCustomComponent --screenshot Screenshots/WebGPUCustomComponent.png
+          Build/Examples/CustomTitleBar/WebGPUCustomTitleBar --screenshot Screenshots/WebGPUCustomTitleBar.png
 
       - name: Upload screenshots
         if: always()

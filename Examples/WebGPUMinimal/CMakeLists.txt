@@ -1,0 +1,3 @@
+add_executable(WebGPUMinimal Main.cpp)
+target_link_libraries(WebGPUMinimal PRIVATE CarbonExampleWebGPU)
+carbon_configure_example(WebGPUMinimal WebGPU)

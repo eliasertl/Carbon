@@ -1,0 +1,3 @@
+add_executable(OpenGLMinimal Main.cpp)
+target_link_libraries(OpenGLMinimal PRIVATE CarbonExampleBase)
+carbon_configure_example(OpenGLMinimal OpenGL)

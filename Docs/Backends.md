@@ -87,7 +87,7 @@ again; everything else (layout, animation, focus, text caches) stays.
 ## WebGPU
 
 The WebGPU backend runs on [Dawn](https://dawn.googlesource.com/dawn) and records into a render pass the host
-begins and ends. [Examples/WebGPUMinimalIntegration](../Examples/WebGPUMinimalIntegration/Main.cpp) is a complete
+begins and ends. [Examples/WebGPUMinimal](../Examples/WebGPUMinimal/Main.cpp) is a complete
 host with GLFW.
 
 ```cpp
@@ -135,7 +135,7 @@ Carbon::DestroyContext(context);
 ## Vulkan
 
 The Vulkan backend records into a command buffer, inside a render pass instance the host begins.
-[Examples/VulkanMinimalIntegration](../Examples/VulkanMinimalIntegration/Main.cpp) is a complete host with GLFW,
+[Examples/VulkanMinimal](../Examples/VulkanMinimal/Main.cpp) is a complete host with GLFW,
 a swapchain and a host triangle in the same render pass.
 
 ```cpp
@@ -212,7 +212,7 @@ no VMA), and uses `PipelineCache` and `Allocator` when the host gives them. It l
 
 The OpenGL backend needs an OpenGL 3.3 core profile context (or later, or a compatibility profile of 3.3) and
 draws into the framebuffer that is bound when the host calls `OpenGLRender`.
-[Examples/OpenGLMinimalIntegration](../Examples/OpenGLMinimalIntegration/Main.cpp) is a complete host with GLFW
+[Examples/OpenGLMinimal](../Examples/OpenGLMinimal/Main.cpp) is a complete host with GLFW
 and a host triangle in the same framebuffer.
 
 ```cpp
@@ -280,7 +280,7 @@ exactly with `texelFetch`.
 The OpenGL ES backend needs an OpenGL ES 3.0 context or later, or WebGL 2 in a browser (see
 [Building](Building.md#emscripten-web-browsers)): Android, iOS through ANGLE, embedded Linux and the web. It works
 like the OpenGL backend, with its own API and type, and draws into the framebuffer that is bound when the host
-calls `OpenGLESRender`. [Examples/OpenGLESMinimalIntegration](../Examples/OpenGLESMinimalIntegration/Main.cpp) runs
+calls `OpenGLESRender`. [Examples/OpenGLESMinimal](../Examples/OpenGLESMinimal/Main.cpp) runs
 natively with GLFW and in a browser.
 
 ```cpp
@@ -316,7 +316,7 @@ OpenGL ES lacks:
 
 The Direct3D 11 backend needs a device of feature level 10.0 or later and draws into the render target that is bound
 to the context when the host calls `DX11Render`.
-[Examples/DX11MinimalIntegration](../Examples/DX11MinimalIntegration/Main.cpp) is a complete host with GLFW, a flip
+[Examples/DX11Minimal](../Examples/DX11Minimal/Main.cpp) is a complete host with GLFW, a flip
 model swap chain and a host triangle in the same render target.
 
 ```cpp
@@ -376,7 +376,7 @@ with `UpdateSubresource`.
 The Direct3D 9 backend needs a device with vertex and pixel shader 3.0 and 32-bit indices, which every Direct3D 9
 GPU of the last fifteen years has, and draws into render target 0 between the host's `BeginScene` and `EndScene`.
 It is meant for applications and engines that still render with Direct3D 9; new code is better served by
-Direct3D 11. [Examples/DX9MinimalIntegration](../Examples/DX9MinimalIntegration/Main.cpp) is a complete host with
+Direct3D 11. [Examples/DX9Minimal](../Examples/DX9Minimal/Main.cpp) is a complete host with
 GLFW, a device reset on resize and a fixed-function host triangle.
 
 ```cpp
