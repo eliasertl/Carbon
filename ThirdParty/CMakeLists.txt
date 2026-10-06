@@ -97,6 +97,10 @@ if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME})
         set(HB_BUILD_GPU OFF CACHE BOOL "" FORCE)
         set(HB_BUILD_GPU_DEMO OFF CACHE STRING "" FORCE)
         add_subdirectory(HarfBuzz EXCLUDE_FROM_ALL)
+        # HarfBuzz is some seventy translation units that each include most of the library, and is written to
+        # be compiled in one piece (its harfbuzz.cc). In a few batches it costs a fraction and still uses
+        # several cores.
+        set_target_properties(harfbuzz PROPERTIES UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE 12)
     else()
         find_package(harfbuzz REQUIRED)
         carbon_add_package_dependency("find_dependency(harfbuzz)")
