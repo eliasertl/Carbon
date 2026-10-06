@@ -307,7 +307,10 @@ platform.
 
 ## Continuous integration
 
-[.github/workflows/CI.yml](../.github/workflows/CI.yml) runs on every push and pull request:
+[.github/workflows/CI.yml](../.github/workflows/CI.yml) runs on every push and pull request. (It is paused at the
+moment to save Actions minutes and runs only when started by hand; the comment at the top of the workflow says how
+to turn it back on. While it is paused, the documentation screenshots are not updated by CI either: run
+`python Scripts/Screenshots.py` after a change that affects them.)
 
 - `clang-format` checks the formatting with the pinned clang-format version.
 - **Dawn** is built once per platform at the pinned commit and stored in the Actions cache, keyed by the
