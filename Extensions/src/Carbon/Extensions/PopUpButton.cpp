@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Carbon/Extensions/Internal/WidestItem.h"
 #include "Carbon/Extensions/Menu.h"
 
 namespace Carbon
@@ -38,9 +39,7 @@ namespace Carbon
         const TextSpec spec = GetTextSpec(metrics.Style);
         DrawList& drawList = GetDrawList();
 
-        float widest = 0.0f;
-        for (const std::string_view item : items)
-            widest = std::max(widest, MeasureText(item, spec).X);
+        const float widest = Internal::MeasureWidestItem(id, items, spec);
         // The indicator is a square with a small margin to the button's edge.
         const float indicatorInset = 3.0f;
         const float indicatorSize = metrics.Height - indicatorInset * 2.0f;

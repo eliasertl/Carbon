@@ -43,6 +43,7 @@ set(CARBON_EXTENSIONS_INTERNAL_HEADERS
     src/Carbon/Extensions/Internal/MenuInternal.h
     src/Carbon/Extensions/Internal/RowClipping.h
     src/Carbon/Extensions/Internal/SelectionList.h
+    src/Carbon/Extensions/Internal/WidestItem.h
 )
 
 set(CARBON_EXTENSIONS_SOURCES
@@ -79,6 +80,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Internal/ColumnLayout.cpp
     src/Carbon/Extensions/Internal/RowClipping.cpp
     src/Carbon/Extensions/Internal/SelectionList.cpp
+    src/Carbon/Extensions/Internal/WidestItem.cpp
 )
 
 target_sources(CarbonExtensions
