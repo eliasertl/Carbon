@@ -20,6 +20,8 @@ env:
   CLANG_FORMAT_VERSION: 20.1.8
   # The Emscripten SDK the web build uses.
   EMSDK_VERSION: 6.0.11
+  # The Vulkan SDK the Windows job builds the Vulkan backend with (headers, import library, glslc, loader).
+  VULKAN_SDK_VERSION: 1.4.335.0
 
 jobs:
   format:
@@ -123,28 +125,39 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install Emscripten and Ninja
+      # The SDK is cached by its version, together with what Emscripten builds into its own cache on first use
+      # (the system libraries, the GLFW port). The cache is stored after the build, so it holds those too.
+      - name: Look for a cached Emscripten SDK
+        id: emsdk
+        uses: actions/cache@v6
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ runner.os }}-${{ env.EMSDK_VERSION }}-v1
+
+      - name: Install Emscripten
+        if: steps.emsdk.outputs.cache-hit != 'true'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build
-          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
-          "$RUNNER_TEMP/emsdk/emsdk" install ${{ env.EMSDK_VERSION }}
-          "$RUNNER_TEMP/emsdk/emsdk" activate ${{ env.EMSDK_VERSION }}
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install ${{ env.EMSDK_VERSION }}
+          ~/emsdk/emsdk activate ${{ env.EMSDK_VERSION }}
+
+      - name: Install Ninja
+        run: command -v ninja || { sudo apt-get update && sudo apt-get install -y ninja-build; }
 
       - name: Configure
         run: |
-          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          source ~/emsdk/emsdk_env.sh
           emcmake cmake -S . -B Build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCARBON_WARNINGS_AS_ERRORS=ON
 
       - name: Build
         run: |
-          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          source ~/emsdk/emsdk_env.sh
           cmake --build Build
 
       - name: Test
         run: |
-          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
-          ctest --test-dir Build --output-on-failure
+          source ~/emsdk/emsdk_env.sh
+          ctest --test-dir Build --output-on-failure --parallel 4
 
       - name: Upload the web examples
         uses: actions/upload-artifact@v7
@@ -176,11 +189,13 @@ jobs:
             build_type: Debug
             cc: gcc-13
             cxx: g++-13
+          # The installed package is checked in one job: it builds the same sources in all of them.
           - name: Linux Clang (Release)
             os: ubuntu-24.04
             build_type: Release
             cc: clang-18
             cxx: clang++-18
+            package: true
     steps:
       - uses: actions/checkout@v7
         with:
@@ -202,13 +217,24 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y ninja-build pkg-config \
+          sudo apt-get install -y ninja-build pkg-config ccache \
             libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libxext-dev \
             libwayland-dev libxkbcommon-dev wayland-protocols \
             mesa-vulkan-drivers libvulkan1 libvulkan-dev glslc vulkan-validationlayers \
             xvfb libgl1-mesa-dri
           echo "CC=${{ matrix.cc }}" >> "$GITHUB_ENV"
           echo "CXX=${{ matrix.cxx }}" >> "$GITHUB_ENV"
+          echo "CARBON_COMPILER_CACHE=-DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache" >> "$GITHUB_ENV"
+
+      # Most of a build is third-party code and sources that did not change since the last run: ccache returns
+      # their object files. Every run stores its cache under a new key and starts from the latest one.
+      - name: Restore the compiler cache (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ccache
+          key: ccache-${{ matrix.cxx }}-${{ matrix.build_type }}-${{ github.sha }}
+          restore-keys: ccache-${{ matrix.cxx }}-${{ matrix.build_type }}-
 
       - name: Set up MSVC (Windows)
         if: runner.os == 'Windows'
@@ -224,17 +250,37 @@ jobs:
         shell: bash
         run: command -v ninja || choco install ninja --no-progress -y
 
-      # The Vulkan SDK has the headers, the loader's import library and glslc; the runtime installs the loader
-      # itself (vulkan-1.dll), without which the tests could not start. The runner has no Vulkan driver, so the
-      # Vulkan tests skip there.
+      # Of the Vulkan SDK the build needs the headers, the loader's import library and glslc, and the tests need
+      # the loader itself (vulkan-1.dll) to start; the runtime installer brings that. Those few files are cached
+      # by the SDK's version, with the loader next to glslc, where the PATH finds it. The runner has no Vulkan
+      # driver, so the Vulkan tests skip there.
+      - name: Look for a cached Vulkan SDK (Windows)
+        if: runner.os == 'Windows'
+        id: vulkan
+        uses: actions/cache@v6
+        with:
+          path: |
+            C:\VulkanSDK\Include
+            C:\VulkanSDK\Lib\vulkan-1.lib
+            C:\VulkanSDK\Bin\glslc.exe
+            C:\VulkanSDK\Bin\vulkan-1.dll
+          key: vulkan-sdk-${{ runner.os }}-${{ env.VULKAN_SDK_VERSION }}-v1
+
       - name: Install the Vulkan SDK (Windows)
+        if: runner.os == 'Windows' && steps.vulkan.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: |
+          $base = "https://sdk.lunarg.com/sdk/download/${{ env.VULKAN_SDK_VERSION }}/windows"
+          Invoke-WebRequest "$base/vulkan-sdk.exe" -OutFile vulkan-sdk.exe
+          Start-Process -Wait -FilePath .\vulkan-sdk.exe -ArgumentList '--root','C:\VulkanSDK','--accept-licenses','--default-answer','--confirm-command','install'
+          Invoke-WebRequest "$base/vulkan-runtime.exe" -OutFile vulkan-runtime.exe
+          Start-Process -Wait -FilePath .\vulkan-runtime.exe -ArgumentList '/S'
+          Copy-Item "$env:SystemRoot\System32\vulkan-1.dll" C:\VulkanSDK\Bin\vulkan-1.dll
+
+      - name: Use the Vulkan SDK (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          Invoke-WebRequest https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-sdk.exe -OutFile vulkan-sdk.exe
-          Start-Process -Wait -FilePath .\vulkan-sdk.exe -ArgumentList '--root','C:\VulkanSDK','--accept-licenses','--default-answer','--confirm-command','install'
-          Invoke-WebRequest https://sdk.lunarg.com/sdk/download/latest/windows/vulkan-runtime.exe -OutFile vulkan-runtime.exe
-          Start-Process -Wait -FilePath .\vulkan-runtime.exe -ArgumentList '/S'
           "VULKAN_SDK=C:\VulkanSDK" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           "C:\VulkanSDK\Bin" | Out-File $env:GITHUB_PATH -Append -Encoding utf8
 
@@ -246,22 +292,26 @@ jobs:
           cmake -S . -B Build -G Ninja \
             -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
             "-DCMAKE_PREFIX_PATH=$workspace/dawn-install" \
-            -DCARBON_WARNINGS_AS_ERRORS=ON \
+            -DCARBON_WARNINGS_AS_ERRORS=ON $CARBON_COMPILER_CACHE \
             -DCARBON_BACKEND_WEBGPU=ON -DCARBON_BACKEND_VULKAN=ON -DCARBON_BACKEND_OPENGL=ON -DCARBON_BACKEND_OPENGLES=ON             -DCARBON_BACKEND_DX11=$([ "$RUNNER_OS" = "Windows" ] && echo ON || echo OFF) \
             -DCARBON_BACKEND_DX9=$([ "$RUNNER_OS" = "Windows" ] && echo ON || echo OFF)
 
       - name: Build
-        run: cmake --build Build
+        shell: bash
+        run: |
+          cmake --build Build
+          if [ "$RUNNER_OS" = "Linux" ]; then ccache --show-stats; fi
 
-      # On Linux under a virtual display, for OpenGL. Where the runner cannot create an OpenGL 3.3 or Vulkan device
-      # (Windows), those tests skip.
+      # In parallel: the tests without a GPU are independent, and the renderer backends' tests, one entry per
+      # backend, take turns. On Linux under a virtual display, for OpenGL. Where the runner cannot create an
+      # OpenGL 3.3 or Vulkan device (Windows), those entries are skipped.
       - name: Test
         shell: bash
         run: |
           if [ "$RUNNER_OS" = "Linux" ]; then
-            xvfb-run -a ctest --test-dir Build --output-on-failure
+            xvfb-run -a ctest --test-dir Build --output-on-failure --parallel 4
           else
-            ctest --test-dir Build --output-on-failure
+            ctest --test-dir Build --output-on-failure --parallel 4
           fi
 
       # A smoke test of the examples, and something to look at: the screenshots are uploaded as an artifact.
@@ -324,9 +374,11 @@ jobs:
       # The installed package: find_package(Carbon), a custom component and the extension sources built from
       # the installed headers only.
       - name: Install
+        if: matrix.package
         run: cmake --install Build --prefix Install
 
       - name: Build and test against the installed package
+        if: matrix.package
         shell: bash
         run: |
           workspace="$(pwd -W 2>/dev/null || pwd)"

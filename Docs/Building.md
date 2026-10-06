@@ -313,11 +313,17 @@ platform.
 - **Dawn** is built once per platform at the pinned commit and stored in the Actions cache, keyed by the
   commit. Changing `DAWN_COMMIT` in the workflow rebuilds it.
 - **Windows MSVC (Release)**, **Linux GCC (Debug)** and **Linux Clang (Release)** configure with warnings as
-  errors and all three renderer backends required, build everything, run the tests, render screenshots of the
-  examples (uploaded as artifacts), install Carbon and build `Tests/Package` against the installed package.
+  errors and every renderer backend of their platform required, build everything (the benchmarks too, which are
+  not run), run the tests with `ctest --parallel` and render screenshots of the examples (uploaded as artifacts).
+  The Linux Clang job also installs Carbon and builds `Tests/Package` against the installed package.
+- The Linux jobs compile through `ccache`, whose cache is kept between runs, so third-party code and sources
+  that did not change are not compiled again. The Emscripten SDK (with the libraries Emscripten builds on first
+  use) and the files the Windows job needs of the Vulkan SDK are cached by their pinned versions
+  (`EMSDK_VERSION`, `VULKAN_SDK_VERSION` in the workflow).
 - The Linux jobs run the backend tests on software devices: WebGPU and Vulkan on Mesa's lavapipe (with the
-  Vulkan validation layers), OpenGL on llvmpipe under Xvfb. The Windows job installs the Vulkan SDK and runtime to
-  build the Vulkan backend; it has no Vulkan or OpenGL 3.3 driver, so those tests skip there.
+  Vulkan validation layers), OpenGL on llvmpipe under Xvfb. The Windows job has the Vulkan SDK's headers, import
+  library, `glslc` and loader to build the Vulkan backend; it has no Vulkan or OpenGL 3.3 driver, so those tests
+  skip there.
 - After a push to `main`, the Windows job also renders the documentation screenshots and commits the ones that
   changed (see [Documentation screenshots](#documentation-screenshots)).
 
