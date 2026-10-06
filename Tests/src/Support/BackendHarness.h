@@ -78,6 +78,9 @@ namespace Carbon
     /// The OpenGL backend ("OpenGL") or the OpenGL ES backend ("OpenGLES").
     std::unique_ptr<BackendHarness> CreateOpenGLHarness(bool isES);
 #endif
+#if defined(CARBON_HAS_BACKEND_DX11)
+    std::unique_ptr<BackendHarness> CreateDX11Harness();
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
     /// The Vulkan backend with a VkRenderPass ("VulkanRenderPass") or with dynamic rendering ("Vulkan").
     std::unique_ptr<BackendHarness> CreateVulkanHarness(bool useRenderPass);

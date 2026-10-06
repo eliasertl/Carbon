@@ -42,6 +42,24 @@ function(carbon_compile_spirv TARGET SHADER OUTPUT)
     target_include_directories(${TARGET} PRIVATE "${CARBON_GENERATED_DIR}")
 endfunction()
 
+# Compiles one entry point of an HLSL file with fxc (CARBON_FXC_EXECUTABLE) into OUTPUT, a header that defines
+# `const BYTE <VARIABLE>[]` with the bytecode. PROFILE is the shader model, such as vs_4_0.
+function(carbon_compile_hlsl TARGET SHADER ENTRY PROFILE VARIABLE OUTPUT)
+    get_filename_component(output_dir "${OUTPUT}" DIRECTORY)
+    get_filename_component(shader_name "${SHADER}" NAME)
+    add_custom_command(
+        OUTPUT "${OUTPUT}"
+        COMMAND "${CMAKE_COMMAND}" -E make_directory "${output_dir}"
+        COMMAND "${CARBON_FXC_EXECUTABLE}" /nologo /T ${PROFILE} /E ${ENTRY} /O3 /WX /Fh "${OUTPUT}" /Vn ${VARIABLE}
+            "${SHADER}"
+        DEPENDS "${SHADER}"
+        COMMENT "Carbon: compiling ${shader_name} (${ENTRY}, ${PROFILE})"
+        VERBATIM
+    )
+    target_sources(${TARGET} PRIVATE "${OUTPUT}")
+    target_include_directories(${TARGET} PRIVATE "${CARBON_GENERATED_DIR}")
+endfunction()
+
 # Adds the rule that generates Carbon/Text/Icons.h from Phosphor's stylesheet. The caller lists the header in the
 # target's public header file set, which makes it a source of the target.
 function(carbon_generate_icons STYLESHEET)

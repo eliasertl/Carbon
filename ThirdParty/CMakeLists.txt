@@ -236,6 +236,34 @@ if(CARBON_BACKEND_VULKAN AND NOT carbon_vulkan_found)
         "Without Vulkan, configure with -DCARBON_BACKEND_VULKAN=OFF.")
 endif()
 
+# ---- Direct3D: Windows, and fxc to compile the HLSL (Windows SDK) ------------------------------
+# The Direct3D backends call only COM methods, so Carbon links nothing for them; fxc compiles their shaders at
+# build time.
+set(carbon_fxc_found OFF)
+if(WIN32)
+    file(GLOB carbon_sdk_bins "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/bin/10.*/x64")
+    list(SORT carbon_sdk_bins COMPARE NATURAL ORDER DESCENDING)
+    find_program(CARBON_FXC_EXECUTABLE fxc HINTS ${carbon_sdk_bins} DOC "fxc, the HLSL compiler of the Windows SDK")
+    if(CARBON_FXC_EXECUTABLE)
+        set(carbon_fxc_found ON)
+    endif()
+endif()
+foreach(carbon_d3d_backend IN ITEMS DX11)
+    carbon_declare_backend(${carbon_d3d_backend} ${carbon_fxc_found}
+        "Build the ${carbon_d3d_backend} renderer backend (Windows; needs fxc from the Windows SDK)")
+    if(CARBON_BACKEND_${carbon_d3d_backend} AND NOT carbon_fxc_found)
+        if(NOT WIN32)
+            message(FATAL_ERROR "Carbon: CARBON_BACKEND_${carbon_d3d_backend} is ON, but Direct3D exists only on Windows.")
+        endif()
+        message(FATAL_ERROR
+            "Carbon: CARBON_BACKEND_${carbon_d3d_backend} is ON but fxc, the HLSL compiler of the Windows SDK, was not
+"
+            "found. Install the Windows SDK, configure from a Visual Studio developer prompt, or point CMake at it
+"
+            "with -DCARBON_FXC_EXECUTABLE=<path to fxc.exe>.")
+    endif()
+endforeach()
+
 # A static Dawn built for another MSVC runtime (Debug vs. Release) fails at link time with
 # LNK2038. Detect the common mismatch early and explain it.
 if(CARBON_BACKEND_WEBGPU AND MSVC AND CMAKE_BUILD_TYPE)

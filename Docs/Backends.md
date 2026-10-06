@@ -10,6 +10,7 @@ library and can switch by shutting one down and initializing another.
 | Vulkan | `CARBON_BACKEND_VULKAN` | `Carbon/Backends/Vulkan/VulkanBackend.h` | The Vulkan headers and loader, and `glslc` ([Vulkan SDK](https://vulkan.lunarg.com)) |
 | OpenGL 3.3 | `CARBON_BACKEND_OPENGL` | `Carbon/Backends/OpenGL/OpenGLBackend.h` | None: the host loads OpenGL |
 | OpenGL ES 3.0 / WebGL 2 | `CARBON_BACKEND_OPENGLES` | `Carbon/Backends/OpenGLES/OpenGLESBackend.h` | None: the host creates the context |
+| Direct3D 11 | `CARBON_BACKEND_DX11` | `Carbon/Backends/DX11/DX11Backend.h` | Windows, and `fxc` from the Windows SDK |
 
 A context has at most one backend. Without one it is *headless*: it builds the same draw data
 (`Carbon::GetDrawData()`) but cannot render, which is what the unit tests use.
@@ -21,7 +22,7 @@ built when its dependency is found; set to `ON`, a missing dependency stops the 
 CMake prints the result:
 
 ```text
--- Carbon: renderer backends: WebGPU, Vulkan, OpenGLES, OpenGL
+-- Carbon: renderer backends: WebGPU, Vulkan, OpenGLES, OpenGL, DX11
 ```
 
 Code that links `Carbon::Carbon` sees `CARBON_HAS_BACKEND_<NAME>` defined for every backend that was built, and an
@@ -310,9 +311,68 @@ OpenGL ES lacks:
 - `GetProcAddress` must return every OpenGL ES 3.0 function. With Emscripten, link with
   `-sGL_ENABLE_GET_PROC_ADDRESS` (Carbon's examples do).
 
+## Direct3D 11
+
+The Direct3D 11 backend needs a device of feature level 10.0 or later and draws into the render target that is bound
+to the context when the host calls `DX11Render`.
+[Examples/DX11MinimalIntegration](../Examples/DX11MinimalIntegration/Main.cpp) is a complete host with GLFW, a flip
+model swap chain and a host triangle in the same render target.
+
+```cpp
+#include <d3d11.h>
+#include <Carbon/Backends/DX11/DX11Backend.h>
+
+Carbon::DX11InitInfo info;
+info.Device = device;                                    // Carbon holds a reference to both
+info.Context = immediateContext;
+info.ColorFormat = Carbon::TextureFormat::BGRA8Unorm;    // the render target view's format
+if (!Carbon::DX11Init(info))
+    return;
+
+// Every frame, after EndFrame:
+immediateContext->OMSetRenderTargets(1, &backBufferView, nullptr);  // display size × content scale pixels
+DrawScene();                                             // your own content, if any
+Carbon::DX11Render();                                    // Carbon's interface on top
+swapChain->Present(1, 0);
+
+// A texture of yours (an ID3D11ShaderResourceView*):
+Carbon::DX11Image(sceneView, Carbon::Vec2(320, 180));
+
+Carbon::DX11Shutdown();                                  // before the device is released
+```
+
+**Headers and linking.** `DX11Backend.h` only declares the three interfaces it names, so it pulls in no Windows
+header; include `d3d11.h` yourself. Carbon calls only methods of the objects it is given, so it links nothing: the
+host links `d3d11.lib` (and `dxgi.lib` for a swap chain) as it does anyway.
+
+**Contexts and threads.** `DX11Render` records into the context from `DX11InitInfo`, or into the one it is given:
+`DX11Render(deferredContext)` records Carbon's commands, including glyph-atlas uploads, into a deferred context
+for a command list. Calls must not overlap with other use of the same context; Carbon creates objects on the device
+only from `DX11Init` and from `DX11Render`, when the glyph atlas or a buffer grows.
+
+**State.** `DX11Render` saves every piece of pipeline state it changes and restores it before it returns: input
+layout, topology, vertex and index buffers, vertex, geometry and pixel shaders, the constant buffers of slot 0, the
+pixel shader resources of slots 0 and 1, sampler 0, rasterizer, blend and depth-stencil states, viewports and
+scissor rectangles. The render targets stay as the host bound them. Carbon's tests check the restoration after
+every frame, with the debug layer on when it is installed.
+
+**sRGB.** With an sRGB `ColorFormat` (an `…_SRGB` render target view), Carbon writes linear values and Direct3D
+encodes them; otherwise it writes its sRGB colors as they are.
+
+**Textures.** `DX11GetTextureID(view)` takes a shader resource view; `MakeTextureID(view)` gives the same ID without
+registering it. Either way Carbon holds a reference to the view from the first frame that draws it until a whole
+frame passes without it, so the host may release its own reference at any time. Views are sampled with linear
+filtering, clamped to the edge.
+
+**Shaders.** `Backends/DX11/Shaders/Carbon.hlsl` is a port of the WGSL to shader model 4.0. `fxc` compiles it at
+build time into bytecode headers in the build tree; CMake finds `fxc` in the newest Windows SDK, or takes
+`-DCARBON_FXC_EXECUTABLE=<path>`. Primitives reach the pixel shader through a `Buffer<uint4>`, two elements each,
+whose floats are read back with `asfloat`. The glyph atlas is an `R8_UNORM` texture, updated row range by row range
+with `UpdateSubresource`.
+
 ## Writing your own backend
 
-A backend for another API (Direct3D 12, OpenGL ES, Metal, an engine's own rendering layer) is written against one
+A backend for another API (Direct3D 12, Metal, an engine's own rendering layer) is written against one
 public header, `Carbon/Renderer/RendererBackend.h`, without changing Carbon. The backends in
 `Framework/src/Carbon/Backends/` use nothing else and are the best examples.
 

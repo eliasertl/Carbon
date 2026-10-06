@@ -18,6 +18,9 @@ endif()
 if(CARBON_BACKEND_OPENGLES)
     add_subdirectory(OpenGLESMinimalIntegration)
 endif()
+if(CARBON_BACKEND_DX11)
+    add_subdirectory(DX11MinimalIntegration)
+endif()
 
 # The main examples run on WebGPU.
 if(NOT CARBON_BACKEND_WEBGPU)

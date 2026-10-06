@@ -15,6 +15,9 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_OPENGLES) && !defined(__EMSCRIPTEN__)
         names.emplace_back("OpenGLES");
 #endif
+#if defined(CARBON_HAS_BACKEND_DX11)
+        names.emplace_back("DX11");
+#endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         // Both of the Vulkan backend's pipeline modes.
         names.emplace_back("Vulkan");
@@ -36,6 +39,10 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_OPENGLES) && !defined(__EMSCRIPTEN__)
         if (name == "OpenGLES")
             return CreateOpenGLHarness(true);
+#endif
+#if defined(CARBON_HAS_BACKEND_DX11)
+        if (name == "DX11")
+            return CreateDX11Harness();
 #endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
         if (name == "Vulkan" || name == "VulkanRenderPass")

@@ -30,6 +30,7 @@ add_executable(CarbonTests
     src/Support/BackendTest.cpp
     src/Support/BackendTest.h
     src/Support/ContextTest.h
+    src/Support/DX11Harness.cpp
     src/Support/ImageCompare.cpp
     src/Support/ImageCompare.h
     src/Support/OpenGLHarness.cpp
@@ -54,6 +55,10 @@ endif()
 # and a heap that grows. Node has no canvas, so the GPU tests are not instantiated there.
 if(EMSCRIPTEN)
     target_link_options(CarbonTests PRIVATE -sNODERAWFS=1 -sSTACK_SIZE=1MB -sALLOW_MEMORY_GROWTH=1 -sEXIT_RUNTIME=1)
+endif()
+# The Direct3D backends' tests create their own devices.
+if(CARBON_BACKEND_DX11)
+    target_link_libraries(CarbonTests PRIVATE d3d11)
 endif()
 # Tests that compare images write the images of a failure below <build>/Tests.
 target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_OUTPUT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}\"")

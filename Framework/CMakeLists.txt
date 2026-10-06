@@ -166,6 +166,14 @@ if(CARBON_BACKEND_OPENGLES)
     list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/OpenGLES/OpenGLESBackend.h)
     list(APPEND CARBON_SOURCES src/Carbon/Backends/OpenGLES/OpenGLESBackend.cpp)
 endif()
+if(CARBON_BACKEND_DX11)
+    list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/DX11/DX11Backend.h)
+    list(APPEND CARBON_INTERNAL_HEADERS src/Carbon/Backends/DX11/DX11RendererInternal.h)
+    list(APPEND CARBON_SOURCES
+        src/Carbon/Backends/DX11/DX11Backend.cpp
+        src/Carbon/Backends/DX11/DX11RendererInternal.cpp
+    )
+endif()
 if(CARBON_BACKEND_VULKAN)
     list(APPEND CARBON_PUBLIC_HEADERS src/Carbon/Backends/Vulkan/VulkanBackend.h)
     list(APPEND CARBON_INTERNAL_HEADERS
@@ -252,6 +260,15 @@ if(CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)
     # header and the host's driver compiles it.
     carbon_embed_asset(Carbon OpenGLVertexShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/OpenGL/Shaders/Carbon.vert")
     carbon_embed_asset(Carbon OpenGLFragmentShader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/OpenGL/Shaders/Carbon.frag")
+endif()
+if(CARBON_BACKEND_DX11)
+    list(APPEND CARBON_ENABLED_BACKENDS DX11)
+    target_compile_definitions(Carbon PUBLIC CARBON_HAS_BACKEND_DX11=1)
+    set(carbon_dx11_shader "${CMAKE_CURRENT_SOURCE_DIR}/src/Carbon/Backends/DX11/Shaders/Carbon.hlsl")
+    carbon_compile_hlsl(Carbon "${carbon_dx11_shader}" VertexMain vs_4_0 g_DX11VertexShader
+        "${CARBON_GENERATED_DIR}/Carbon/Backends/DX11/CarbonVertex.h")
+    carbon_compile_hlsl(Carbon "${carbon_dx11_shader}" PixelMain ps_4_0 g_DX11PixelShader
+        "${CARBON_GENERATED_DIR}/Carbon/Backends/DX11/CarbonPixel.h")
 endif()
 if(CARBON_ENABLED_BACKENDS)
     list(JOIN CARBON_ENABLED_BACKENDS ", " carbon_backend_text)

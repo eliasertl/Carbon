@@ -47,7 +47,8 @@ Framework/src/Carbon/
 │   ├── Vulkan/           VulkanBackend.h, VulkanRendererInternal, VulkanAllocatorInternal, Shaders/ (GLSL 450)
 │   ├── OpenGL/           OpenGLBackend.h, OpenGLRendererInternal, OpenGLFunctionsInternal, Shaders/ (GLSL 330 and
 │   │                     GLSL ES 300), shared with OpenGL ES
-│   └── OpenGLES/         OpenGLESBackend.h: the OpenGL ES 3.0 / WebGL 2 API over the OpenGL renderer
+│   ├── OpenGLES/         OpenGLESBackend.h: the OpenGL ES 3.0 / WebGL 2 API over the OpenGL renderer
+│   └── DX11/             DX11Backend.h, DX11RendererInternal, Shaders/ (HLSL, shader model 4.0)
 └── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
 ```
 
@@ -480,6 +481,20 @@ In `Backends/OpenGL/`: `OpenGLInit`, `OpenGLShutdown`, `OpenGLRender()`, `OpenGL
 (`OpenGLESRenderer`), so that each API finds only its own backend. ES mode compiles the shaders as GLSL ES 3.00,
 loads no desktop-only function and leaves the state OpenGL ES does not have alone.
 
+### Direct3D 11 backend
+
+In `Backends/DX11/`: `DX11Init`, `DX11Shutdown`, `DX11Render(context)`, `DX11GetTextureID(view)` and
+`DX11Image(...)`, for feature level 10.0 and later.
+
+- The public header forward-declares the three D3D11 interfaces it names; the implementation calls only their
+  methods, so Carbon links no Direct3D library.
+- `Shaders/Carbon.hlsl` (vs_4_0, ps_4_0), a port of the WGSL, is compiled by `fxc` at build time into bytecode
+  headers in the build tree. Primitives live in a dynamic `Buffer<uint4>` (floats as bits, read with `asfloat`),
+  vertices and indices in dynamic buffers; all three are mapped with `WRITE_DISCARD` and grow by doubling.
+- The glyph atlas is an `R8_UNORM` texture, updated by row range with `UpdateSubresource`.
+- `DX11Render` saves the pipeline state it changes and restores it; it records into the init context or a context
+  it is given, which may be deferred. Host views are held through `ComPtr` while in use.
+
 ## 7. Layout algorithm
 
 Layout is single-pass with one frame of latency for anything that needs a size it cannot know yet.
@@ -746,6 +761,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | M15 WebGPU backend | Renderer and WGSL in `Backends/WebGPU/`, `WebGPU*` API, graphics-free core, `WebGPUMinimalIntegration`, `Docs/Backends.md` | Screenshots unchanged; isolation test |
 | M16 Vulkan backend | `Backends/Vulkan/`, GLSL 450 compiled to SPIR-V at build time, `VulkanMinimalIntegration` | Smoke and pixel comparison against WebGPU; validation layers clean |
 | M17 OpenGL backend | `Backends/OpenGL/`, GLSL 330, private function table, `OpenGLMinimalIntegration` | Smoke and pixel comparison against WebGPU |
+| M18 OpenGL ES and the web | `Backends/OpenGLES/` over the OpenGL renderer, Emscripten build, `OpenGLESMinimalIntegration` in a browser | Smoke and pixel comparison against WebGPU; tests in Node |
+| M19 Direct3D 11 backend | `Backends/DX11/`, HLSL compiled by `fxc`, `DX11MinimalIntegration` | Smoke and pixel comparison against WebGPU; debug layer clean |
 
 ## 16. Decision log
 
@@ -872,6 +889,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 118 | Besides the typed `<Name>GetTextureID` functions, a host may draw a raw native handle turned into a `TextureID` with `MakeTextureID` (pointer or integer), without registering it, like Dear ImGui's `ImTextureID`. Core tracks every texture a frame draws; backends resolve an unseen ID in `Render` with default settings (Vulkan: shader-read-only layout; WebGPU: the reference is taken then) and release it after a frame unused. Registration and raw handles give the same ID. `RendererBackendVersion` stays 1 | It is the shortest path from a texture to the screen and the one ImGui users expect. Unlike ImGui, Carbon still creates and frees Vulkan descriptor sets and WebGPU bind groups itself, so the raw path adds no bookkeeping for the host. A backend written for version 1 stays correct: it skips IDs it does not know, which is what it did before |
 | 119 | OpenGL ES 3.0 (and WebGL 2) is a backend of its own (`OpenGLES*` API, `CARBON_BACKEND_OPENGLES`) that shares the OpenGL backend's renderer and shaders in an ES mode. Both now store primitives in an `RGBA32UI` 2D texture instead of a texture buffer, and the shaders get their `#version` line from the renderer | A host on Android or in a browser should not need desktop names, and one renderer keeps the two from drifting apart. OpenGL ES 3.0 and WebGL 2 have no texture buffers, and 2048 texels is the widest texture OpenGL ES 3.0 guarantees, so 1024 primitives per row |
 | 120 | Web browsers are a build target (Emscripten), not a backend: they render through WebGL 2 with the OpenGL ES backend, the examples use Emscripten's GLFW 3.4 port instead of the submodule, and the tests run in Node without the GPU tests. WebGPU in the browser (Dawn's emdawnwebgpu) is left for later | WebGL 2 is OpenGL ES 3.0, so no new renderer is needed and every browser that runs WebGL 2 works. The GLFW port maps the canvas to a window with Hi-DPI support; the submodule cannot be built for the web. Node has no canvas to create a context on |
+| 121 | Direct3D 11 is a backend for feature level 10.0 and later, with shaders compiled by `fxc` at build time (shader model 4.0) and a public header that only forward-declares the D3D interfaces. Primitives go into a `Buffer<uint4>`. `DX11Render` takes an optional context so that deferred contexts work. The option defaults to `ON` on Windows when `fxc` is found; CI requires it on Windows, where WARP runs its tests | `fxc` ships with every Windows SDK, so the build needs nothing else; DXC does not compile shader model 4. Feature level 10.0 covers every Direct3D 11 device, and typed buffers exist there while structured buffers need 11.0. A host's `windows.h` settings (`NOMINMAX`, `WIN32_LEAN_AND_MEAN`) are not overridden by a Carbon header. Unlike OpenGL, WARP gives the Windows runners a real device |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
