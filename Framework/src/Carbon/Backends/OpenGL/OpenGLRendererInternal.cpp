@@ -455,28 +455,39 @@ namespace Carbon::Internal
     {
         SavedState state;
         SaveState(state);
-        SavedUnpackState unpack;
-        SaveUnpackState(unpack);
-        SetUnpackDefaults();
 
-        // Vertices and indices through the vertex array, primitives through the primitive texture.
-        const GLsizeiptr vertexBytes = static_cast<GLsizeiptr>(drawData.Vertices.size_bytes());
-        const GLsizeiptr indexBytes = static_cast<GLsizeiptr>(drawData.Indices.size_bytes());
+        // Vertices and indices through the vertex array, primitives through the primitive texture. They are
+        // uploaded once per frame: a frame that is rendered again draws from what is there.
         m_GL.BindVertexArray(m_VertexArray);
-        EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes);
-        m_GL.BufferSubData(GL::ArrayBuffer, 0, vertexBytes, drawData.Vertices.data());
-        // The element buffer is bound to the vertex array, so binding it here changes nothing of the host's.
-        m_GL.BindBuffer(GL::ElementArrayBuffer, m_IndexBuffer);
-        if (m_IndexCapacity < indexBytes)
+        if (m_HasNewDrawData)
         {
-            m_IndexCapacity = std::max(m_IndexCapacity * 2, MinimumBufferSize);
-            while (m_IndexCapacity < indexBytes)
-                m_IndexCapacity *= 2;
+            SavedUnpackState unpack;
+            SaveUnpackState(unpack);
+            SetUnpackDefaults();
+            const GLsizeiptr vertexBytes = static_cast<GLsizeiptr>(drawData.Vertices.size_bytes());
+            const GLsizeiptr indexBytes = static_cast<GLsizeiptr>(drawData.Indices.size_bytes());
+            EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes);
+            m_GL.BufferSubData(GL::ArrayBuffer, 0, vertexBytes, drawData.Vertices.data());
+            // The element buffer is bound to the vertex array, so binding it here changes nothing of the host's.
+            m_GL.BindBuffer(GL::ElementArrayBuffer, m_IndexBuffer);
+            if (m_IndexCapacity < indexBytes)
+            {
+                m_IndexCapacity = std::max(m_IndexCapacity * 2, MinimumBufferSize);
+                while (m_IndexCapacity < indexBytes)
+                    m_IndexCapacity *= 2;
+            }
+            m_GL.BufferData(GL::ElementArrayBuffer, m_IndexCapacity, nullptr, GL::StreamDraw);
+            m_GL.BufferSubData(GL::ElementArrayBuffer, 0, indexBytes, drawData.Indices.data());
+            UploadPrimitives(drawData);
+            RestoreUnpackState(unpack);
+            m_HasNewDrawData = false;
         }
-        m_GL.BufferData(GL::ElementArrayBuffer, m_IndexCapacity, nullptr, GL::StreamDraw);
-        m_GL.BufferSubData(GL::ElementArrayBuffer, 0, indexBytes, drawData.Indices.data());
-        UploadPrimitives(drawData);
-        RestoreUnpackState(unpack);
+        else
+        {
+            m_GL.ActiveTexture(GL::Texture0 + PrimitiveUnit);
+            m_GL.BindTexture(GL::Texture2D, m_PrimitiveTexture);
+            m_GL.BindSampler(PrimitiveUnit, 0);
+        }
 
         m_GL.ActiveTexture(GL::Texture0 + ColorUnit);
         m_GL.BindSampler(ColorUnit, m_Sampler);

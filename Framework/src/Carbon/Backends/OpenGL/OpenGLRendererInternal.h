@@ -25,6 +25,7 @@ namespace Carbon::Internal
 
         std::string_view GetName() const override { return m_IsES ? "OpenGL ES" : "OpenGL"; }
         RendererBackendCapabilities GetCapabilities() const override;
+        void EndFrame() override { m_HasNewDrawData = true; }
         void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) override;
         void Render(const DrawData& drawData) override;
         void ReleaseTexture(TextureID texture) override;
@@ -95,6 +96,9 @@ namespace Carbon::Internal
         OpenGLFunctions m_GL;
         bool m_IsLinearOutput = false;
         bool m_IsES = false;
+        /// Set by EndFrame: the next Render has new draw data to upload. A frame that is rendered again (a window
+        /// redrawn without a new frame) reuses what its first Render uploaded.
+        bool m_HasNewDrawData = true;
 
         GLuint m_Program = 0;
         GLint m_FrameLocation = -1;

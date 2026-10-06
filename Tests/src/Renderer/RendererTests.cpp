@@ -208,6 +208,35 @@ namespace Carbon
         ExpectColorNear(again.GetPixel(20, 20), Color::White());
     }
 
+    TEST_P(RendererTests, AFrameRenderedAgainLooksTheSameAndANewFrameReplacesIt)
+    {
+        // A backend uploads a frame's geometry once. Rendering the frame again, as a host does that redraws a
+        // window, must draw from what is there; the next frame must not.
+        const Color red = Color::FromHex(0xFF3B30);
+        const Color blue = Color::FromHex(0x0A84FF);
+        const TextSpec spec = GetTextSpec(TextStyle::Title1);
+        const RenderedImage first = RenderFrame(96.0f, 48.0f, 1.0f, Color::White(),
+                                                [&](DrawList& drawList)
+                                                {
+                                                    drawList.AddSquircle(Rect(8.0f, 8.0f, 30.0f, 30.0f), red, 8.0f);
+                                                    drawList.AddText(Vec2(44.0f, 10.0f), "Aa", spec, Color::Black());
+                                                });
+        ExpectColorNear(first.GetPixel(22, 22), red);
+
+        for (int i = 0; i < 2; i++)
+        {
+            const RenderedImage again = m_Harness->RenderFrame(96, 48, Color::White());
+            ASSERT_EQ(again.Pixels.size(), first.Pixels.size());
+            EXPECT_EQ(again.Pixels, first.Pixels) << "redraw " << i;
+        }
+
+        const RenderedImage next = RenderFrame(96.0f, 48.0f, 1.0f, Color::White(), [&](DrawList& drawList)
+                                               { drawList.AddRect(Rect(50.0f, 8.0f, 30.0f, 30.0f), blue); });
+        ExpectColorNear(next.GetPixel(22, 22), Color::White());
+        ExpectColorNear(next.GetPixel(64, 22), blue);
+        EXPECT_EQ(m_Harness->RenderFrame(96, 48, Color::White()).Pixels, next.Pixels);
+    }
+
     TEST_P(RendererTests, EmptyFrameLeavesTheTargetUntouched)
     {
         const Color background = Color::FromHex(0x123456);

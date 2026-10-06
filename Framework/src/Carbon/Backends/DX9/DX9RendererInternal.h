@@ -30,6 +30,7 @@ namespace Carbon::Internal
 
         std::string_view GetName() const override { return "Direct3D 9"; }
         RendererBackendCapabilities GetCapabilities() const override;
+        void EndFrame() override { m_HasNewDrawData = true; }
         void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) override;
         void Render(const DrawData& drawData) override;
         void ReleaseTexture(TextureID texture) override;
@@ -57,6 +58,9 @@ namespace Carbon::Internal
         bool m_IsLinearOutput = false;
         bool m_IsValid = false;
         bool m_HasReportedIndexLimit = false;
+        /// Set by EndFrame: the next Render has new draw data to upload. A frame that is rendered again (a window
+        /// redrawn without a new frame) reuses what its first Render uploaded.
+        bool m_HasNewDrawData = true;
 
         ComPtr<IDirect3DVertexShader9> m_VertexShader;
         ComPtr<IDirect3DPixelShader9> m_PixelShader;

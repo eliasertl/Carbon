@@ -253,8 +253,10 @@ namespace Carbon::Internal
         const uint64_t vertexBytes = drawData.Vertices.size_bytes();
         const uint64_t indexBytes = drawData.Indices.size_bytes();
         const uint64_t primitiveBytes = std::max<uint64_t>(drawData.Primitives.size_bytes(), sizeof(DrawPrimitive));
-        EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes, wgpu::BufferUsage::Vertex, "Carbon vertices");
-        EnsureBuffer(m_IndexBuffer, m_IndexCapacity, indexBytes, wgpu::BufferUsage::Index, "Carbon indices");
+        const bool vertexBufferChanged =
+            EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes, wgpu::BufferUsage::Vertex, "Carbon vertices");
+        const bool indexBufferChanged =
+            EnsureBuffer(m_IndexBuffer, m_IndexCapacity, indexBytes, wgpu::BufferUsage::Index, "Carbon indices");
         const bool primitiveBufferChanged = EnsureBuffer(m_PrimitiveBuffer, m_PrimitiveCapacity, primitiveBytes,
                                                          wgpu::BufferUsage::Storage, "Carbon primitives");
         if (primitiveBufferChanged || m_FrameBindGroup == nullptr)
@@ -273,16 +275,23 @@ namespace Carbon::Internal
             m_FrameBindGroup = m_Device.CreateBindGroup(&descriptor);
         }
 
-        FrameUniforms uniforms;
-        uniforms.DisplayWidth = drawData.DisplaySize.X;
-        uniforms.DisplayHeight = drawData.DisplaySize.Y;
-        uniforms.ContentScale = scale;
-        uniforms.LinearOutput = IsSrgbFormat(m_ColorFormat) ? 1.0f : 0.0f;
-        m_Queue.WriteBuffer(m_FrameBuffer, 0, &uniforms, sizeof(uniforms));
-        m_Queue.WriteBuffer(m_VertexBuffer, 0, drawData.Vertices.data(), vertexBytes);
-        m_Queue.WriteBuffer(m_IndexBuffer, 0, drawData.Indices.data(), indexBytes);
-        if (!drawData.Primitives.empty())
-            m_Queue.WriteBuffer(m_PrimitiveBuffer, 0, drawData.Primitives.data(), drawData.Primitives.size_bytes());
+        // The frame's data is uploaded once, by the first Render after EndFrame.
+        if (m_HasNewDrawData || vertexBufferChanged || indexBufferChanged || primitiveBufferChanged)
+        {
+            FrameUniforms uniforms;
+            uniforms.DisplayWidth = drawData.DisplaySize.X;
+            uniforms.DisplayHeight = drawData.DisplaySize.Y;
+            uniforms.ContentScale = scale;
+            uniforms.LinearOutput = IsSrgbFormat(m_ColorFormat) ? 1.0f : 0.0f;
+            m_Queue.WriteBuffer(m_FrameBuffer, 0, &uniforms, sizeof(uniforms));
+            m_Queue.WriteBuffer(m_VertexBuffer, 0, drawData.Vertices.data(), vertexBytes);
+            m_Queue.WriteBuffer(m_IndexBuffer, 0, drawData.Indices.data(), indexBytes);
+            if (!drawData.Primitives.empty())
+            {
+                m_Queue.WriteBuffer(m_PrimitiveBuffer, 0, drawData.Primitives.data(), drawData.Primitives.size_bytes());
+            }
+            m_HasNewDrawData = false;
+        }
 
         pass.SetPipeline(m_Pipeline);
         pass.SetViewport(0.0f, 0.0f, static_cast<float>(targetWidth), static_cast<float>(targetHeight), 0.0f, 1.0f);

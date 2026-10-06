@@ -29,6 +29,7 @@ namespace Carbon::Internal
 
         std::string_view GetName() const override { return "Direct3D 11"; }
         RendererBackendCapabilities GetCapabilities() const override;
+        void EndFrame() override { m_HasNewDrawData = true; }
         void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) override;
         void Render(const DrawData& drawData) override;
         void ReleaseTexture(TextureID texture) override;
@@ -87,6 +88,12 @@ namespace Carbon::Internal
         ID3D11DeviceContext* m_CurrentContext = nullptr;
         bool m_IsLinearOutput = false;
         bool m_IsValid = false;
+        /// Set by EndFrame: the next Render has new draw data to upload. A frame that is rendered again (a window
+        /// redrawn without a new frame) reuses what its first Render uploaded.
+        bool m_HasNewDrawData = true;
+        /// The context the frame's data was uploaded through. Another one (a deferred context) uploads again:
+        /// what it records may run before the first one's commands.
+        ID3D11DeviceContext* m_UploadContext = nullptr;
 
         ComPtr<ID3D11VertexShader> m_VertexShader;
         ComPtr<ID3D11PixelShader> m_PixelShader;

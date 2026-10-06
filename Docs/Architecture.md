@@ -379,7 +379,9 @@ TextureID RegisterHostTexture(uint64_t key);               void ReleaseHostTextu
   `NewFrame`: a backend may only touch the GPU inside calls its own functions make.
 - **Frames in flight.** `EndFrame` tells the backend that new draw data is final; every `Render` until the next
   one receives the same data. A backend that must not overwrite buffers the GPU still reads advances its ring of
-  buffers once per frame, however often the frame is drawn.
+  buffers once per frame, however often the frame is drawn. Every backend that ships with Carbon uploads a
+  frame's vertices, indices and primitives in the first `Render` after `EndFrame` only; rendering the frame
+  again (a window redrawn without a new frame) draws from what is there.
 - **Limits.** `GetCapabilities().MaxTextureSize` caps the glyph atlas (at most 4096 either way).
 
 ### WebGPU backend (Dawn)

@@ -19,6 +19,7 @@ namespace Carbon::Internal
 
         std::string_view GetName() const override { return "WebGPU"; }
         RendererBackendCapabilities GetCapabilities() const override;
+        void EndFrame() override { m_HasNewDrawData = true; }
         void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) override;
         void Render(const DrawData& drawData) override;
         void ReleaseTexture(TextureID texture) override;
@@ -57,6 +58,9 @@ namespace Carbon::Internal
         wgpu::Buffer m_VertexBuffer;
         wgpu::Buffer m_IndexBuffer;
         wgpu::Buffer m_PrimitiveBuffer;
+        /// Set by EndFrame: the next Render has new draw data to upload. A frame that is rendered again (a window
+        /// redrawn without a new frame) reuses what its first Render uploaded.
+        bool m_HasNewDrawData = true;
         uint64_t m_VertexCapacity = 0;
         uint64_t m_IndexCapacity = 0;
         uint64_t m_PrimitiveCapacity = 0;

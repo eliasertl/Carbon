@@ -247,11 +247,13 @@ namespace Carbon::Internal
         if (m_AtlasView == nullptr)
             return;
 
-        // Buffers: written whole every frame, discarding what the GPU may still read.
+        // Buffers: written whole once per frame, discarding what the GPU may still read.
         const UINT vertexBytes = static_cast<UINT>(drawData.Vertices.size_bytes());
         const UINT indexBytes = static_cast<UINT>(drawData.Indices.size_bytes());
         const UINT primitiveBytes =
             static_cast<UINT>(std::max(drawData.Primitives.size_bytes(), sizeof(DrawPrimitive)));
+        const ID3D11Buffer* oldVertices = m_VertexBuffer.Get();
+        const ID3D11Buffer* oldIndices = m_IndexBuffer.Get();
         const ID3D11Buffer* oldPrimitives = m_PrimitiveBuffer.Get();
         if (!EnsureBuffer(m_VertexBuffer, m_VertexCapacity, vertexBytes, D3D11_BIND_VERTEX_BUFFER) ||
             !EnsureBuffer(m_IndexBuffer, m_IndexCapacity, indexBytes, D3D11_BIND_INDEX_BUFFER) ||
@@ -270,28 +272,36 @@ namespace Carbon::Internal
                 return;
         }
 
-        D3D11_MAPPED_SUBRESOURCE mapped = {};
-        if (!Check(context->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (vertices)"))
-            return;
-        std::memcpy(mapped.pData, drawData.Vertices.data(), vertexBytes);
-        context->Unmap(m_VertexBuffer.Get(), 0);
-        if (!Check(context->Map(m_IndexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (indices)"))
-            return;
-        std::memcpy(mapped.pData, drawData.Indices.data(), indexBytes);
-        context->Unmap(m_IndexBuffer.Get(), 0);
-        if (!Check(context->Map(m_PrimitiveBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (primitives)"))
-            return;
-        if (!drawData.Primitives.empty())
-            std::memcpy(mapped.pData, drawData.Primitives.data(), drawData.Primitives.size_bytes());
-        context->Unmap(m_PrimitiveBuffer.Get(), 0);
-
         const float scale = drawData.ContentScale;
-        const FrameConstants constants = {drawData.DisplaySize.X, drawData.DisplaySize.Y, scale,
-                                          m_IsLinearOutput ? 1.0f : 0.0f};
-        if (!Check(context->Map(m_FrameBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (frame)"))
-            return;
-        std::memcpy(mapped.pData, &constants, sizeof(constants));
-        context->Unmap(m_FrameBuffer.Get(), 0);
+        const bool hasNewBuffers = m_VertexBuffer.Get() != oldVertices || m_IndexBuffer.Get() != oldIndices ||
+                                   m_PrimitiveBuffer.Get() != oldPrimitives;
+        if (m_HasNewDrawData || hasNewBuffers || m_UploadContext != context)
+        {
+            D3D11_MAPPED_SUBRESOURCE mapped = {};
+            if (!Check(context->Map(m_VertexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (vertices)"))
+                return;
+            std::memcpy(mapped.pData, drawData.Vertices.data(), vertexBytes);
+            context->Unmap(m_VertexBuffer.Get(), 0);
+            if (!Check(context->Map(m_IndexBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (indices)"))
+                return;
+            std::memcpy(mapped.pData, drawData.Indices.data(), indexBytes);
+            context->Unmap(m_IndexBuffer.Get(), 0);
+            if (!Check(context->Map(m_PrimitiveBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped),
+                       "Map (primitives)"))
+                return;
+            if (!drawData.Primitives.empty())
+                std::memcpy(mapped.pData, drawData.Primitives.data(), drawData.Primitives.size_bytes());
+            context->Unmap(m_PrimitiveBuffer.Get(), 0);
+
+            const FrameConstants constants = {drawData.DisplaySize.X, drawData.DisplaySize.Y, scale,
+                                              m_IsLinearOutput ? 1.0f : 0.0f};
+            if (!Check(context->Map(m_FrameBuffer.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped), "Map (frame)"))
+                return;
+            std::memcpy(mapped.pData, &constants, sizeof(constants));
+            context->Unmap(m_FrameBuffer.Get(), 0);
+            m_HasNewDrawData = false;
+            m_UploadContext = context;
+        }
 
         SavedState state;
         SaveState(context, state);

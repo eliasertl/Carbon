@@ -207,33 +207,39 @@ namespace Carbon::Internal
             return;
         }
 
-        // Buffers: written whole every frame, discarding what the GPU may still read.
+        // Buffers: written whole once per frame, discarding what the GPU may still read. A frame that is rendered
+        // again finds its vertices, with the primitives copied into them, where its first Render put them.
         const UINT vertexBytes = static_cast<UINT>(drawData.Vertices.size() * sizeof(DX9Vertex));
         const UINT indexBytes = static_cast<UINT>(drawData.Indices.size_bytes());
         if (!EnsureVertexBuffer(vertexBytes) || !EnsureIndexBuffer(indexBytes))
             return;
-        void* mapped = nullptr;
-        if (!Check(m_VertexBuffer->Lock(0, vertexBytes, &mapped, D3DLOCK_DISCARD), "Lock (vertices)"))
-            return;
-        DX9Vertex* vertices = static_cast<DX9Vertex*>(mapped);
-        const DrawPrimitive empty;
-        for (size_t i = 0; i < drawData.Vertices.size(); i++)
+        if (m_HasNewDrawData)
         {
-            const DrawVertex& source = drawData.Vertices[i];
-            const DrawPrimitive& primitive =
-                source.Primitive < drawData.Primitives.size() ? drawData.Primitives[source.Primitive] : empty;
-            vertices[i] = DX9Vertex{{source.Position.X, source.Position.Y},
-                                    {source.Local.X, source.Local.Y},
-                                    {source.UV.X, source.UV.Y},
-                                    ToD3DColor(source.Color),
-                                    {primitive.HalfSize.X, primitive.HalfSize.Y, primitive.Radius, primitive.Smoothing},
-                                    {primitive.StrokeWidth, primitive.Softness, static_cast<float>(primitive.Kind)}};
+            void* mapped = nullptr;
+            if (!Check(m_VertexBuffer->Lock(0, vertexBytes, &mapped, D3DLOCK_DISCARD), "Lock (vertices)"))
+                return;
+            DX9Vertex* vertices = static_cast<DX9Vertex*>(mapped);
+            const DrawPrimitive empty;
+            for (size_t i = 0; i < drawData.Vertices.size(); i++)
+            {
+                const DrawVertex& source = drawData.Vertices[i];
+                const DrawPrimitive& primitive =
+                    source.Primitive < drawData.Primitives.size() ? drawData.Primitives[source.Primitive] : empty;
+                vertices[i] =
+                    DX9Vertex{{source.Position.X, source.Position.Y},
+                              {source.Local.X, source.Local.Y},
+                              {source.UV.X, source.UV.Y},
+                              ToD3DColor(source.Color),
+                              {primitive.HalfSize.X, primitive.HalfSize.Y, primitive.Radius, primitive.Smoothing},
+                              {primitive.StrokeWidth, primitive.Softness, static_cast<float>(primitive.Kind)}};
+            }
+            m_VertexBuffer->Unlock();
+            if (!Check(m_IndexBuffer->Lock(0, indexBytes, &mapped, D3DLOCK_DISCARD), "Lock (indices)"))
+                return;
+            std::memcpy(mapped, drawData.Indices.data(), indexBytes);
+            m_IndexBuffer->Unlock();
+            m_HasNewDrawData = false;
         }
-        m_VertexBuffer->Unlock();
-        if (!Check(m_IndexBuffer->Lock(0, indexBytes, &mapped, D3DLOCK_DISCARD), "Lock (indices)"))
-            return;
-        std::memcpy(mapped, drawData.Indices.data(), indexBytes);
-        m_IndexBuffer->Unlock();
 
         // Everything the host set: a state block captures it, and the viewport and scissor rectangle are kept
         // separately, as not every driver restores them with the block.
@@ -349,6 +355,8 @@ namespace Carbon::Internal
         m_IndexBuffer.Reset();
         m_VertexCapacity = 0;
         m_IndexCapacity = 0;
+        // The frame's geometry went with the buffers.
+        m_HasNewDrawData = true;
         m_AtlasTexture.Reset();
         m_AtlasWidth = 0;
         m_AtlasHeight = 0;
