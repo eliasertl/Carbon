@@ -865,6 +865,36 @@ namespace Carbon
         EXPECT_EQ(s_Stored, "xy");
     }
 
+    TEST_F(TextFieldTests, SetSelectionAppliesOnceTheFieldIsEdited)
+    {
+        m_Text = "Hello \xC3\xA4world";
+        Settle(Field());
+        // Asked for in the frame that gives the field focus, before editing has started.
+        Frame(
+            [&]
+            {
+                SetFocus(GetID("Name"));
+                SetTextFieldSelection("Name", {.Caret = 0, .Start = 0, .End = 7}); // 7 is inside "ä": moved to 6
+                Field()();
+            });
+        Frame(Field());
+        TextFieldSelection selection;
+        ASSERT_TRUE(GetTextFieldSelection("Name", &selection));
+        EXPECT_EQ(selection.Caret, 0u);
+        EXPECT_EQ(selection.Start, 0u);
+        EXPECT_EQ(selection.End, 6u);
+        Type("X", Field());
+        EXPECT_EQ(m_Text, "X\xC3\xA4world");
+
+        // A request that is not taken up within a frame expires.
+        TapKey(Key::Escape, Field());
+        SetTextFieldSelection("Name", {.Caret = 0, .Start = 0, .End = 0});
+        Settle(Field());
+        Click(Vec2(m_Rect.GetRight() - 10.0f, m_Rect.GetCenter().Y), Field());
+        ASSERT_TRUE(GetTextFieldSelection("Name", &selection));
+        EXPECT_EQ(selection.Caret, m_Text.size()) << "the click placed the caret";
+    }
+
     TEST_F(TextFieldTests, AllFormsShareOneImplementation)
     {
         // The same input gives the same text, caret and drawing whichever form holds the text.

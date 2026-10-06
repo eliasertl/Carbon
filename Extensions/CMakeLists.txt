@@ -15,6 +15,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/Menu.h
     src/Carbon/Extensions/MenuBar.h
     src/Carbon/Extensions/Notification.h
+    src/Carbon/Extensions/NumberField.h
     src/Carbon/Extensions/OutlineView.h
     src/Carbon/Extensions/PathControl.h
     src/Carbon/Extensions/Popover.h
@@ -23,6 +24,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/PullDownButton.h
     src/Carbon/Extensions/RadioGroup.h
     src/Carbon/Extensions/RowRange.h
+    src/Carbon/Extensions/ScrubField.h
     src/Carbon/Extensions/SearchField.h
     src/Carbon/Extensions/SegmentedControl.h
     src/Carbon/Extensions/Sheet.h
@@ -41,6 +43,7 @@ set(CARBON_EXTENSIONS_INTERNAL_HEADERS
     src/Carbon/Extensions/Internal/BuildState.h
     src/Carbon/Extensions/Internal/ColumnLayout.h
     src/Carbon/Extensions/Internal/MenuInternal.h
+    src/Carbon/Extensions/Internal/NumberEditing.h
     src/Carbon/Extensions/Internal/RowClipping.h
     src/Carbon/Extensions/Internal/SelectionList.h
     src/Carbon/Extensions/Internal/WidestItem.h
@@ -59,6 +62,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Menu.cpp
     src/Carbon/Extensions/MenuBar.cpp
     src/Carbon/Extensions/Notification.cpp
+    src/Carbon/Extensions/NumberField.cpp
     src/Carbon/Extensions/OutlineView.cpp
     src/Carbon/Extensions/PathControl.cpp
     src/Carbon/Extensions/Popover.cpp
@@ -66,6 +70,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/ProgressIndicator.cpp
     src/Carbon/Extensions/PullDownButton.cpp
     src/Carbon/Extensions/RadioGroup.cpp
+    src/Carbon/Extensions/ScrubField.cpp
     src/Carbon/Extensions/SearchField.cpp
     src/Carbon/Extensions/SegmentedControl.cpp
     src/Carbon/Extensions/Sheet.cpp
@@ -78,6 +83,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Toolbar.cpp
     src/Carbon/Extensions/Extensions.cpp
     src/Carbon/Extensions/Internal/ColumnLayout.cpp
+    src/Carbon/Extensions/Internal/NumberEditing.cpp
     src/Carbon/Extensions/Internal/RowClipping.cpp
     src/Carbon/Extensions/Internal/SelectionList.cpp
     src/Carbon/Extensions/Internal/WidestItem.cpp

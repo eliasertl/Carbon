@@ -322,6 +322,8 @@ namespace Carbon
                 DatePickerCalendar("Calendar", &m_Date, {.Today = m_Date});
                 TokenField("Tokens", &m_Tokens);
                 TokenField("Tokens on one line", &m_Tokens, {.Layout = TokenFieldLayout::SingleLine});
+                NumberField("Number", &m_Slider, {.Format = {.Decimals = 2, .Suffix = " px"}});
+                ScrubField("Scrub", &m_Selected, {.Min = 0.0, .Max = 2.0});
                 DatePicker("Date picker", &m_Date,
                            {.Elements = DatePickerElements::DateAndTime, .Format = DateFormat::US(), .Today = m_Date});
                 BeginToolbar("Toolbar", {.Width = 200.0f});

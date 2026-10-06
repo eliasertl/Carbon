@@ -48,6 +48,8 @@ These components are built only on Carbon's public extension API; see
 | [Alert](Alert.md) | Critical information that needs an answer |
 | [Sheet](Sheet.md) | A modal view for a task of its own |
 | [Stepper](Stepper.md) | Small steps on a value |
+| [NumberField](NumberField.md) | A text field for a number, with a format, a range and arrow-key steps |
+| [ScrubField](ScrubField.md) | A number changed by dragging across it, or typed after a click |
 | [ProgressIndicator](ProgressIndicator.md) | Progress as a bar or a spinner |
 | [SearchField](SearchField.md) | A text field for search terms |
 | [ColorWell](ColorWell.md) | Shows a color and opens a picker |

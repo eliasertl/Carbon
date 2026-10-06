@@ -42,7 +42,9 @@ Components/PullDownButton.png     WebGPUGallery  --page selection --section popu
 Components/ComboBox.png           WebGPUGallery  --page selection --section combobox
 Components/TokenField.png         WebGPUGallery  --page selection --section tokenfield
 Components/Stepper.png            WebGPUGallery  --page selection --section stepper
-Components/ColorWell.png          WebGPUGallery  --page selection --section colorwell --click 199x24 --extend 0,186,0,0
+Components/NumberField.png        WebGPUGallery  --page selection --section numberfield
+Components/ScrubField.png         WebGPUGallery  --page selection --section scrubfield --pointer 224x28
+Components/ColorWell.png          WebGPUGallery  --page selection --section colorwell --click 199x24 --extend 0,0,0,146
 Components/SearchField.png        WebGPUGallery  --page selection --section searchfield
 Components/DatePicker.png         WebGPUGallery  --page dates --section datepicker --show datepicker --extend 0,0,0,140
 Components/DatePickerCalendar.png WebGPUGallery  --page dates --section calendar

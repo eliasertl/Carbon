@@ -304,6 +304,43 @@ namespace Gallery
             Text(std::format("Searching for \"{}\"", state.Query), {.Secondary = true});
         EndRow();
         EndSection();
+
+        BeginSection("Number field",
+                     "Type a number and press Return, or use the arrow keys. Shift steps finer, Ctrl coarser.");
+        BeginRow("Quantity");
+        NumberField("Quantity", &state.Quantity, {.Min = 0.0, .Max = 999.0, .Width = 60.0f});
+        Stepper("Quantity stepper", &state.Quantity, {.Min = 0.0, .Max = 999.0});
+        EndRow();
+        BeginRow("Price");
+        NumberField("Price", &state.Price,
+                    {.Min = 0.0, .Step = 0.5, .Format = {.Decimals = 2, .Prefix = "$"}, .Width = 100.0f});
+        EndRow();
+        BeginRow("Disabled");
+        NumberField("Disabled price", &state.Price,
+                    {.Format = {.Decimals = 2, .Prefix = "$"}, .Width = 100.0f, .Disabled = true});
+        EndRow();
+        EndSection();
+
+        BeginSection("Scrub field",
+                     "Drag sideways to change the value, with Shift for fine and Ctrl for coarse steps. Click to "
+                     "type a value.");
+        BeginRow("Opacity");
+        ScrubField("Opacity", &state.Opacity, {.Min = 0.0, .Max = 100.0, .Format = {.Suffix = " %"}});
+        EndRow();
+        BeginRow("Corner radius");
+        ScrubField("Corner radius", &state.CornerRadius,
+                   {.Min = 0.0, .Max = 30.0, .Step = 0.5, .Format = {.Decimals = 1, .Suffix = " pt"}});
+        // A preview of both values.
+        BeginVStack({.Width = 64.0f,
+                     .Height = 40.0f,
+                     .Background = GetStyleColor(StyleColor::Accent).WithOpacity(state.Opacity / 100.0f),
+                     .CornerRadius = static_cast<float>(state.CornerRadius)});
+        EndVStack();
+        EndRow();
+        BeginRow("Angle");
+        ScrubField("Angle", &state.Angle, {.Min = -180.0, .Max = 180.0, .Format = {.Suffix = "\xC2\xB0"}});
+        EndRow();
+        EndSection();
     }
 
     void DatesPage(GalleryState& state)

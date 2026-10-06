@@ -48,7 +48,8 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
   Tooltip, stacks, Grid, Spacer and ScrollView, each with hover, pressed, focused and disabled states that animate.
 - **Extension components** (`CarbonExtensions`): Sidebar with a sliding selection, TabView, SegmentedControl, line
   and bar charts, Popover, Menu with submenus, ContextMenu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox,
-  TokenField, RadioGroup, DatePicker, DatePickerCalendar, Stepper, ProgressIndicator (bar and spinner), SearchField,
+  TokenField, RadioGroup, DatePicker, DatePickerCalendar, Stepper, NumberField, ScrubField (drag to change a
+  number), ProgressIndicator (bar and spinner), SearchField,
   List, Table, OutlineView (trees, such as a file browser), ColumnView, PathControl, SplitView, Alert, Sheet,
   ColorWell and notifications at any edge or corner.
 - **Overlays**: popovers, menus, alerts and sheets float in a layer above the interface and take the pointer and

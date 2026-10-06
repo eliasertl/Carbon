@@ -95,6 +95,11 @@ namespace Gallery
         int Quality = 2;
         int Copies = 2;
         double FontSize = 13.0;
+        int Quantity = 3;
+        double Price = 19.99;
+        float Opacity = 80.0f;
+        double CornerRadius = 12.0;
+        int Angle = 45;
         Carbon::Color Tint = Carbon::Color::FromHex(0x34C759);
         Carbon::Color Shadow = Carbon::Color::FromHex(0x5856D6, 0.6f);
         std::string Query;
