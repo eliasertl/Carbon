@@ -158,7 +158,8 @@ Motion on, movement jumps and changes of appearance become short fades, without 
 mark animations that are not movement with `.AsAppearance()`.
 
 A component that animates from the clock instead (a spinner) reads `GetTime()` and calls
-`RequestAnimationFrame()` so that hosts that render on demand keep rendering.
+`RequestAnimationFrame()` so that hosts that render on demand keep rendering, or `RequestFrameAfter(seconds)`
+when the next change is some time away.
 
 ## 8. State
 

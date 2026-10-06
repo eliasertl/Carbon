@@ -82,4 +82,6 @@ Ctrl is the default shortcut modifier; see [Keyboard navigation](../KeyboardNavi
 - The focus ring shows whenever the field has focus, as on macOS.
 - The application may change the string at any time, also while the field is focused.
 - Input method composition (IME) and right-to-left text are not supported in this version.
-- While a field is focused, `io.WantsTextInput()` is true and the caret blinks, so `IsAnimating()` stays true.
+- While a field is focused, `io.WantsTextInput()` is true and the caret blinks. The caret does not keep
+  `IsAnimating()` true: it asks for a frame each time it changes, twice a second, which a host that renders on
+  demand learns from `GetNextFrameDelay()` (see [Animation](../Animation.md#rendering-on-demand)).

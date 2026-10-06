@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <limits>
 #include <memory>
 #include <string>
 #include <vector>
@@ -57,6 +58,9 @@ namespace Carbon
         /// Set during a frame by anything that is still moving; becomes WasAnimatingLastFrame at EndFrame.
         bool IsAnimatingThisFrame = false;
         bool WasAnimatingLastFrame = false;
+        /// The earliest RequestFrameAfter of the frame, in seconds; becomes NextFrameDelayLastFrame at EndFrame.
+        float NextFrameDelayThisFrame = std::numeric_limits<float>::infinity();
+        float NextFrameDelayLastFrame = std::numeric_limits<float>::infinity();
 
         ContentScale Scale;
         Vec2 DisplaySize;

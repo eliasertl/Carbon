@@ -118,6 +118,18 @@ namespace Carbon
     /// layout that has not settled). Hosts that render on demand keep rendering frames while this is true.
     bool IsAnimating();
     /// Asks for another frame even though no Animate call is in motion: IsAnimating() will return true after
-    /// this frame. Components that animate from the clock (a spinner) or wait for time to pass call it.
+    /// this frame. Components that animate from the clock (a spinner) call it.
     void RequestAnimationFrame();
+    /// Asks for a frame `seconds` from now, although nothing moves until then: a caret that blinks, an indicator
+    /// that hides after a pause. Unlike RequestAnimationFrame it lets a host that renders on demand sleep in
+    /// between; the earliest request of a frame is what GetNextFrameDelay reports.
+    void RequestFrameAfter(float seconds);
+    /// How long a host that renders on demand may wait for input before it renders the next frame, in seconds,
+    /// as of the last finished frame: 0 while IsAnimating(); otherwise the time until something changes by
+    /// itself (RequestFrameAfter), which is infinity when nothing will.
+    ///
+    ///     const float delay = Carbon::GetNextFrameDelay();
+    ///     if (delay > 0.0f)
+    ///         WaitForEvents(delay);       // glfwWaitEventsTimeout, or glfwWaitEvents when it is infinite
+    float GetNextFrameDelay();
 } // namespace Carbon

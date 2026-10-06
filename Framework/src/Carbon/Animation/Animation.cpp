@@ -12,6 +12,8 @@ namespace Carbon
     {
         constexpr int MaxComponents = 4;
         constexpr float FinishedElapsed = 1.0e9f;
+        // The most an animation advances in the frame in which it starts: two frames at 60 Hz.
+        constexpr float MaxStartStep = 1.0f / 30.0f;
 
         // The animated value of one ID: up to four components (a rectangle or a color).
         struct AnimationState
@@ -61,8 +63,18 @@ namespace Carbon
             else
             {
                 bool retargeted = false;
+                bool wasAtRest = true;
                 for (int i = 0; i < count; i++)
+                {
                     retargeted = retargeted || state.Target[i] != target[i];
+                    wasAtRest = wasAtRest && state.Value[i] == state.Target[i] && state.Velocity[i] == 0.0f;
+                }
+                // An animation that starts in a frame after one in which nothing moved starts now. A host that
+                // renders on demand may have slept in between, and then the frame's delta time is the length of
+                // the sleep; taking that out of the animation would finish it before it was ever seen.
+                const bool startsNow =
+                    retargeted && !context.WasAnimatingLastFrame && (wasAtRest || spec.Kind != AnimationKind::Spring);
+                const float deltaTime = startsNow ? std::min(context.DeltaTime, MaxStartStep) : context.DeltaTime;
                 if (retargeted)
                 {
                     // A spring keeps its value and velocity. An ease restarts from where the value is now.
@@ -89,8 +101,8 @@ namespace Carbon
                             }
                             else
                             {
-                                spring = AdvanceSpring(spring, target[i], spec.Response, spec.DampingFraction,
-                                                       context.DeltaTime);
+                                spring =
+                                    AdvanceSpring(spring, target[i], spec.Response, spec.DampingFraction, deltaTime);
                                 isMoving = true;
                             }
                             state.Value[i] = spring.Value;
@@ -101,7 +113,7 @@ namespace Carbon
                     {
                         const bool isRunning = spec.Duration > 0.0f && state.Elapsed < spec.Duration;
                         if (isRunning)
-                            state.Elapsed += context.DeltaTime;
+                            state.Elapsed += deltaTime;
                         const float progress = spec.Duration > 0.0f ? state.Elapsed / spec.Duration : 1.0f;
                         const float eased = Ease(spec.Curve, progress);
                         for (int i = 0; i < count; i++)
@@ -205,5 +217,17 @@ namespace Carbon
     void RequestAnimationFrame()
     {
         Internal::GetContext().IsAnimatingThisFrame = true;
+    }
+
+    void RequestFrameAfter(float seconds)
+    {
+        Context& context = Internal::GetContext();
+        context.NextFrameDelayThisFrame = std::min(context.NextFrameDelayThisFrame, std::max(seconds, 0.0f));
+    }
+
+    float GetNextFrameDelay()
+    {
+        const Context& context = Internal::GetContext();
+        return context.WasAnimatingLastFrame ? 0.0f : context.NextFrameDelayLastFrame;
     }
 } // namespace Carbon

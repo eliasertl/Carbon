@@ -1,6 +1,8 @@
 #include "Support/ContextTest.h"
 
 #include <cmath>
+#include <limits>
+#include <string>
 
 #include "Carbon/Core/ContextInternal.h"
 
@@ -76,10 +78,11 @@ namespace Carbon
         Frame([&] { Animate(smooth, 0.0f, spec); });
         for (int i = 0; i < 30; i++)
             Frame([&] { smoothValue = Animate(smooth, 100.0f, spec); }, 0.01f);
-        // ...and as three uneven frames.
+        // ...and as three uneven frames. The first is short: the frame in which an animation starts after
+        // stillness counts for 1/30 s at most.
         float choppyValue = 0.0f;
         Frame([&] { Animate(choppy, 0.0f, spec); });
-        for (const float deltaTime : {0.05f, 0.2f, 0.05f})
+        for (const float deltaTime : {0.02f, 0.23f, 0.05f})
             Frame([&] { choppyValue = Animate(choppy, 100.0f, spec); }, deltaTime);
 
         EXPECT_NEAR(smoothValue, choppyValue, 0.05f);
@@ -140,14 +143,48 @@ namespace Carbon
         const AnimationSpec spec = AnimationSpec::Ease(Easing::Linear, 0.2f);
         Step(id, 0.0f, spec);
 
-        EXPECT_NEAR(Step(id, 1.0f, spec, 0.05f), 0.25f, 1e-4f);
-        EXPECT_NEAR(Step(id, 1.0f, spec, 0.05f), 0.5f, 1e-4f);
+        EXPECT_NEAR(Step(id, 1.0f, spec, 0.025f), 0.125f, 1e-4f);
+        EXPECT_NEAR(Step(id, 1.0f, spec, 0.075f), 0.5f, 1e-4f);
 
         // Retargeting restarts the curve from the current value: half of the way back in half the duration.
         EXPECT_NEAR(Step(id, 0.0f, spec, 0.1f), 0.25f, 1e-4f);
         EXPECT_NEAR(Step(id, 0.0f, spec, 0.1f), 0.0f, 1e-4f);
         Step(id, 0.0f, spec);
         EXPECT_FALSE(IsAnimating());
+    }
+
+    TEST_F(AnimationTests, AnAnimationThatStartsAfterAHostSleptIsNotOverAtOnce)
+    {
+        // A host that renders on demand slept for five seconds, then a click changes a target: the frame's delta
+        // time is the five seconds, and the animation still starts at its beginning.
+        const ID fade = HashID("fade");
+        const ID spring = HashID("spring");
+        const AnimationSpec ease = AnimationSpec::Ease(Easing::Linear, 0.2f);
+        float fadeValue = 0.0f;
+        float springValue = 0.0f;
+        const auto step = [&](float target, float deltaTime)
+        {
+            Frame(
+                [&]
+                {
+                    fadeValue = Animate(fade, target, ease);
+                    springValue = Animate(spring, target * 100.0f);
+                },
+                deltaTime);
+        };
+        step(0.0f, FrameTime);
+        step(0.0f, FrameTime);
+        EXPECT_FALSE(IsAnimating());
+
+        step(1.0f, 5.0f);
+        EXPECT_LT(fadeValue, 0.2f);
+        EXPECT_LT(springValue, 50.0f);
+        EXPECT_TRUE(IsAnimating());
+
+        // While things are moving, a long frame is a long frame.
+        step(1.0f, 5.0f);
+        EXPECT_FLOAT_EQ(fadeValue, 1.0f);
+        EXPECT_NEAR(springValue, 100.0f, 0.01f);
     }
 
     TEST_F(AnimationTests, NoneJumps)
@@ -221,6 +258,110 @@ namespace Carbon
         EXPECT_LT(value, 100.0f);
     }
 
+    TEST_F(AnimationTests, NextFrameDelayIsInfiniteWhenNothingIsDue)
+    {
+        Settle([] { Button("Save"); });
+        EXPECT_FALSE(IsAnimating());
+        EXPECT_EQ(GetNextFrameDelay(), std::numeric_limits<float>::infinity());
+    }
+
+    TEST_F(AnimationTests, NextFrameDelayIsTheEarliestRequestOfTheFrame)
+    {
+        Frame(
+            []
+            {
+                RequestFrameAfter(2.0f);
+                RequestFrameAfter(0.25f);
+                RequestFrameAfter(1.0f);
+            });
+        EXPECT_FALSE(IsAnimating());
+        EXPECT_FLOAT_EQ(GetNextFrameDelay(), 0.25f);
+
+        // A request lasts for its frame, and anything in motion means: now.
+        RunFrame();
+        EXPECT_EQ(GetNextFrameDelay(), std::numeric_limits<float>::infinity());
+        Frame(
+            []
+            {
+                RequestFrameAfter(3.0f);
+                RequestAnimationFrame();
+            });
+        EXPECT_TRUE(IsAnimating());
+        EXPECT_FLOAT_EQ(GetNextFrameDelay(), 0.0f);
+    }
+
+    TEST_F(AnimationTests, AFocusedTextFieldAsksForAFrameWhenItsCaretChanges)
+    {
+        std::string text = "Text";
+        const auto build = [&] { TextField("Name", &text); };
+        Frame(build);
+        Frame(
+            [&]
+            {
+                SetFocus(GetID("Name"));
+                build();
+            });
+        Settle(build, 60);
+
+        // Nothing moves, so a host that renders on demand may sleep: until the caret appears or disappears,
+        // which it does twice a second.
+        EXPECT_FALSE(IsAnimating());
+        const float delay = GetNextFrameDelay();
+        EXPECT_GT(delay, 0.0f);
+        EXPECT_LE(delay, 0.5f);
+
+        // The caret is one quad. Rendering exactly when asked shows it changing every time.
+        const size_t before = GetDrawData().Vertices.size();
+        Frame(build, delay + 0.001f);
+        const size_t after = GetDrawData().Vertices.size();
+        EXPECT_TRUE(after == before + 4 || after + 4 == before);
+        EXPECT_NEAR(GetNextFrameDelay(), 0.5f, 0.01f);
+        Frame(build, GetNextFrameDelay() + 0.001f);
+        EXPECT_EQ(GetDrawData().Vertices.size(), before);
+    }
+
+    TEST_F(AnimationTests, AScrollIndicatorAsksForAFrameWhenItHides)
+    {
+        const auto build = []
+        {
+            BeginScrollView("content", {.Width = 300.0f, .Height = 200.0f});
+            for (int i = 0; i < 100; i++)
+                Text("A line of content");
+            EndScrollView();
+        };
+        GetIO().AddMousePosEvent(50.0f, 100.0f);
+        Settle(build, 200);
+        EXPECT_EQ(GetNextFrameDelay(), std::numeric_limits<float>::infinity());
+
+        // One notch of the wheel: the content glides, then nothing moves while the indicator stays, then it fades.
+        GetIO().AddMouseWheelEvent(0.0f, -1.0f);
+        Frame(build);
+        EXPECT_TRUE(IsAnimating());
+        int frames = 0;
+        while (IsAnimating() && frames < 200)
+        {
+            Frame(build);
+            frames++;
+        }
+        EXPECT_LT(frames, 60) << "the glide ends well before the indicator hides";
+        const float delay = GetNextFrameDelay();
+        EXPECT_GT(delay, 0.1f);
+        EXPECT_LE(delay, 1.0f);
+
+        // The host slept for most of a second. The fade starts with this frame and is seen: it is not over
+        // because the frame's delta time was long.
+        Frame(build, delay + 0.001f);
+        EXPECT_TRUE(IsAnimating()) << "the indicator fades out";
+        int fadeFrames = 0;
+        while (IsAnimating() && fadeFrames < 200)
+        {
+            Frame(build);
+            fadeFrames++;
+        }
+        EXPECT_GE(fadeFrames, 10);
+        EXPECT_EQ(GetNextFrameDelay(), std::numeric_limits<float>::infinity());
+    }
+
     TEST_F(AnimationTests, ReduceMotionMakesMotionInstant)
     {
         SetReduceMotion(true);
@@ -247,13 +388,16 @@ namespace Carbon
 
         float value = 0.0f;
         Color color;
-        Frame(
-            [&]
-            {
-                value = Animate(opacity, 1.0f, spec);
-                color = Animate(tint, Color::White());
-            },
-            ReducedMotionFadeDuration * 0.5f);
+        for (const float deltaTime : {0.025f, ReducedMotionFadeDuration * 0.5f - 0.025f})
+        {
+            Frame(
+                [&]
+                {
+                    value = Animate(opacity, 1.0f, spec);
+                    color = Animate(tint, Color::White());
+                },
+                deltaTime);
+        }
         // Half-way through a symmetric ease: half-way there, with no bounce.
         EXPECT_NEAR(value, 0.5f, 0.01f);
         EXPECT_NEAR(color.R, 0.5f, 0.01f);

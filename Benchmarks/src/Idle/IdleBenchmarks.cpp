@@ -1,6 +1,9 @@
 // Idle: how many frames per second Carbon asks an event-driven host for while nothing happens. The host renders a
-// frame while IsAnimating() is true and otherwise waits for input.
+// frame at once while IsAnimating() is true; otherwise it sleeps for GetNextFrameDelay(), or until input arrives
+// when that is infinite.
 
+#include <algorithm>
+#include <cmath>
 #include <string>
 
 #include "Support/FrameBenchmark.h"
@@ -16,14 +19,18 @@ namespace Carbon::Benchmarks
         {
             int frames = 0;
             float time = 0.0f;
+            float deltaTime = FrameBenchmark::FrameTime;
             while (time < duration)
             {
-                frame.RunFrame(build);
+                frame.RunFrame(build, deltaTime);
                 frames++;
-                // Nothing moves: the host sleeps until the next event, and there is none.
-                if (!IsAnimating())
+                // Nothing moves and nothing is due: the host sleeps until the next event, and there is none.
+                const float delay = GetNextFrameDelay();
+                if (std::isinf(delay))
                     break;
-                time += FrameBenchmark::FrameTime;
+                // The display sets the pace of the frames that follow each other directly.
+                deltaTime = std::max(delay, FrameBenchmark::FrameTime);
+                time += deltaTime;
             }
             return frames;
         }

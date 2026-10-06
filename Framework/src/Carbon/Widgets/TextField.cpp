@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include "Carbon/Animation/Animation.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/UTF8.h"
@@ -289,7 +290,9 @@ namespace Carbon
                 edit.BlinkTime = 0.0f;
             else
                 edit.BlinkTime += context.DeltaTime;
-            context.IsAnimatingThisFrame = true; // the caret blinks
+            // The caret blinks: the next frame is due when it changes, and a host may sleep until then.
+            const float halfPeriod = BlinkPeriod * 0.5f;
+            RequestFrameAfter(halfPeriod - std::fmod(edit.BlinkTime, halfPeriod));
 
             // Scroll horizontally so the caret stays inside the field.
             const float caretX = edit.CaretPositions[ToDisplayOffset(*text, editor.GetCaret(), options.IsSecure)];

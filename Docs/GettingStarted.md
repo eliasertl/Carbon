@@ -195,7 +195,8 @@ Carbon::EndHStack();
 
 - **One frame of latency for sizes.** Layout is a single pass: a stack learns the size of its content when it
   ends and uses it on the next frame. New containers are therefore hidden for one frame and then fade in. If
-  your host renders only on demand, keep rendering while `Carbon::IsAnimating()` is `true`.
+  your host renders only on demand, render the next frame after `Carbon::GetNextFrameDelay()` seconds: that is
+  0 while anything moves.
 - **Begin needs End.** Every `Begin...` needs its `End...` in the same frame; Carbon reports a missing one
   through the log and the assert callback and recovers. `Begin` functions that return a `bool` (popovers,
   menus, sheets) need their `End` only when they returned `true`.

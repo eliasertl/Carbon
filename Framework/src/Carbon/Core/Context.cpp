@@ -97,6 +97,7 @@ namespace Carbon
         Internal::BeginRenderFrame(context);
 
         context.IsAnimatingThisFrame = context.Style.Advance(context.DeltaTime, context.ReduceMotion);
+        context.NextFrameDelayThisFrame = std::numeric_limits<float>::infinity();
         context.Style.ResetWorkingValues();
 
         context.IDStack.resize(1);
@@ -135,6 +136,7 @@ namespace Carbon
         context.Draw.Finalize();
         context.States.EndFrame(context.FrameCount);
         context.WasAnimatingLastFrame = context.IsAnimatingThisFrame;
+        context.NextFrameDelayLastFrame = context.NextFrameDelayThisFrame;
         context.IsInFrame = false;
         Internal::EndRenderFrame(context);
     }

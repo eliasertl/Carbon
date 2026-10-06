@@ -210,9 +210,11 @@ namespace Carbon
                 state.IdleTime = 0.0f;
         }
 
+        // The indicator stays for a moment after the last scroll. Nothing moves meanwhile: the next frame is due
+        // when it starts to fade.
         const bool isActive = canScroll && state.IdleTime < IndicatorHoldTime;
         if (isActive)
-            context.IsAnimatingThisFrame = true;
+            RequestFrameAfter(IndicatorHoldTime - state.IdleTime);
         const float opacity =
             Animate(HashID("##indicator", scrollFrame.Id), isActive ? 1.0f : 0.0f, AnimationSpec::Fade(0.25f));
         if (canScroll && scrollFrame.ShowsIndicator && opacity > 0.0f)
