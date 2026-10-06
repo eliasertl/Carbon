@@ -8,9 +8,9 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 
 if [ "${1:-}" = "--check" ]; then
-    find Framework Extensions Reflection Examples Tests -type f \( -name '*.h' -o -name '*.cpp' \) -print0 |
+    find Framework Extensions Reflection Examples Tests Benchmarks -type f \( -name '*.h' -o -name '*.cpp' \) -print0 |
         xargs -0 -r clang-format --dry-run --Werror
 else
-    find Framework Extensions Reflection Examples Tests -type f \( -name '*.h' -o -name '*.cpp' \) -print0 |
+    find Framework Extensions Reflection Examples Tests Benchmarks -type f \( -name '*.h' -o -name '*.cpp' \) -print0 |
         xargs -0 -r clang-format -i
 fi

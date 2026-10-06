@@ -270,7 +270,10 @@ namespace Carbon
                     beginInfo.clearValueCount = 1;
                     beginInfo.pClearValues = &clear;
                     vkCmdBeginRenderPass(commands, &beginInfo, VK_SUBPASS_CONTENTS_INLINE);
-                    VulkanRender(commands);
+                    {
+                        const RenderTimer timer(*this);
+                        VulkanRender(commands);
+                    }
                     vkCmdEndRenderPass(commands);
                 }
                 else
@@ -292,7 +295,10 @@ namespace Carbon
                     renderingInfo.colorAttachmentCount = 1;
                     renderingInfo.pColorAttachments = &attachment;
                     vkCmdBeginRendering(commands, &renderingInfo);
-                    VulkanRender(commands);
+                    {
+                        const RenderTimer timer(*this);
+                        VulkanRender(commands);
+                    }
                     vkCmdEndRendering(commands);
                     Transition(commands, target, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,

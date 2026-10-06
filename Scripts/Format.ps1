@@ -5,7 +5,7 @@ param([switch]$Check)
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$folders = 'Framework', 'Extensions', 'Reflection', 'Examples', 'Tests' | ForEach-Object { Join-Path $root $_ }
+$folders = 'Framework', 'Extensions', 'Reflection', 'Examples', 'Tests', 'Benchmarks' | ForEach-Object { Join-Path $root $_ }
 $files = Get-ChildItem -Path $folders -Recurse -File -Include *.h, *.cpp | ForEach-Object { $_.FullName }
 
 if (-not $files) {

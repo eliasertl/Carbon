@@ -109,7 +109,10 @@ namespace Carbon
                 const D3D11_RECT hostScissor = {1, 2, 3, 4};
                 m_Context->RSSetScissorRects(1, &hostScissor);
                 m_Context->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_POINTLIST);
-                DX11Render();
+                {
+                    const RenderTimer timer(*this);
+                    DX11Render();
+                }
                 UINT count = 1;
                 D3D11_VIEWPORT viewport = {};
                 m_Context->RSGetViewports(&count, &viewport);

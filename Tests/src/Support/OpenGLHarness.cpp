@@ -317,12 +317,18 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_OPENGLES)
                 if (m_IsES)
                 {
-                    OpenGLESRender();
+                    {
+                        const RenderTimer timer(*this);
+                        OpenGLESRender();
+                    }
                     return;
                 }
 #endif
 #if defined(CARBON_HAS_BACKEND_OPENGL)
-                OpenGLRender();
+                {
+                    const RenderTimer timer(*this);
+                    OpenGLRender();
+                }
 #endif
             }
 

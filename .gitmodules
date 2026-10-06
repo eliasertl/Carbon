@@ -22,3 +22,6 @@
 [submodule "ThirdParty/JetBrainsMono"]
 	path = ThirdParty/JetBrainsMono
 	url = https://github.com/JetBrains/JetBrainsMono
+[submodule "ThirdParty/GoogleBenchmark"]
+	path = ThirdParty/GoogleBenchmark
+	url = https://github.com/google/benchmark.git

@@ -133,7 +133,10 @@ namespace Carbon
                 m_Device->BeginScene();
                 if (m_InvalidateEveryFrame)
                     DX9InvalidateDeviceObjects();
-                DX9Render();
+                {
+                    const RenderTimer timer(*this);
+                    DX9Render();
+                }
                 m_Device->EndScene();
                 D3DVIEWPORT9 viewport = {};
                 m_Device->GetViewport(&viewport);

@@ -121,7 +121,10 @@ namespace Carbon
 
                 const wgpu::CommandEncoder encoder = m_Device.CreateCommandEncoder();
                 const wgpu::RenderPassEncoder pass = encoder.BeginRenderPass(&passDescriptor);
-                WebGPURender(pass);
+                {
+                    const RenderTimer timer(*this);
+                    WebGPURender(pass);
+                }
                 pass.End();
 
                 wgpu::TexelCopyTextureInfo source;

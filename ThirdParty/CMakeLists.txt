@@ -1,6 +1,6 @@
 # Third-party dependencies.
 #
-# For every dependency <NAME> in {FREETYPE, HARFBUZZ, GOOGLETEST, GLFW, STB}:
+# For every dependency <NAME> in {FREETYPE, HARFBUZZ, GOOGLETEST, GOOGLEBENCHMARK, GLFW, STB}:
 #   CARBON_DEPS_<NAME>_BUILD  ON: build the git submodule in this folder. OFF: use find_package.
 #   CARBON_DEPS_<NAME>_NAME   The CMake target Carbon links. If that target already exists (for
 #                             example because a parent project provides it), nothing is built or searched.
@@ -130,6 +130,26 @@ if(CARBON_BUILD_TESTS)
     carbon_require_target(GOOGLETEST)
 endif()
 
+# ---- Google Benchmark (benchmarks only) -------------------------------------------------------
+# The benchmarks measure the desktop library; there is no benchmark executable in a browser.
+if(CARBON_BUILD_BENCHMARKS AND NOT EMSCRIPTEN)
+    carbon_declare_dependency(GOOGLEBENCHMARK benchmark::benchmark)
+    if(NOT TARGET ${CARBON_DEPS_GOOGLEBENCHMARK_NAME})
+        if(CARBON_DEPS_GOOGLEBENCHMARK_BUILD)
+            carbon_require_submodule(GoogleBenchmark CMakeLists.txt)
+            set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+            set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+            set(BENCHMARK_ENABLE_INSTALL OFF CACHE BOOL "" FORCE)
+            set(BENCHMARK_INSTALL_DOCS OFF CACHE BOOL "" FORCE)
+            set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "" FORCE)
+            add_subdirectory(GoogleBenchmark EXCLUDE_FROM_ALL)
+        else()
+            find_package(benchmark REQUIRED)
+        endif()
+    endif()
+    carbon_require_target(GOOGLEBENCHMARK)
+endif()
+
 # ---- OpenGL: nothing to find --------------------------------------------------------------------
 # The OpenGL backend includes no GL header and links no GL library: the host loads OpenGL and hands Carbon its
 # GetProcAddress function. It is declared here because its tests need GLFW for a context.
@@ -142,8 +162,9 @@ endif()
 carbon_declare_backend(OPENGL ${carbon_desktop_opengl} "Build the OpenGL 3.3 renderer backend (no dependency)")
 carbon_declare_backend(OPENGLES ON "Build the OpenGL ES 3.0 / WebGL 2 renderer backend (no dependency)")
 
-# ---- GLFW (examples, and the OpenGL backend's tests) ------------------------------------------
-if(CARBON_BUILD_EXAMPLES OR (CARBON_BUILD_TESTS AND (CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)))
+# ---- GLFW (examples, and the OpenGL backend's tests and benchmarks) ---------------------------
+if(CARBON_BUILD_EXAMPLES OR
+   ((CARBON_BUILD_TESTS OR CARBON_BUILD_BENCHMARKS) AND (CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)))
     carbon_declare_dependency(GLFW glfw)
     if(NOT TARGET ${CARBON_DEPS_GLFW_NAME})
         if(EMSCRIPTEN)

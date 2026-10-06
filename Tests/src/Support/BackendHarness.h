@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <cstdint>
 #include <memory>
 #include <span>
@@ -63,6 +64,36 @@ namespace Carbon
 
         /// Errors and warnings the API reported (validation layers, debug output) since the last call.
         virtual std::vector<std::string> TakeMessages() = 0;
+
+        /// Seconds the backend's own render function took during the last RenderFrame, without creating the
+        /// target or reading it back. The benchmarks report this.
+        double GetLastRenderSeconds() const { return m_LastRenderSeconds; }
+
+    protected:
+        /// Measures the backend's render function: a harness keeps one alive around that call.
+        class RenderTimer
+        {
+        public:
+            explicit RenderTimer(BackendHarness& harness)
+                : m_Harness(harness), m_Start(std::chrono::steady_clock::now())
+            {
+            }
+            ~RenderTimer()
+            {
+                m_Harness.m_LastRenderSeconds =
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - m_Start).count();
+            }
+
+            RenderTimer(const RenderTimer&) = delete;
+            RenderTimer& operator=(const RenderTimer&) = delete;
+
+        private:
+            BackendHarness& m_Harness;
+            std::chrono::steady_clock::time_point m_Start;
+        };
+
+    private:
+        double m_LastRenderSeconds = 0.0;
     };
 
     /// The names of the backends compiled into Carbon, WebGPU first (it is the reference for comparisons).
