@@ -119,6 +119,9 @@ if(CARBON_BUILD_TESTS)
             set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
             set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
             set(gtest_force_shared_crt ON CACHE BOOL "" FORCE) # match Carbon's /MD runtime on MSVC
+            if(EMSCRIPTEN)
+                set(gtest_disable_pthreads ON CACHE BOOL "" FORCE) # the tests run single-threaded in Node
+            endif()
             add_subdirectory(GoogleTest EXCLUDE_FROM_ALL)
         else()
             find_package(GTest REQUIRED)
@@ -130,14 +133,26 @@ endif()
 # ---- OpenGL: nothing to find --------------------------------------------------------------------
 # The OpenGL backend includes no GL header and links no GL library: the host loads OpenGL and hands Carbon its
 # GetProcAddress function. It is declared here because its tests need GLFW for a context.
-carbon_declare_backend(OPENGL ON "Build the OpenGL 3.3 renderer backend (no dependency)")
+# In a browser (Emscripten) there is WebGL 2, which is OpenGL ES 3.0, and no desktop OpenGL.
+if(EMSCRIPTEN)
+    set(carbon_desktop_opengl OFF)
+else()
+    set(carbon_desktop_opengl ON)
+endif()
+carbon_declare_backend(OPENGL ${carbon_desktop_opengl} "Build the OpenGL 3.3 renderer backend (no dependency)")
 carbon_declare_backend(OPENGLES ON "Build the OpenGL ES 3.0 / WebGL 2 renderer backend (no dependency)")
 
 # ---- GLFW (examples, and the OpenGL backend's tests) ------------------------------------------
 if(CARBON_BUILD_EXAMPLES OR (CARBON_BUILD_TESTS AND (CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)))
     carbon_declare_dependency(GLFW glfw)
     if(NOT TARGET ${CARBON_DEPS_GLFW_NAME})
-        if(CARBON_DEPS_GLFW_BUILD)
+        if(EMSCRIPTEN)
+            # In a browser, Emscripten's port of GLFW 3.4 (the canvas as the window, Hi-DPI aware) stands in for the
+            # submodule. Emscripten fetches it on first use.
+            add_library(${CARBON_DEPS_GLFW_NAME} INTERFACE)
+            target_compile_options(${CARBON_DEPS_GLFW_NAME} INTERFACE --use-port=contrib.glfw3)
+            target_link_options(${CARBON_DEPS_GLFW_NAME} INTERFACE --use-port=contrib.glfw3)
+        elseif(CARBON_DEPS_GLFW_BUILD)
             carbon_require_submodule(GLFW CMakeLists.txt)
             set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
             set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)

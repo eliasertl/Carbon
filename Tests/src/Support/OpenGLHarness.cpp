@@ -1,6 +1,6 @@
 #include "Support/BackendHarness.h"
 
-#if defined(CARBON_HAS_BACKEND_OPENGL) || defined(CARBON_HAS_BACKEND_OPENGLES)
+#if (defined(CARBON_HAS_BACKEND_OPENGL) || defined(CARBON_HAS_BACKEND_OPENGLES)) && !defined(__EMSCRIPTEN__)
 
 #include <cstring>
 #include <format>

@@ -142,6 +142,42 @@ CMake scripts in `Framework/CMake/` (no Python needed). The Vulkan backend's GLS
 `glslc`. Nothing generated is committed, and the
 `Carbon` library needs no asset files at run time.
 
+## Emscripten (web browsers)
+
+Carbon builds with [Emscripten](https://emscripten.org) and runs in a web browser through WebGL 2 and the
+[OpenGL ES backend](Backends.md#opengl-es). Install the Emscripten SDK, then configure through `emcmake`:
+
+```sh
+git clone https://github.com/emscripten-core/emsdk.git && cd emsdk
+./emsdk install latest && ./emsdk activate latest
+source ./emsdk_env.sh                                  # emsdk_env.bat or emsdk_env.ps1 on Windows
+
+emcmake cmake -S . -B Build/Web -G Ninja -DCMAKE_BUILD_TYPE=Release
+cmake --build Build/Web
+ctest --test-dir Build/Web                             # the tests run in Node
+python -m http.server --directory Build/Web/Examples/OpenGLESMinimalIntegration
+# then open http://localhost:8000/OpenGLESMinimalIntegration.html
+```
+
+What changes in a web build:
+
+- **Backends.** OpenGL ES is on and is the one to use; desktop OpenGL defaults to off. WebGPU and Vulkan are not
+  found and stay off.
+- **GLFW.** The examples use Emscripten's GLFW 3.4 port (`--use-port=contrib.glfw3`, fetched on first use) instead of
+  the submodule: the page's canvas is the window. The example's canvas fills the browser window and follows it when
+  it is resized (`emscripten::glfw3::MakeCanvasResizable(window, "window")`), and its framebuffer follows the device
+  pixel ratio, so Carbon renders at the display's content scale. The frame loop reads the framebuffer size every
+  frame, which is all a resize needs.
+- **Your application** links with `-sMIN_WEBGL_VERSION=2 -sMAX_WEBGL_VERSION=2 -sGL_ENABLE_GET_PROC_ADDRESS=1`
+  (Carbon resolves its WebGL functions by name) and, because fonts and text need more than Emscripten's defaults,
+  `-sALLOW_MEMORY_GROWTH=1 -sSTACK_SIZE=1MB`. The browser drives the frame loop: hand your frame function to
+  `emscripten_set_main_loop`, as
+  [Examples/OpenGLESMinimalIntegration](../Examples/OpenGLESMinimalIntegration/Main.cpp) does; its `Shell.html` is
+  a minimal page whose canvas covers the whole viewport.
+- **Tests** run in Node (`-sNODERAWFS`). Node has no canvas, so the GPU tests are not instantiated there; the rest
+  of the suite runs as on the desktop.
+- Only `OpenGLESMinimalIntegration` is built: the other examples render with WebGPU through Dawn.
+
 ## Examples and tests
 
 Every example accepts `--screenshot <file.png>` (render a settled frame offscreen, save it and exit),

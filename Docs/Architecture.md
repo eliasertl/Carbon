@@ -719,7 +719,10 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
   `--size <width>x<height>`; screenshot mode renders one settled frame to an offscreen texture and never opens a
   window. For screenshots of states that need input there are `--page <name>` and `--show <name>` (Gallery) and
   `--pointer`, `--click` and `--right-click <x>x<y>`, which script the pointer.
-- CI: GitHub Actions on Windows (MSVC) and Linux (GCC, Clang); Dawn is built once per pinned commit and cached.
+- CI: GitHub Actions on Windows (MSVC) and Linux (GCC, Clang), and an Emscripten build whose tests run in Node;
+  Dawn is built once per pinned commit and cached.
+- Emscripten: `CB_PLATFORM_WEB`; WebGL 2 through the OpenGL ES backend; the examples' GLFW is Emscripten's GLFW 3.4
+  port.
 
 ## 15. Milestones
 
@@ -868,6 +871,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 117 | `Tests/Package` installs a renderer backend of its own, written against the installed `RendererBackend.h` only, and checks that Carbon hands it the atlas and the frames | It proves the claim that a backend can be written outside the repository, with the same mechanism as the custom-component check |
 | 118 | Besides the typed `<Name>GetTextureID` functions, a host may draw a raw native handle turned into a `TextureID` with `MakeTextureID` (pointer or integer), without registering it, like Dear ImGui's `ImTextureID`. Core tracks every texture a frame draws; backends resolve an unseen ID in `Render` with default settings (Vulkan: shader-read-only layout; WebGPU: the reference is taken then) and release it after a frame unused. Registration and raw handles give the same ID. `RendererBackendVersion` stays 1 | It is the shortest path from a texture to the screen and the one ImGui users expect. Unlike ImGui, Carbon still creates and frees Vulkan descriptor sets and WebGPU bind groups itself, so the raw path adds no bookkeeping for the host. A backend written for version 1 stays correct: it skips IDs it does not know, which is what it did before |
 | 119 | OpenGL ES 3.0 (and WebGL 2) is a backend of its own (`OpenGLES*` API, `CARBON_BACKEND_OPENGLES`) that shares the OpenGL backend's renderer and shaders in an ES mode. Both now store primitives in an `RGBA32UI` 2D texture instead of a texture buffer, and the shaders get their `#version` line from the renderer | A host on Android or in a browser should not need desktop names, and one renderer keeps the two from drifting apart. OpenGL ES 3.0 and WebGL 2 have no texture buffers, and 2048 texels is the widest texture OpenGL ES 3.0 guarantees, so 1024 primitives per row |
+| 120 | Web browsers are a build target (Emscripten), not a backend: they render through WebGL 2 with the OpenGL ES backend, the examples use Emscripten's GLFW 3.4 port instead of the submodule, and the tests run in Node without the GPU tests. WebGPU in the browser (Dawn's emdawnwebgpu) is left for later | WebGL 2 is OpenGL ES 3.0, so no new renderer is needed and every browser that runs WebGL 2 works. The GLFW port maps the canvas to a window with Hi-DPI support; the submodule cannot be built for the web. Node has no canvas to create a context on |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

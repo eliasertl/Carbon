@@ -10,8 +10,8 @@
 // Carbon needs no OpenGL ES loader of the host's: it takes glfwGetProcAddress and resolves what it uses itself. This
 // host loads its own few functions the same way; an Android application would use eglGetProcAddress.
 //
-// In a browser, the page drives the frame loop (emscripten_set_main_loop) and the canvas follows the device pixel
-// ratio. Natively:
+// In a browser, the page drives the frame loop (emscripten_set_main_loop), and the canvas fills the browser window,
+// follows its size and the device pixel ratio. Natively:
 //
 //   OpenGLESMinimalIntegration [--theme light|dark] [--scale <factor>] [--size <w>x<h>] [--screenshot <file.png>]
 
@@ -28,6 +28,10 @@
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
+
+#if defined(__EMSCRIPTEN__)
+#include <GLFW/emscripten_glfw3.h>
+#endif
 
 #include <Carbon/Backends/OpenGLES/OpenGLESBackend.h>
 #include <Carbon/Carbon.h>
@@ -146,6 +150,11 @@ namespace
             }
             glfwMakeContextCurrent(m_Window);
             glfwSwapInterval(1);
+#if defined(__EMSCRIPTEN__)
+            // The canvas fills the browser window and follows it when it is resized; the frame loop reads the new
+            // framebuffer size every frame, which is all Carbon needs.
+            emscripten::glfw3::MakeCanvasResizable(m_Window, "window");
+#endif
             if (!m_GL.LoadAll())
             {
                 std::fprintf(stderr, "An OpenGL ES function could not be loaded\n");
@@ -493,13 +502,15 @@ namespace
         return true;
     }
 
-    /// Shuts down while the OpenGL ES context is still current.
+#if !defined(__EMSCRIPTEN__)
+    /// Shuts down while the OpenGL ES context is still current. A page never shuts down; it is closed.
     void Stop(Application& app)
     {
         Carbon::OpenGLESShutdown();
         Carbon::DestroyContext(app.Context);
         app.Context = nullptr;
     }
+#endif
 } // namespace
 
 int main(int argc, char** argv)

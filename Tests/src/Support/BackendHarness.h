@@ -74,7 +74,7 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
     std::unique_ptr<BackendHarness> CreateWebGPUHarness();
 #endif
-#if defined(CARBON_HAS_BACKEND_OPENGL) || defined(CARBON_HAS_BACKEND_OPENGLES)
+#if (defined(CARBON_HAS_BACKEND_OPENGL) || defined(CARBON_HAS_BACKEND_OPENGLES)) && !defined(__EMSCRIPTEN__)
     /// The OpenGL backend ("OpenGL") or the OpenGL ES backend ("OpenGLES").
     std::unique_ptr<BackendHarness> CreateOpenGLHarness(bool isES);
 #endif

@@ -47,8 +47,13 @@ add_executable(CarbonTests
 target_include_directories(CarbonTests PRIVATE src)
 target_link_libraries(CarbonTests PRIVATE Carbon::Carbon ${CARBON_DEPS_GOOGLETEST_NAME} ${CARBON_DEPS_STB_NAME})
 # The OpenGL backend's tests create their context with GLFW.
-if(CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES)
+if((CARBON_BACKEND_OPENGL OR CARBON_BACKEND_OPENGLES) AND NOT EMSCRIPTEN)
     target_link_libraries(CarbonTests PRIVATE ${CARBON_DEPS_GLFW_NAME})
+endif()
+# With Emscripten the tests run in Node: real files (for failure images), a bigger stack than the 64 KB default,
+# and a heap that grows. Node has no canvas, so the GPU tests are not instantiated there.
+if(EMSCRIPTEN)
+    target_link_options(CarbonTests PRIVATE -sNODERAWFS=1 -sSTACK_SIZE=1MB -sALLOW_MEMORY_GROWTH=1 -sEXIT_RUNTIME=1)
 endif()
 # Tests that compare images write the images of a failure below <build>/Tests.
 target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_OUTPUT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}\"")

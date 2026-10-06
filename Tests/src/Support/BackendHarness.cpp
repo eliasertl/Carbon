@@ -8,10 +8,11 @@ namespace Carbon
 #if defined(CARBON_HAS_BACKEND_WEBGPU)
         names.emplace_back("WebGPU");
 #endif
-#if defined(CARBON_HAS_BACKEND_OPENGL)
+        // The GL harnesses need a window system; in Node (Emscripten) there is none.
+#if defined(CARBON_HAS_BACKEND_OPENGL) && !defined(__EMSCRIPTEN__)
         names.emplace_back("OpenGL");
 #endif
-#if defined(CARBON_HAS_BACKEND_OPENGLES)
+#if defined(CARBON_HAS_BACKEND_OPENGLES) && !defined(__EMSCRIPTEN__)
         names.emplace_back("OpenGLES");
 #endif
 #if defined(CARBON_HAS_BACKEND_VULKAN)
@@ -28,11 +29,11 @@ namespace Carbon
         if (name == "WebGPU")
             return CreateWebGPUHarness();
 #endif
-#if defined(CARBON_HAS_BACKEND_OPENGL)
+#if defined(CARBON_HAS_BACKEND_OPENGL) && !defined(__EMSCRIPTEN__)
         if (name == "OpenGL")
             return CreateOpenGLHarness(false);
 #endif
-#if defined(CARBON_HAS_BACKEND_OPENGLES)
+#if defined(CARBON_HAS_BACKEND_OPENGLES) && !defined(__EMSCRIPTEN__)
         if (name == "OpenGLES")
             return CreateOpenGLHarness(true);
 #endif

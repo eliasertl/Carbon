@@ -18,6 +18,8 @@ env:
   # Bump to rebuild Dawn with the same commit, for example after changing its build options below.
   DAWN_CACHE_VERSION: 1
   CLANG_FORMAT_VERSION: 20.1.8
+  # The Emscripten SDK the web build uses.
+  EMSDK_VERSION: 6.0.11
 
 jobs:
   format:
@@ -109,6 +111,45 @@ jobs:
             ${{ matrix.options }}
           cmake --build dawn-build
           cmake --install dawn-build --prefix dawn-install
+
+  # A web build: Carbon compiled with Emscripten, the OpenGL ES backend for WebGL 2, the tests in Node and the
+  # OpenGLESMinimalIntegration page as an artifact. It needs no Dawn.
+  emscripten:
+    name: Emscripten (WebGL 2)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Install Emscripten and Ninja
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git "$RUNNER_TEMP/emsdk"
+          "$RUNNER_TEMP/emsdk/emsdk" install ${{ env.EMSDK_VERSION }}
+          "$RUNNER_TEMP/emsdk/emsdk" activate ${{ env.EMSDK_VERSION }}
+
+      - name: Configure
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          emcmake cmake -S . -B Build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCARBON_WARNINGS_AS_ERRORS=ON
+
+      - name: Build
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          cmake --build Build
+
+      - name: Test
+        run: |
+          source "$RUNNER_TEMP/emsdk/emsdk_env.sh"
+          ctest --test-dir Build --output-on-failure
+
+      - name: Upload the web example
+        uses: actions/upload-artifact@v7
+        with:
+          name: Web example (OpenGLESMinimalIntegration)
+          path: Build/Examples/OpenGLESMinimalIntegration/OpenGLESMinimalIntegration.*
 
   build:
     name: ${{ matrix.name }}

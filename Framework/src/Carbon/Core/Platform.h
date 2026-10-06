@@ -4,6 +4,8 @@
 
 #if defined(_WIN32)
 #define CB_PLATFORM_WINDOWS 1
+#elif defined(__EMSCRIPTEN__)
+#define CB_PLATFORM_WEB 1
 #elif defined(__APPLE__)
 #define CB_PLATFORM_MACOS 1
 #elif defined(__linux__)

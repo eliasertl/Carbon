@@ -4,7 +4,8 @@
 
 *“Persistence refines the miserable piece of carbon in you into the purest form of diamond.”* ― Tobi Delly
 
-Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux. It has
+Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux, and in
+web browsers through Emscripten. It has
 the productivity of an immediate-mode API and the look and feel of macOS: calm, minimal, precise, with smooth
 spring-driven motion. Carbon renders into a target your application owns through a renderer backend, chosen at
 run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan, OpenGL 3.3 or OpenGL ES 3.0, or a backend
