@@ -5,7 +5,7 @@ versions are compared:
 
 - **v1**: the baseline, commit `3f9a41d`, before any optimization.
 - **v2**: after the runtime optimizations, commit `0e4f99f`.
-- **v3**: after the build and CI optimizations (not yet recorded).
+- **v3**: after the build and CI optimizations, commit `66272b9`.
 
 Every optimization in the lists at the end was kept because its numbers say so; the ones that were tried and did
 not pay are listed with their numbers too.
@@ -336,45 +336,54 @@ renderer backends, built with Ninja on 16 threads.
 
 | Metric | Case | v1 | v2 | v3 | Change |
 | --- | --- | --- | --- | --- | --- |
-| Clean build (Debug) | all targets | 86.3 s | --- |  |  |
-| Clean build, CPU seconds (Debug) | all targets | 1345 s | --- |  |  |
-| Configure (Debug) | empty build directory | 8.3 s | --- |  |  |
-| Rebuild (Debug) | after touching `Core/Log.h` | 49.2 s | --- |  |  |
-| Rebuild, CPU seconds (Debug) | after touching `Core/Log.h` | 823 s | --- |  |  |
-| Rebuild (Debug) | after changing the project version | 15.6 s | --- |  |  |
-| Clean build (Release) | all targets | 96.0 s | --- |  |  |
-| Clean build, CPU seconds (Release) | all targets | 1679 s | --- |  |  |
-| Configure (Release) | empty build directory | 8.2 s | --- |  |  |
-| Rebuild (Release) | after touching `Core/Log.h` | 67.6 s | --- |  |  |
-| Rebuild, CPU seconds (Release) | after touching `Core/Log.h` | 1178 s | --- |  |  |
-| Rebuild (Release) | after changing the project version | 17.6 s | --- |  |  |
+| Clean build (Debug) | all targets | 86.3 s | --- | 68.8 s | −20% (v1→v3) |
+| Clean build, CPU seconds (Debug) | all targets | 1345 s | --- | 953 s | −29% (v1→v3) |
+| Configure (Debug) | empty build directory | 8.3 s | --- | 8.3 s | unchanged (v1→v3) |
+| Rebuild (Debug) | after touching `Core/Log.h` | 49.2 s | --- | 40.1 s | −18% (v1→v3) |
+| Rebuild, CPU seconds (Debug) | after touching `Core/Log.h` | 823 s | --- | 659 s | −20% (v1→v3) |
+| Rebuild (Debug) | after changing the project version | 15.6 s | --- | 3.8 s | −75% (v1→v3) |
+| Clean build (Release) | all targets | 96.0 s | --- | 74.2 s | −23% (v1→v3) |
+| Clean build, CPU seconds (Release) | all targets | 1679 s | --- | 1168 s | −30% (v1→v3) |
+| Configure (Release) | empty build directory | 8.2 s | --- | 8.2 s | unchanged (v1→v3) |
+| Rebuild (Release) | after touching `Core/Log.h` | 67.6 s | --- | 53.7 s | −21% (v1→v3) |
+| Rebuild, CPU seconds (Release) | after touching `Core/Log.h` | 1178 s | --- | 925 s | −21% (v1→v3) |
+| Rebuild (Release) | after changing the project version | 17.6 s | --- | 6.2 s | −65% (v1→v3) |
 
 ## Tests
 
-`ctest` on the Release build, as CI runs it. The backends' tests are the `Backends/*` entries: the renderer tests,
-the smoke tests and the comparison with WebGPU, once per backend. On this machine every backend has a device, so
-none of them is skipped.
+`ctest` on the Release build, as CI runs it: one test at a time in v1, with `--parallel 4` in v3. "One at a time"
+is the suite of v3 without `--parallel`, for comparison. The backends' tests are the entries whose names start with
+`Backends` (one per test in v1, one per backend in v3): the renderer tests, the smoke tests and the comparison with
+WebGPU, once per backend. On this machine every backend has a device, so none of them is skipped.
 
 | Metric | Case | v1 | v2 | v3 | Change |
 | --- | --- | --- | --- | --- | --- |
-| `ctest` wall time | whole suite | 31.2 s | --- |  |  |
-| `ctest` wall time | `Backends/*` tests | 20.7 s | --- |  |  |
-| `ctest` entries | whole suite | 703 | --- |  |  |
+| `ctest` wall time | whole suite | 31.2 s | --- | 5.9 s | −81% (v1→v3) |
+| `ctest` wall time | whole suite, one at a time | 31.2 s | --- | 15.5 s | −50% (v1→v3) |
+| `ctest` wall time | the backends' tests | 20.7 s | --- | 5.0 s | −76% (v1→v3) |
+| `ctest` entries | whole suite | 703 | --- | 610 | −13% (v1→v3) |
 
 ## CI
 
-Duration of each job of a green run of `.github/workflows/CI.yml` on `main`, from GitHub's API.
+Duration of each job of a green run of `.github/workflows/CI.yml` on `main`, from GitHub's API. v1 is the run of
+`b72ce8f`, v3 the run of `66272b9`, the first with the new workflow: its caches were empty, so it installed the
+Emscripten and Vulkan SDKs once more and compiled everything through an empty ccache, and it shows the effect of
+less compile work, parallel tests and the single package check, not yet that of the caches. No further run was
+made, because CI was then paused to save minutes. The runners vary: the three runs before the CI changes took 686,
+714 and 732 s for the Windows job, 362, 272 and 478 s for Linux Clang, 258, 205 and 307 s for Linux GCC and 398,
+238 and 296 s for Emscripten, so single jobs moving by a third either way is noise; the Windows build step, 465 s
+in the last run before and 265 s after, is not.
 
 | Metric | Case | v1 | v2 | v3 | Change |
 | --- | --- | --- | --- | --- | --- |
-| Job duration | clang-format | 7 s | --- |  |  |
-| Job duration | Dawn (Windows) | 5 s | --- |  |  |
-| Job duration | Dawn (Linux) | 4 s | --- |  |  |
-| Job duration | Emscripten (WebGL 2) | 398 s | --- |  |  |
-| Job duration | Windows MSVC (Release) | 686 s | --- |  |  |
-| Job duration | Linux GCC (Debug) | 258 s | --- |  |  |
-| Job duration | Linux Clang (Release) | 362 s | --- |  |  |
-| Run duration | all jobs, wall clock | 697 s | --- |  |  |
+| Job duration | clang-format | 7 s | --- | 11 s | +57% (v1→v3) |
+| Job duration | Dawn (Windows) | 5 s | --- | 8 s | +60% (v1→v3) |
+| Job duration | Dawn (Linux) | 4 s | --- | 6 s | +50% (v1→v3) |
+| Job duration | Emscripten (WebGL 2) | 398 s | --- | 188 s | −53% (v1→v3) |
+| Job duration | Windows MSVC (Release) | 686 s | --- | 460 s | −33% (v1→v3) |
+| Job duration | Linux GCC (Debug) | 258 s | --- | 224 s | −13% (v1→v3) |
+| Job duration | Linux Clang (Release) | 362 s | --- | 413 s | +14% (v1→v3) |
+| Run duration | all jobs, wall clock | 697 s | --- | 477 s | −32% (v1→v3) |
 
 ## Changes
 
@@ -412,8 +421,8 @@ The baseline. What it shows:
   ColumnView that is scrolled out of view still takes its space and its place in the selection, but is not
   hit-tested, hashed, shaped or drawn, and the components look their scratch state up once per frame instead of
   once per row and cell. `ClipTableRows`, `ClipListItems` and `ClipColumnViewItems` return the rows an application
-  has to submit at all. Table with 100,000 rows: 112 ms → 6.9 ms with the unchanged loop, 59 µs with the range, the
-  same as for 1,000 rows. (`54d9d87`)
+  has to submit at all. Table with 100,000 rows: 112 ms → 6.9 ms with the unchanged loop and 59 µs with the range
+  (33 µs after the later changes), the same as for 1,000 rows. (`54d9d87`)
 - **Text outside the clip rectangle is rejected before it is shaped.** `TextSystem::Draw` hashed, shaped and
   line-broke every text before testing each line against the clip rectangle. Text below the clip rectangle, or
   above it when its line count is known, now returns at once, and the `Text` widget skips drawing a measured
@@ -459,7 +468,27 @@ The baseline. What it shows:
 
 ### v3: build and CI
 
-None yet.
+- **HarfBuzz is built in batches of twelve sources.** HarfBuzz was some seventy translation units that each include
+  most of the library: nearly a third of the compile time of a clean build. It is written to be compiled in one
+  piece, so a unity build applies. Building its target alone: 245 → 36 CPU seconds, 19.3 → 13.2 s wall clock.
+  (`44e2d8c`)
+- **The project version reaches only `Version.cpp`.** The `CARBON_VERSION_*` definitions were on the whole `Carbon`
+  target, so a new version recompiled the library. Rebuild after a version change: 17.6 → 6.8 s in Release, 15.6 →
+  5.0 s in Debug; what is left is CMake running again and every executable linking again. (`122a97b`)
+- **The examples' sources are compiled once, not once per backend.** Every example exists once per backend, and its
+  backend-neutral sources were compiled for each, as were `Example::App` and `Example::Host`. They are compiled
+  once now, into object libraries and `CarbonExampleBase`; a `<Backend><Example>` executable links them with the
+  device of its backend. Compile steps of those sources with six backends: 77 → 22. (`784a155`)
+- **The renderer tests share a device and run as one CTest entry per backend.** Every test was a process of its
+  own, and every renderer test created an instance and a device; the comparison with WebGPU rendered the reference
+  again each time. Tests of a process now share one harness and device per backend, CTest runs the renderer tests
+  per backend, and everything else is safe for `ctest --parallel`. `Backends` tests: 20.7 → 5.0 s; whole suite 31.2
+  → 15.5 s one at a time, 5.9 s with `--parallel 4`. (`7861d6c`)
+- **CI: parallel tests, compiler cache, cached tools, one package check.** `ctest --parallel 4` in every job;
+  `ccache` with a cache kept between runs in the Linux jobs; the Emscripten SDK and the needed files of the Vulkan
+  SDK (now pinned to a version) cached; the installed-package check in the Linux Clang job only. First run with it,
+  caches still empty: the Windows job 732 → 460 s (its build step 465 → 265 s, tests 17 → 8 s, no package check),
+  Emscripten tests 40 → under 4 s. (`66272b9`)
 
 ### Tried and rejected
 
@@ -478,6 +507,9 @@ None yet.
   the frame in which any animation starts to 1/30 s. Three animation tests that step coarsely failed, rightly: a
   host that renders continuously at a low frame rate would see every animation start late. The rule now applies
   only after a frame in which nothing moved.
+- **HarfBuzz in one translation unit.** A unity build without batches (HarfBuzz's own `harfbuzz.cc` arrangement)
+  costs about as many CPU seconds as batches of twelve (34 against 36) but 18.8 s of wall clock against 13.2 s,
+  because nothing else of it compiles in parallel. Batches kept.
 
 ### Not significant
 
@@ -499,3 +531,20 @@ Findings of the survey that the baseline did not confirm as a cost worth changin
 - **`needs: dawn` makes every build job wait for both Dawn jobs.** With the Dawn caches warm, both Dawn jobs take 4
   to 5 s and the build jobs are created 7 s after the run starts: 1 % of the 714 s of the longest job. Left as it
   is.
+- **The 228 KB generated `Icons.h` in the `Extension.h` umbrella.** Compiling a file that includes only `Icons.h`
+  takes as long as one that includes only `<string_view>` (1.33 to 1.39 s against 1.48 to 1.50 s with the
+  compiler's start-up, the difference is noise): a few thousand `constexpr` strings are cheap to parse. Left in the
+  umbrella.
+- **Faster font embedding (`EmbedAsset.cmake`).** All generated assets together are 18 build steps and 11 of the
+  1,680 CPU seconds of a clean Release build.
+- **Parallel clang-format in `Scripts/Format.sh`.** The check over all sources takes 1.0 s, and the CI job 7 to 8
+  s, most of it installing clang-format. On Windows the script had to learn to format in batches for another
+  reason: the command line was too long.
+- **Caching apt packages in CI.** Installing them takes 17 to 18 s in each Linux job. Caching them needs a
+  third-party action; not done.
+- **The effect of the CI caches.** ccache on Linux, the cached Emscripten SDK and the cached Vulkan SDK files only
+  pay from the second run on. That run was not made: CI was paused after the first one to save minutes. The first
+  run stored the caches.
+- **A compiler cache for the Windows job, and precompiled headers.** Not tried in this round. The Windows build
+  step is the longest in CI; ccache and sccache both need care with MSVC's flags, which cannot be tested without a
+  series of CI runs.
