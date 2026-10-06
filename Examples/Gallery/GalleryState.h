@@ -64,6 +64,11 @@ namespace Gallery
         std::string Email;
         std::string Password = "hunter2";
         std::string Search;
+        std::string Notes =
+            "Carbon is an immediate-mode UI framework with a macOS look. This text area wraps its lines at the edge "
+            "and scrolls when the text is longer than the area.\n\nSelect text with the mouse or with Shift and the "
+            "arrow keys, and copy, cut and paste it.";
+        std::string Outline = "Groceries\n\tApples\n\tBread";
         int Clicks = 0;
         /// A texture of the host's, made by its graphics device.
         Carbon::TextureID Artwork;

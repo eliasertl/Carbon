@@ -19,7 +19,7 @@ namespace Carbon::Internal
 
         CharacterClass Classify(char32_t codepoint)
         {
-            if (codepoint == U' ' || codepoint == U'\t' || codepoint == 0xA0)
+            if (codepoint == U' ' || codepoint == U'\t' || codepoint == U'\n' || codepoint == 0xA0)
                 return CharacterClass::Space;
             if (codepoint < 0x80)
             {
@@ -140,7 +140,7 @@ namespace Carbon::Internal
 
     bool TextEditor::Insert(std::string& text, std::string_view inserted, size_t maxLength, size_t maxBytes)
     {
-        // Sanitize: a single-line field has no line breaks or control characters.
+        // Sanitize: no control characters; a single-line field has no line breaks or tabs either.
         std::string& clean = m_Inserted;
         clean.clear();
         size_t offset = 0;
@@ -148,10 +148,22 @@ namespace Carbon::Internal
         {
             const UTF8Decoded decoded = DecodeUTF8(inserted, offset);
             offset += decoded.Length;
-            if (decoded.Codepoint == U'\n' || decoded.Codepoint == U'\t')
-                clean.push_back(' ');
-            else if (decoded.Codepoint >= 0x20 && decoded.Codepoint != 0x7F)
-                AppendUTF8(clean, decoded.Codepoint);
+            const char32_t codepoint = decoded.Codepoint;
+            if (codepoint == U'\r' || codepoint == U'\n')
+            {
+                // "\r\n" is one line break.
+                if (codepoint == U'\r' && offset < inserted.size() && inserted[offset] == '\n')
+                    continue;
+                clean.push_back(m_IsMultiLine ? '\n' : ' ');
+            }
+            else if (codepoint == U'\t')
+            {
+                clean.push_back(m_IsMultiLine ? '\t' : ' ');
+            }
+            else if (codepoint >= 0x20 && codepoint != 0x7F)
+            {
+                AppendUTF8(clean, codepoint);
+            }
         }
 
         // Cut off what does not fit, at a character boundary.

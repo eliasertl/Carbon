@@ -43,6 +43,7 @@ add_executable(CarbonTests
     src/Support/WidgetTest.h
     src/Text/GlyphAtlasTests.cpp
     src/Text/TextTests.cpp
+    src/Widgets/TextAreaTests.cpp
     src/Widgets/TextFieldTests.cpp
     src/Widgets/WidgetTests.cpp
 )

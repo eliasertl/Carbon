@@ -7,14 +7,14 @@ Access turned on: every control is a Tab stop.
 
 | Key | Effect |
 | --- | --- |
-| Tab / Shift+Tab | Move focus to the next / previous control, wrapping around at the ends. Held keys repeat. |
+| Tab / Shift+Tab | Move focus to the next / previous control, wrapping around at the ends. Held keys repeat. In a text area that accepts tabs, Tab types one and Ctrl+Tab moves on. |
 | Space | Activate the focused control: press a button, flip a toggle. |
-| Enter | Activate the focused button. With no button focused, activate the default button (`IsDefault`). In a text field, submit. |
+| Enter | Activate the focused button. With no button focused, activate the default button (`IsDefault`). In a text field, submit; in a text area, start a new line. |
 | Arrow keys | Act inside the focused control: move a slider, the caret, the selected segment, the selection of a list, the highlight of a menu, a split view's divider. |
-| Home / End | Jump to the ends: a slider's minimum and maximum, the start and end of a text field. |
-| Page Up / Page Down | Scroll the scroll view under the pointer, or the outermost one. |
-| Escape | Close the topmost popover, menu or sheet; cancel an alert; give up editing a text field. |
-| Ctrl+A, C, X, V, Z, Shift+Z / Y | Select all, copy, cut, paste, undo and redo in text fields. |
+| Home / End | Jump to the ends: a slider's minimum and maximum, the start and end of a text field or of a line in a text area. |
+| Page Up / Page Down | Scroll the scroll view under the pointer, or the outermost one. In a text area, move the caret by a page. |
+| Escape | Close the topmost popover, menu or sheet; cancel an alert; give up editing a text field or text area. |
+| Ctrl+A, C, X, V, Z, Shift+Z / Y | Select all, copy, cut, paste, undo and redo in text fields and text areas. |
 
 The shortcut modifier is Ctrl by default. A host that prefers the Super/Command key calls
 `io.SetShortcutModifier(Carbon::KeyModifiers::Super)`.

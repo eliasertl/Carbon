@@ -344,6 +344,30 @@ namespace Gallery
         TextField("Disabled", &state.Name, {.Width = 240.0f, .Disabled = true});
         EndRow();
         EndSection();
+
+        BeginSection("Text area",
+                     "Several lines of plain text. Lines wrap at the edge and longer text scrolls; Return starts a "
+                     "new line.");
+        // The label sits on the first line of the text, as macOS aligns labels of multi-line controls.
+        const auto beginTopRow = [](std::string_view label)
+        {
+            PushID(label);
+            BeginHStack({.Spacing = 12.0f, .Alignment = VerticalAlignment::Top, .Width = Size::Fill()});
+            PopID();
+            BeginVStack({.Padding = EdgeInsets(0.0f, 4.0f, 0.0f, 0.0f)});
+            Text(label, {.Secondary = true, .Width = LabelColumn});
+            EndVStack();
+        };
+        beginTopRow("Notes");
+        TextArea("Notes", &state.Notes, {.Width = 360.0f, .Height = 96.0f});
+        EndHStack();
+        beginTopRow("Grows, takes Tab");
+        TextArea("Outline", &state.Outline, {.Width = 360.0f, .Height = Size::Fit(), .AcceptsTab = true});
+        EndHStack();
+        beginTopRow("Disabled");
+        TextArea("Disabled notes", &state.Notes, {.Width = 360.0f, .Height = 52.0f, .Disabled = true});
+        EndHStack();
+        EndSection();
     }
 
     void ImagesPage(GalleryState& state)

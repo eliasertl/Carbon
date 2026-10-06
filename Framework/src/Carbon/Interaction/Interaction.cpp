@@ -143,8 +143,18 @@ namespace Carbon
             const bool hasBlockingModifier = (input.Modifiers & blocking) != KeyModifiers::None;
             int step = state.PendingFocusMove;
             state.PendingFocusMove = 0;
-            if (IsKeyPressedOrRepeated(input, Key::Tab) && !hasBlockingModifier)
-                step = HasModifiers(input.Modifiers, KeyModifiers::Shift) ? -1 : 1;
+            const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
+            if (state.TabTaker.IsValid() && state.TabTaker == state.FocusedID)
+            {
+                // The focused item uses Tab; as in macOS text views, Ctrl+Tab leaves it, and Shift+Tab goes back.
+                const bool isCtrlHeld = HasModifiers(input.Modifiers, KeyModifiers::Ctrl);
+                if (IsKeyPressedOrRepeated(input, Key::Tab) && (isCtrlHeld || isShiftHeld))
+                    step = isShiftHeld ? -1 : 1;
+            }
+            else if (IsKeyPressedOrRepeated(input, Key::Tab) && !hasBlockingModifier)
+            {
+                step = isShiftHeld ? -1 : 1;
+            }
             if (step != 0)
                 MoveFocus(context, step < 0);
         }
@@ -160,6 +170,8 @@ namespace Carbon
                 PopDisabled();
 
             state.HoveredID = state.HoverCandidate;
+            state.TabTaker = state.TabTakerThisFrame;
+            state.TabTakerThisFrame = ID();
 
             // An item that held the pointer and was not submitted this frame lets go of it.
             if (state.ActiveID.IsValid() && !state.IsActiveAlive)
@@ -197,6 +209,11 @@ namespace Carbon
             }
 
             state.PublishTo(context.HostIO);
+        }
+
+        void TakeTabKey(Context& context, ID id)
+        {
+            context.Interaction.TabTakerThisFrame = id;
         }
 
         bool UpdateHover(Context& context, ID id, const Rect& rect)

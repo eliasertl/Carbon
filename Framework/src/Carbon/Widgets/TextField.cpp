@@ -13,6 +13,7 @@
 #include "Carbon/Style/Style.h"
 #include "Carbon/Text/Icons.h"
 #include "Carbon/Widgets/ControlFeedback.h"
+#include "Carbon/Widgets/Internal/TextInput.h"
 
 namespace Carbon
 {
@@ -202,6 +203,7 @@ namespace Carbon
             if (isFocused)
             {
                 interactionState.IsTextInputActive = acceptsInput;
+                editor.SetMultiLine(false);
                 editor.ClampTo(text);
                 GetCaretPositions(display, spec, edit.CaretPositions);
                 const size_t caretBefore = editor.GetCaret();
@@ -240,54 +242,21 @@ namespace Carbon
                 // ---- Keyboard ----
                 if (acceptsInput)
                 {
-                    const KeyModifiers shortcut = context.HostIO.GetShortcutModifier();
+                    // One line: Home and End, and as on macOS Up and Down, go to the start and the end.
                     const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
-                    const bool byWord =
-                        HasModifiers(input.Modifiers, shortcut) || HasModifiers(input.Modifiers, KeyModifiers::Alt);
-
-                    if (IsKeyPressed(Key::LeftArrow))
-                        editor.MoveLeft(text, isShiftHeld, byWord);
-                    if (IsKeyPressed(Key::RightArrow))
-                        editor.MoveRight(text, isShiftHeld, byWord);
                     const bool isUp = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::UpArrow);
                     const bool isDown = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::DownArrow);
                     if (IsKeyPressed(Key::Home) || isUp)
                         editor.MoveToStart(text, isShiftHeld);
                     if (IsKeyPressed(Key::End) || isDown)
                         editor.MoveToEnd(text, isShiftHeld);
-                    if (IsKeyPressed(Key::Backspace))
-                        changed = editor.DeleteBackward(text, byWord) || changed;
-                    if (IsKeyPressed(Key::Delete))
-                        changed = editor.DeleteForward(text, byWord) || changed;
 
-                    if (IsShortcutPressed(Key::A))
-                        editor.SelectAll(text);
                     // A secure field never puts its text on the clipboard.
-                    const bool canCopy =
-                        editor.HasSelection() && !options.IsSecure && context.HostCallbacks.SetClipboardText;
-                    if (IsShortcutPressed(Key::C) && canCopy)
-                        context.HostCallbacks.SetClipboardText(editor.GetSelectedText(text));
-                    if (IsShortcutPressed(Key::X) && canCopy)
-                    {
-                        context.HostCallbacks.SetClipboardText(editor.GetSelectedText(text));
-                        changed = editor.DeleteSelection(text) || changed;
-                    }
-                    if (IsShortcutPressed(Key::V) && context.HostCallbacks.GetClipboardText)
-                        changed = editor.Insert(text, context.HostCallbacks.GetClipboardText(), options.MaxLength,
-                                                maxBytes) ||
-                                  changed;
-                    if (IsShortcutPressed(Key::Z))
-                        changed = editor.Undo(text) || changed;
-                    if (IsShortcutPressed(Key::Z, KeyModifiers::Shift) || IsShortcutPressed(Key::Y))
-                        changed = editor.Redo(text) || changed;
-
-                    for (const char32_t character : input.Characters)
-                    {
-                        char encoded[4];
-                        const uint32_t length = EncodeUTF8(character, encoded);
-                        changed = editor.Insert(text, std::string_view(encoded, length), options.MaxLength, maxBytes) ||
-                                  changed;
-                    }
+                    Internal::TextInputOptions inputOptions;
+                    inputOptions.MaxLength = options.MaxLength;
+                    inputOptions.MaxBytes = maxBytes;
+                    inputOptions.CanCopy = !options.IsSecure;
+                    changed = Internal::ApplyTextInput(context, editor, text, inputOptions) || changed;
 
                     submitted = IsKeyPressed(Key::Enter, false) || IsKeyPressed(Key::KeypadEnter, false);
                     if (IsKeyPressed(Key::Escape, false))

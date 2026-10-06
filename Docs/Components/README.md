@@ -13,6 +13,7 @@ its options and its keyboard behaviour.
 | [Toggle](Toggle.md) | A switch or checkbox bound to a `bool` |
 | [Slider](Slider.md) | Picks a value from a range |
 | [TextField](TextField.md) | Edits a single line of text |
+| [TextArea](TextArea.md) | Edits several lines of plain text, wrapping and scrolling |
 | [Image](Image.md) | Displays a texture of the host |
 | [Separator](Separator.md) | A thin line between items |
 | [Tooltip](Tooltip.md) | Explains the control under the pointer |

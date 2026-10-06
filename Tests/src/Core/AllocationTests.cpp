@@ -288,6 +288,31 @@ namespace Carbon
         EXPECT_EQ(stored, "abc");
     }
 
+    TEST_F(AllocationTests, TextAreasDoNotAllocateInSteadyState)
+    {
+        std::string notes = "A first paragraph that is long enough to wrap onto a second line.\nA second\twith a tab.";
+        notes.reserve(256);
+        char buffer[128] = "Line one\nLine two";
+        const auto build = [&]
+        {
+            BeginVStack({.Spacing = 12.0f, .Padding = 20.0f});
+            TextArea("Notes", &notes, {.Width = 200.0f, .Height = 60.0f, .AcceptsTab = true});
+            TextArea("Buffer", buffer);
+            EndVStack();
+        };
+        CountAllocationsOfOneFrame(build, 5);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 5), 0u);
+
+        // Focused and typed into, then idle: the caret blinks, nothing allocates.
+        GetIO().AddKeyEvent(Key::Tab, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddKeyEvent(Key::Tab, false);
+        GetIO().AddInputCharactersUTF8("abc");
+        CountAllocationsOfOneFrame(build, 5);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        EXPECT_NE(notes.find("abc"), std::string::npos);
+    }
+
 #if defined(CARBON_TESTS_HAVE_EXTENSIONS)
     TEST_F(AllocationTests, ExtensionComponentsDoNotAllocateInSteadyState)
     {

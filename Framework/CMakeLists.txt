@@ -67,6 +67,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Widgets/Separator.h
     src/Carbon/Widgets/Slider.h
     src/Carbon/Widgets/Text.h
+    src/Carbon/Widgets/TextArea.h
     src/Carbon/Widgets/TextField.h
     src/Carbon/Widgets/Toggle.h
     src/Carbon/Widgets/Tooltip.h
@@ -91,6 +92,7 @@ set(CARBON_INTERNAL_HEADERS
     src/Carbon/Text/Internal/GlyphAtlas.h
     src/Carbon/Text/Internal/TextSystem.h
     src/Carbon/Widgets/Internal/TextEditor.h
+    src/Carbon/Widgets/Internal/TextInput.h
 )
 
 set(CARBON_SOURCES
@@ -130,9 +132,11 @@ set(CARBON_SOURCES
     src/Carbon/Widgets/ControlSize.cpp
     src/Carbon/Widgets/Image.cpp
     src/Carbon/Widgets/Internal/TextEditor.cpp
+    src/Carbon/Widgets/Internal/TextInput.cpp
     src/Carbon/Widgets/Separator.cpp
     src/Carbon/Widgets/Slider.cpp
     src/Carbon/Widgets/Text.cpp
+    src/Carbon/Widgets/TextArea.cpp
     src/Carbon/Widgets/TextField.cpp
     src/Carbon/Widgets/Toggle.cpp
     src/Carbon/Widgets/Tooltip.cpp

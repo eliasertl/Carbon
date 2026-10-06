@@ -43,10 +43,14 @@ namespace Carbon::Internal
         void MoveToStart(const std::string& text, bool extendSelection);
         void MoveToEnd(const std::string& text, bool extendSelection);
 
-        /// Replaces the selection with `inserted`. Line breaks and tabs become spaces and other control
-        /// characters are dropped. `maxLength` limits the text's length in characters and `maxBytes` its size in
-        /// bytes (0 = unlimited); what does not fit is cut off at a character boundary. Returns true when the text
-        /// changed.
+        /// A multi-line editor keeps line breaks (a "\r\n" or a lone '\r' becomes '\n') and tabs; a single-line
+        /// one turns them into spaces. Off by default.
+        void SetMultiLine(bool isMultiLine) { m_IsMultiLine = isMultiLine; }
+
+        /// Replaces the selection with `inserted`. Line breaks and tabs become spaces (or stay, in a multi-line
+        /// editor) and other control characters are dropped. `maxLength` limits the text's length in characters and
+        /// `maxBytes` its size in bytes (0 = unlimited); what does not fit is cut off at a character boundary. Returns
+        /// true when the text changed.
         bool Insert(std::string& text, std::string_view inserted, size_t maxLength = 0, size_t maxBytes = 0);
         /// Backspace and Delete: remove the selection, or the character (or word) next to the caret.
         bool DeleteBackward(std::string& text, bool byWord);
@@ -84,8 +88,21 @@ namespace Carbon::Internal
         std::vector<Snapshot> m_UndoStack;
         std::vector<Snapshot> m_RedoStack;
         EditKind m_LastEdit = EditKind::None;
+        bool m_IsMultiLine = false;
         /// The sanitized text of the current Insert; kept so that typing does not allocate.
         std::string m_Inserted;
+    };
+
+    /// A visual line of a text area: the bytes [Start, End) of its text, without the line break.
+    struct TextAreaLine
+    {
+        size_t Start = 0;
+        size_t End = 0;
+        /// Horizontal extent of the line, including spaces where it wrapped, in points.
+        float Width = 0.0f;
+        /// The last line of a paragraph: End is a line break or the end of the text, and the caret may sit there.
+        /// Otherwise the line wrapped and End is the Start of the next line, where the caret is shown instead.
+        bool EndsParagraph = false;
     };
 
     /// The editing session of a context. Only one text field is edited at a time: the one with keyboard focus.
@@ -114,5 +131,10 @@ namespace Carbon::Internal
         /// Scratch storage reused between frames.
         std::vector<float> CaretPositions;
         std::string SecureText;
+        /// The layout of the text area being drawn: its visual lines, and the caret's horizontal position before
+        /// each byte, relative to the start of the byte's line. Reused by every text area in turn.
+        std::vector<TextAreaLine> AreaLines;
+        std::vector<float> AreaCaretX;
+        std::string AreaParagraph;
     };
 } // namespace Carbon::Internal

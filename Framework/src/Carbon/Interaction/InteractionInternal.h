@@ -59,6 +59,10 @@ namespace Carbon::Internal
         std::vector<FocusEntry> PreviousFocusOrder;
         /// A step requested with FocusNext or FocusPrevious, carried out at the start of the next frame.
         int PendingFocusMove = 0;
+        /// An item that uses Tab itself while focused (a text area that inserts tabs) claims the key during a
+        /// frame; the claim decides at the start of the next frame whether Tab moves the focus. See TakeTabKey.
+        ID TabTakerThisFrame;
+        ID TabTaker;
 
         /// The default button seen this frame, and the one to activate because Enter was pressed last frame
         /// without any focused control using it.
@@ -95,4 +99,8 @@ namespace Carbon::Internal
     /// Hover test shared by the behaviours: true when the pointer is over `rect` and `id` is the topmost item
     /// there. Also claims the pointer for `id` for the next frame.
     bool UpdateHover(Context& context, ID id, const Rect& rect);
+
+    /// Called every frame by a focused item that uses Tab itself. While it stays focused, Tab is not used for
+    /// navigation; Ctrl+Tab moves the focus forward instead, and Shift+Tab still moves it back.
+    void TakeTabKey(Context& context, ID id);
 } // namespace Carbon::Internal

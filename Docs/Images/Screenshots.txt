@@ -26,6 +26,7 @@ Components/Tooltip.png            WebGPUGallery  --page buttons --section button
 Components/Toggle.png             WebGPUGallery  --page toggles --section toggles
 Components/Slider.png             WebGPUGallery  --page sliders --section sliders
 Components/TextField.png          WebGPUGallery  --page textfields --section textfields
+Components/TextArea.png           WebGPUGallery  --page textfields --section textarea
 Components/Image.png              WebGPUGallery  --page images --section imagesandseparators
 Components/Stack.png              WebGPUGallery  --page layout --section layout
 Components/Grid.png               WebGPUGallery  --page layout --section grid

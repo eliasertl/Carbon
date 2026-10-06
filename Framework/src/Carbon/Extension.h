@@ -61,6 +61,7 @@
 #include "Carbon/Widgets/Separator.h"
 #include "Carbon/Widgets/Slider.h"
 #include "Carbon/Widgets/Text.h"
+#include "Carbon/Widgets/TextArea.h"
 #include "Carbon/Widgets/TextField.h"
 #include "Carbon/Widgets/Toggle.h"
 #include "Carbon/Widgets/Tooltip.h"
