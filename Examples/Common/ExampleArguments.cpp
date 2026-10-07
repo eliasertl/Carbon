@@ -84,6 +84,10 @@ namespace Example
                     std::fill(values, values + 4, 0.0f);
                 }
             }
+            else if (option == "--compose" && hasValue)
+            {
+                arguments.Composition = argv[++i];
+            }
             else if (option == "--section" && hasValue)
             {
                 arguments.Section = argv[++i];
@@ -109,7 +113,7 @@ namespace Example
                 std::fprintf(stderr,
                              "Options: --screenshot <file.png>  --theme light|dark  --scale <factor>  "
                              "--size <width>x<height>  --page <name>  --show <name>  --pointer <x>x<y>  "
-                             "--click <x>x<y>  --right-click <x>x<y>  --crop <x>,<y>,<w>,<h>  "
+                             "--click <x>x<y>  --right-click <x>x<y>  --compose <text>  --crop <x>,<y>,<w>,<h>  "
                              "--section <key>[,<key>...]  --extend <left>,<top>,<right>,<bottom>\n");
             }
         }

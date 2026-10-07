@@ -1,6 +1,10 @@
 #include "ExampleApp.h"
 
+#include <algorithm>
 #include <cstdio>
+#include <cstdlib>
+#include <string>
+#include <vector>
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten/emscripten.h>
@@ -17,6 +21,50 @@ namespace Example
             Arguments arguments = ParseArguments(argc, argv);
             arguments.IsFrameless = isFrameless;
             return arguments;
+        }
+
+        // Replaces \uXXXX escapes by the UTF-8 of their code point. Command lines on Windows reach main() in the
+        // ANSI code page, so text in other scripts is passed this way.
+        std::string Unescape(std::string_view text)
+        {
+            std::string result;
+            for (size_t i = 0; i < text.size(); i++)
+            {
+                if (text[i] == '\\' && i + 5 < text.size() && text[i + 1] == 'u')
+                {
+                    const std::string digits(text.substr(i + 2, 4));
+                    Carbon::AppendUTF8(result, static_cast<char32_t>(std::strtoul(digits.c_str(), nullptr, 16)));
+                    i += 5;
+                    continue;
+                }
+                result += text[i];
+            }
+            return result;
+        }
+
+        // Sends what an input method would while the user converts `script` (--compose): its text without the
+        // '|' that separate the clauses, the caret at the end, and the first clause as the one being converted.
+        void ComposeScripted(std::string_view escaped)
+        {
+            const std::string script = Unescape(escaped);
+            std::string text;
+            std::vector<Carbon::CompositionClause> clauses;
+            size_t start = 0;
+            while (start <= script.size())
+            {
+                const size_t end = std::min(script.find('|', start), script.size());
+                Carbon::CompositionClause clause;
+                clause.Start = text.size();
+                text.append(script, start, end - start);
+                clause.End = text.size();
+                clause.IsActive = clauses.empty();
+                clauses.push_back(clause);
+                start = end + 1;
+            }
+            // A single clause is plain pre-edit text that is not being converted yet.
+            if (clauses.size() == 1)
+                clauses.clear();
+            Carbon::GetIO().AddCompositionUpdateEvent(text, text.size(), clauses);
         }
     } // namespace
 
@@ -85,6 +133,8 @@ namespace Example
                 io.AddMouseButtonEvent(button, true);
             if (frame == 9 && arguments.ClickButton >= 0)
                 io.AddMouseButtonEvent(button, false);
+            if (frame == 10 && !arguments.Composition.empty())
+                ComposeScripted(arguments.Composition);
         }
 
         Carbon::NewFrame();
