@@ -11,8 +11,10 @@
 
 #define NOMINMAX
 #define WIN32_LEAN_AND_MEAN
-#include <imm.h>
 #include <windows.h>
+
+// imm.h needs the types of windows.h, so it stays in a block of its own after it.
+#include <imm.h>
 #define GLFW_EXPOSE_NATIVE_WIN32
 #include <GLFW/glfw3native.h>
 #endif
