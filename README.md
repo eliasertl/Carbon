@@ -40,7 +40,7 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
 
 > **Status: version 0.1.** Everything described below is implemented, documented and tested on Windows (MSVC)
 > and Linux (GCC, Clang). The API may still change before 1.0. Not in scope: windows and docking, translucency
-> and blur, IME composition, right-to-left text and screen-reader accessibility.
+> and blur, right-to-left text and screen-reader accessibility.
 
 ## Features
 

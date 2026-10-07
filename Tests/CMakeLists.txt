@@ -12,6 +12,7 @@ add_executable(CarbonTests
     src/Core/VersionTests.cpp
     src/Draw/DrawListTests.cpp
     src/Draw/SquircleTests.cpp
+    src/Input/CompositionTests.cpp
     src/Input/InputTests.cpp
     src/Interaction/InteractionTests.cpp
     src/Layout/GridTests.cpp
@@ -44,6 +45,7 @@ add_executable(CarbonTests
     src/Text/GlyphAtlasTests.cpp
     src/Text/TextTests.cpp
     src/Widgets/TextAreaTests.cpp
+    src/Widgets/TextCompositionTests.cpp
     src/Widgets/TextFieldTests.cpp
     src/Widgets/WidgetTests.cpp
 )

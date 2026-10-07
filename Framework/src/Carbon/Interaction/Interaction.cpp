@@ -100,6 +100,8 @@ namespace Carbon
             io.m_WantsMouse = HoverCandidate.IsValid() || ActiveID.IsValid();
             io.m_WantsKeyboard = FocusedID.IsValid();
             io.m_WantsTextInput = IsTextInputActive;
+            io.m_CaretRect = IsTextInputActive ? TextInputCaretRect : Rect();
+            io.m_WantsCompositionCancel = IsCompositionCancelRequested;
         }
 
         void BeginInteraction(Context& context)
@@ -120,6 +122,8 @@ namespace Carbon
             state.DisabledDepth = 0;
             state.RequestedCursor = Cursor::Arrow;
             state.IsTextInputActive = false;
+            state.TextInputCaretRect = Rect();
+            state.IsCompositionCancelRequested = false;
             state.LastItem = InteractionState::LastItemData();
 
             // Using the keyboard while something has focus reveals the focus ring.
@@ -168,6 +172,15 @@ namespace Carbon
                       state.DisabledStack.size());
             while (!state.DisabledStack.empty())
                 PopDisabled();
+
+            // A composition belongs to the text field being edited. With none edited this frame, nothing shows it
+            // or can take its text: it is dropped, and the host's input method is asked to drop it too.
+            CompositionState& composition = context.Input.Composition;
+            if (composition.IsActive && !state.IsTextInputActive)
+            {
+                composition.Clear();
+                state.IsCompositionCancelRequested = true;
+            }
 
             state.HoveredID = state.HoverCandidate;
             state.TabTaker = state.TabTakerThisFrame;

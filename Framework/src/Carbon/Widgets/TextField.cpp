@@ -90,6 +90,7 @@ namespace Carbon
         {
             Internal::InteractionState& interactionState = context.Interaction;
             const Internal::InputState& input = context.Input;
+            const Internal::CompositionState& composition = input.Composition;
             TextEditState& edit = context.TextEdit;
             TextEditor& editor = edit.Editor;
 
@@ -99,6 +100,12 @@ namespace Carbon
             const FontMetrics fontMetrics = GetFontMetrics(spec);
             bool changed = false;
             bool submitted = false;
+
+            // A secure field never puts its text on the clipboard.
+            Internal::TextInputOptions inputOptions;
+            inputOptions.MaxLength = options.MaxLength;
+            inputOptions.MaxBytes = maxBytes;
+            inputOptions.CanCopy = !options.IsSecure;
 
             PushDisabled(options.Disabled);
             const bool isDisabled = interactionState.DisabledDepth > 0;
@@ -141,7 +148,10 @@ namespace Carbon
                         text.clear();
                         changed = true;
                         if (edit.Owner == id)
+                        {
+                            Internal::CancelComposition(context);
                             editor.Reset(text);
+                        }
                         SetFocus(id, false);
                     }
                 }
@@ -156,13 +166,16 @@ namespace Carbon
             }
             else if (edit.Owner == id)
             {
+                Internal::CancelComposition(context);
                 edit.Owner = ID();
             }
 
             const bool isFocused = !isDisabled && IsFocused(id);
             if (isFocused && edit.Owner != id)
             {
-                // Editing starts. Arriving by keyboard selects everything, as on macOS; a click places the caret.
+                // Editing starts. A composition in the field edited until now is committed there. Arriving by
+                // keyboard selects everything, as on macOS; a click places the caret.
+                Internal::HandOverComposition(context, editor);
                 edit.Owner = id;
                 edit.ScrollX = 0.0f;
                 edit.BlinkTime = 0.0f;
@@ -172,8 +185,13 @@ namespace Carbon
             }
             else if (!isFocused && edit.Owner == id)
             {
+                // Editing ends; what the user was composing stays, as it stands.
+                editor.SetMultiLine(false);
+                changed = Internal::CommitComposition(context, editor, text, inputOptions) || changed;
                 edit.Owner = ID();
             }
+            if (edit.Owner != id)
+                changed = Internal::ApplyHandedOverComposition(context, id, text, inputOptions, false) || changed;
             if (edit.Owner == id && edit.IsReloadPending)
             {
                 editor.Reset(text);
@@ -187,27 +205,56 @@ namespace Carbon
                 edit.PendingSelectionOwner = ID();
             }
 
-            // What is on screen: the text itself, or one bullet per character.
-            std::string_view display = text;
-            if (options.IsSecure)
-            {
-                edit.SecureText.clear();
-                const size_t count = CountCodepoints(text);
-                for (size_t i = 0; i < count; i++)
-                    edit.SecureText.append(Bullet);
-                display = edit.SecureText;
-            }
-
             // A field that does not accept input for now keeps its focus and its caret, but leaves the keys alone.
+            // An input method's pre-edit text is shown at the caret; a secure field shows only committed text.
             const bool acceptsInput = options.AcceptsInput;
+            const auto showsComposition = [&]
+            { return isFocused && acceptsInput && !options.IsSecure && Internal::IsComposing(context); };
+
+            // What is on screen: the text itself, with the pre-edit text at the caret, or one bullet per character.
+            const auto getDisplay = [&]() -> std::string_view
+            {
+                if (options.IsSecure)
+                {
+                    edit.SecureText.clear();
+                    const size_t count = CountCodepoints(text);
+                    for (size_t i = 0; i < count; i++)
+                        edit.SecureText.append(Bullet);
+                    return edit.SecureText;
+                }
+                if (showsComposition())
+                {
+                    const size_t caret = editor.GetCaret();
+                    edit.ComposedText.assign(text, 0, caret);
+                    edit.ComposedText.append(composition.Text);
+                    edit.ComposedText.append(text, caret, std::string::npos);
+                    return edit.ComposedText;
+                }
+                return text;
+            };
+            // The caret's offset in what is on screen: inside the pre-edit text while composing.
+            const auto getDisplayCaret = [&]
+            {
+                const size_t caret = ToDisplayOffset(text, editor.GetCaret(), options.IsSecure);
+                return showsComposition() ? caret + composition.Caret : caret;
+            };
+            std::string_view display = getDisplay();
+
             if (isFocused)
             {
                 interactionState.IsTextInputActive = acceptsInput;
                 editor.SetMultiLine(false);
                 editor.ClampTo(text);
-                GetCaretPositions(display, spec, edit.CaretPositions);
                 const size_t caretBefore = editor.GetCaret();
                 const size_t anchorBefore = editor.GetAnchor();
+
+                // A click ends a composition: the pre-edit text stays as it is, and the click acts on the result.
+                if (isPressedHere && acceptsInput && Internal::IsComposing(context))
+                {
+                    changed = Internal::CommitComposition(context, editor, text, inputOptions) || changed;
+                    display = getDisplay();
+                }
+                GetCaretPositions(display, spec, edit.CaretPositions);
 
                 // ---- Mouse: place the caret, select by dragging, by word (double click) or all (triple click) ----
                 const float pointerX = input.MousePos.X - (textLeft - edit.ScrollX);
@@ -230,7 +277,8 @@ namespace Carbon
                     interactionState.IsActiveAlive = true;
                     if (input.MouseDown[static_cast<size_t>(MouseButton::Left)])
                     {
-                        if (edit.IsDragSelecting && !isPressedHere && acceptsInput)
+                        // Composing started during the drag: the caret holds the pre-edit text in place.
+                        if (edit.IsDragSelecting && !isPressedHere && acceptsInput && !showsComposition())
                             editor.SetCaret(text, hitOffset(), true);
                     }
                     else
@@ -242,44 +290,41 @@ namespace Carbon
                 // ---- Keyboard ----
                 if (acceptsInput)
                 {
-                    // One line: Home and End, and as on macOS Up and Down, go to the start and the end.
-                    const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
-                    const bool isUp = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::UpArrow);
-                    const bool isDown = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::DownArrow);
-                    if (IsKeyPressed(Key::Home) || isUp)
-                        editor.MoveToStart(text, isShiftHeld);
-                    if (IsKeyPressed(Key::End) || isDown)
-                        editor.MoveToEnd(text, isShiftHeld);
+                    // One line: Home and End, and as on macOS Up and Down, go to the start and the end. While an
+                    // input method composes, the keys are its own.
+                    if (!Internal::IsComposing(context))
+                    {
+                        const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
+                        const bool isUp = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::UpArrow);
+                        const bool isDown = options.VerticalArrowsMoveCaret && IsKeyPressed(Key::DownArrow);
+                        if (IsKeyPressed(Key::Home) || isUp)
+                            editor.MoveToStart(text, isShiftHeld);
+                        if (IsKeyPressed(Key::End) || isDown)
+                            editor.MoveToEnd(text, isShiftHeld);
+                    }
 
-                    // A secure field never puts its text on the clipboard.
-                    Internal::TextInputOptions inputOptions;
-                    inputOptions.MaxLength = options.MaxLength;
-                    inputOptions.MaxBytes = maxBytes;
-                    inputOptions.CanCopy = !options.IsSecure;
                     changed = Internal::ApplyTextInput(context, editor, text, inputOptions) || changed;
 
-                    submitted = IsKeyPressed(Key::Enter, false) || IsKeyPressed(Key::KeypadEnter, false);
-                    if (IsKeyPressed(Key::Escape, false))
-                        ClearFocus();
+                    if (!Internal::IsComposing(context))
+                    {
+                        submitted = IsKeyPressed(Key::Enter, false) || IsKeyPressed(Key::KeypadEnter, false);
+                        if (IsKeyPressed(Key::Escape, false))
+                            ClearFocus();
+                    }
                 }
 
-                // The text may have changed: refresh what is on screen and where the caret can be.
-                if (changed)
+                // The text may have changed: refresh what is on screen and where the caret can be. The pre-edit
+                // text is laid out with the rest, as it changes from frame to frame.
+                const bool isComposing = showsComposition();
+                if (changed || isComposing)
                 {
-                    display = text;
-                    if (options.IsSecure)
-                    {
-                        edit.SecureText.clear();
-                        const size_t count = CountCodepoints(text);
-                        for (size_t i = 0; i < count; i++)
-                            edit.SecureText.append(Bullet);
-                        display = edit.SecureText;
-                    }
+                    display = getDisplay();
                     GetCaretPositions(display, spec, edit.CaretPositions);
                 }
 
                 // Any caret movement restarts the blink, so the caret is visible while the user is working.
-                if (editor.GetCaret() != caretBefore || editor.GetAnchor() != anchorBefore || changed)
+                if (editor.GetCaret() != caretBefore || editor.GetAnchor() != anchorBefore || changed ||
+                    (isComposing && input.CompositionChanged))
                     edit.BlinkTime = 0.0f;
                 else
                     edit.BlinkTime += context.DeltaTime;
@@ -288,7 +333,7 @@ namespace Carbon
                 RequestFrameAfter(halfPeriod - std::fmod(edit.BlinkTime, halfPeriod));
 
                 // Scroll horizontally so the caret stays inside the field.
-                const float caretX = edit.CaretPositions[ToDisplayOffset(text, editor.GetCaret(), options.IsSecure)];
+                const float caretX = edit.CaretPositions[getDisplayCaret()];
                 const float contentWidth = edit.CaretPositions.back();
                 if (caretX - edit.ScrollX > textWidth - CaretWidth)
                     edit.ScrollX = caretX - textWidth + CaretWidth;
@@ -328,8 +373,9 @@ namespace Carbon
             const float scrollX = isFocused ? edit.ScrollX : 0.0f;
             const float textX = context.Scale.Snap(textLeft - scrollX);
             const float lineTop = centerY - fontMetrics.LineHeight * 0.5f;
-            drawList.PushClipRect(Rect(textLeft, rect.Y, textWidth, rect.Height));
             const bool showsCaret = isFocused && acceptsInput;
+            const bool isComposing = showsComposition();
+            drawList.PushClipRect(Rect(textLeft, rect.Y, textWidth, rect.Height));
             if (showsCaret && editor.HasSelection())
             {
                 const float start =
@@ -351,15 +397,33 @@ namespace Carbon
             }
             else
             {
-                DrawLabel(drawList, rect, textX, display, spec, context.Style.GetColor(StyleColor::Label));
+                const Color textColor = context.Style.GetColor(StyleColor::Label);
+                DrawLabel(drawList, rect, textX, display, spec, textColor);
+                if (isComposing)
+                {
+                    const size_t start = editor.GetCaret();
+                    Internal::DrawCompositionUnderline(
+                        context, drawList, start, start, start + composition.Text.size(), [&](size_t offset)
+                        { return textX + edit.CaretPositions[offset]; }, lineTop + fontMetrics.LineHeight, textColor);
+                }
             }
             if (showsCaret && !editor.HasSelection() && std::fmod(edit.BlinkTime, BlinkPeriod) < BlinkPeriod * 0.5f)
             {
-                const float caretX = edit.CaretPositions[ToDisplayOffset(text, editor.GetCaret(), options.IsSecure)];
+                const float caretX = edit.CaretPositions[getDisplayCaret()];
                 const Rect caret(textX + caretX, lineTop, CaretWidth, fontMetrics.LineHeight);
                 drawList.AddRect(context.Scale.Snap(caret), context.Style.GetColor(StyleColor::Accent));
             }
             drawList.PopClipRect();
+
+            // Where the host's input method shows its candidates: at the caret, or the clause being converted.
+            if (showsCaret)
+            {
+                size_t anchor = getDisplayCaret();
+                if (isComposing)
+                    anchor = ToDisplayOffset(text, editor.GetCaret(), false) + Internal::GetCompositionAnchor(context);
+                const float x = std::clamp(textX + edit.CaretPositions[anchor], textLeft, textLeft + textWidth);
+                interactionState.TextInputCaretRect = Rect(x, lineTop, CaretWidth, fontMetrics.LineHeight);
+            }
 
             if (options.IsBezeled)
                 DrawFocusRing(id, rect, radius, true);

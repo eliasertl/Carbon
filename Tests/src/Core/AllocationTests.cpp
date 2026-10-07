@@ -313,6 +313,39 @@ namespace Carbon
         EXPECT_NE(notes.find("abc"), std::string::npos);
     }
 
+    TEST_F(AllocationTests, ComposingDoesNotAllocateInSteadyState)
+    {
+        std::string notes = "Some notes";
+        notes.reserve(64);
+        m_Text.reserve(64);
+        const auto build = [&]
+        {
+            BeginVStack({.Spacing = 12.0f, .Padding = 20.0f});
+            TextField("Field", &m_Text, {.Width = 200.0f});
+            TextArea("Notes", &notes);
+            EndVStack();
+        };
+        const CompositionClause clauses[] = {{0, 3, true}, {3, 6, false}};
+        CountAllocationsOfOneFrame(build, 5);
+        for (int control = 0; control < 2; control++)
+        {
+            // Focused by Tab, composing: the first frames may grow buffers. Then the same pre-edit text again and
+            // again, and idle frames while the caret blinks.
+            GetIO().AddKeyEvent(Key::Tab, true);
+            CountAllocationsOfOneFrame(build, 2);
+            GetIO().AddKeyEvent(Key::Tab, false);
+            GetIO().AddCompositionUpdateEvent("\xE6\xBC\xA2\xE5\xAD\x97", 6, clauses);
+            CountAllocationsOfOneFrame(build, 5);
+            GetIO().AddCompositionUpdateEvent("\xE6\xBC\xA2\xE5\xAD\x97", 6, clauses);
+            EXPECT_EQ(CountAllocationsOfOneFrame(build, 0), 0u);
+            EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+            GetIO().AddCompositionCommitEvent("x");
+            CountAllocationsOfOneFrame(build, 2);
+        }
+        EXPECT_EQ(m_Text, "x") << "tabbing in selected everything, so the pre-edit text replaced it";
+        EXPECT_EQ(notes, "Some notesx");
+    }
+
 #if defined(CARBON_TESTS_HAVE_EXTENSIONS)
     TEST_F(AllocationTests, ExtensionComponentsDoNotAllocateInSteadyState)
     {

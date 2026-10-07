@@ -1,8 +1,11 @@
 #pragma once
 
+#include <span>
+#include <string>
 #include <string_view>
 #include <vector>
 
+#include "Carbon/Core/Rect.h"
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Input/InputEvent.h"
 #include "Carbon/Input/Key.h"
@@ -50,6 +53,20 @@ namespace Carbon
         /// Queues the host window gaining or losing focus. Losing focus releases all keys and buttons.
         void AddFocusEvent(bool focused);
 
+        /// Queues the start of an input method composition (Japanese, Chinese, Korean and similar input): the
+        /// text the user composes is shown at the caret of the text being edited until it is committed. Optional:
+        /// an update starts a composition by itself.
+        void AddCompositionStartEvent();
+        /// Queues the composition's current pre-edit text (UTF-8), the caret inside it as a byte offset, and
+        /// optionally its clauses. Replaces the previous pre-edit text; it is not inserted into any text yet.
+        void AddCompositionUpdateEvent(std::string_view text, size_t caret,
+                                       std::span<const CompositionClause> clauses = {});
+        /// Queues the end of a composition with the text it produced (UTF-8), which is inserted like typed text.
+        /// Also inserts text when no composition is in progress.
+        void AddCompositionCommitEvent(std::string_view text);
+        /// Queues the end of a composition without any text: the user abandoned it.
+        void AddCompositionCancelEvent();
+
         /// The modifier used for shortcuts such as copy and paste. Ctrl by default; a host may choose Super.
         void SetShortcutModifier(KeyModifiers modifier) { m_ShortcutModifier = modifier; }
         KeyModifiers GetShortcutModifier() const { return m_ShortcutModifier; }
@@ -58,8 +75,17 @@ namespace Carbon
         bool WantsMouse() const { return m_WantsMouse; }
         /// True when a Carbon widget has keyboard focus.
         bool WantsKeyboard() const { return m_WantsKeyboard; }
-        /// True when a text field is being edited; the host may show an on-screen keyboard or enable text input.
+        /// True when a text field is being edited; the host may show an on-screen keyboard or enable text input
+        /// and its input method.
         bool WantsTextInput() const { return m_WantsTextInput; }
+        /// The caret of the text being edited, in points, while WantsTextInput() is true; an empty rectangle
+        /// otherwise. During a composition, the start of the clause being converted, or the caret inside the
+        /// pre-edit text. The host places the input method's candidate window next to it.
+        Rect GetCaretRect() const { return m_CaretRect; }
+        /// True after a frame in which Carbon ended a composition itself, because the user clicked or moved the
+        /// focus: the pre-edit text was inserted as it stood. The host cancels the input method's composition so
+        /// that it does not commit the same text again.
+        bool WantsCompositionCancel() const { return m_WantsCompositionCancel; }
 
     private:
         friend struct Internal::InputState;
@@ -71,9 +97,14 @@ namespace Carbon
         float m_DeltaTime = 1.0f / 60.0f;
         KeyModifiers m_ShortcutModifier = KeyModifiers::Ctrl;
         std::vector<InputEvent> m_Events;
+        /// The text and clauses of queued composition events; emptied whenever the queue is.
+        std::string m_EventText;
+        std::vector<CompositionClause> m_EventClauses;
         bool m_WantsMouse = false;
         bool m_WantsKeyboard = false;
         bool m_WantsTextInput = false;
+        bool m_WantsCompositionCancel = false;
+        Rect m_CaretRect;
     };
 
     /// Returns the IO object of the current context.

@@ -195,6 +195,7 @@ namespace Carbon
         {
             Internal::InteractionState& interactionState = context.Interaction;
             const Internal::InputState& input = context.Input;
+            const Internal::CompositionState& composition = input.Composition;
             TextEditState& edit = context.TextEdit;
             TextEditor& editor = edit.Editor;
 
@@ -206,6 +207,10 @@ namespace Carbon
             GetCaretPositions(" ", spec, edit.CaretPositions);
             const float tabWidth = edit.CaretPositions.back() * TabColumns;
             bool changed = false;
+
+            Internal::TextInputOptions inputOptions;
+            inputOptions.MaxLength = options.MaxLength;
+            inputOptions.MaxBytes = maxBytes;
 
             PushDisabled(options.Disabled);
             const bool isDisabled = interactionState.DisabledDepth > 0;
@@ -221,12 +226,14 @@ namespace Carbon
                 return ResolveItemSize(fit, {.Height = options.Height}).Y - VerticalPadding * 2.0f;
             };
 
-            // Editing starts when the text area gets the focus and ends when it loses it.
+            // Editing starts when the text area gets the focus and ends when it loses it. A composition in the
+            // control edited until then is committed there; one in this area, when it ends, is committed here.
             const auto updateSession = [&]
             {
                 const bool isFocused = !isDisabled && IsFocused(id);
                 if (isFocused && edit.Owner != id)
                 {
+                    Internal::HandOverComposition(context, editor);
                     edit.Owner = id;
                     edit.BlinkTime = 0.0f;
                     editor.Reset(text);
@@ -234,13 +241,40 @@ namespace Carbon
                 }
                 else if (!isFocused && edit.Owner == id)
                 {
+                    editor.SetMultiLine(true);
+                    if (isDisabled)
+                        Internal::CancelComposition(context);
+                    else
+                        changed = Internal::CommitComposition(context, editor, text, inputOptions) || changed;
                     edit.Owner = ID();
                 }
                 return isFocused;
             };
             bool isFocused = updateSession();
+            if (edit.Owner != id)
+                changed = Internal::ApplyHandedOverComposition(context, id, text, inputOptions, true) || changed;
 
-            LayOutText(text, spec, wrapWidth, tabWidth, edit);
+            // What is laid out and drawn: the text, with an input method's pre-edit text at the caret.
+            const auto showsComposition = [&]
+            { return isFocused && edit.Owner == id && Internal::IsComposing(context); };
+            const auto getDisplay = [&]() -> std::string_view
+            {
+                if (!showsComposition())
+                    return text;
+                const size_t caret = editor.GetCaret();
+                edit.ComposedText.assign(text, 0, caret);
+                edit.ComposedText.append(composition.Text);
+                edit.ComposedText.append(text, caret, std::string::npos);
+                return edit.ComposedText;
+            };
+            // The caret's offset in what is laid out: inside the pre-edit text while composing.
+            const auto getDisplayCaret = [&]
+            { return showsComposition() ? editor.GetCaret() + composition.Caret : editor.GetCaret(); };
+
+            if (isFocused)
+                editor.ClampTo(text);
+            std::string_view display = getDisplay();
+            LayOutText(display, spec, wrapWidth, tabWidth, edit);
             const AreaLayout layout{edit.AreaLines, edit.AreaCaretX};
             const size_t caretBefore = isFocused ? editor.GetCaret() : 0;
             const size_t anchorBefore = isFocused ? editor.GetAnchor() : 0;
@@ -251,10 +285,11 @@ namespace Carbon
             {
                 interactionState.IsTextInputActive = true;
                 editor.SetMultiLine(true);
-                editor.ClampTo(text);
                 if (options.AcceptsTab)
                     Internal::TakeTabKey(context, id);
 
+                // While an input method composes, the keys are its own; only the text it commits arrives.
+                const bool isComposing = Internal::IsComposing(context);
                 const bool isShiftHeld = HasModifiers(input.Modifiers, KeyModifiers::Shift);
                 const bool isShortcutHeld = HasModifiers(input.Modifiers, context.HostIO.GetShortcutModifier());
 
@@ -262,14 +297,17 @@ namespace Carbon
                 const float textHeight = lineHeight * static_cast<float>(layout.Lines.size());
                 const int pageLines = std::max(1, static_cast<int>(getVisibleHeight(textHeight) / lineHeight) - 1);
                 int lineSteps = 0;
-                if (IsKeyPressed(Key::UpArrow))
-                    lineSteps -= 1;
-                if (IsKeyPressed(Key::DownArrow))
-                    lineSteps += 1;
-                if (IsKeyPressed(Key::PageUp))
-                    lineSteps -= pageLines;
-                if (IsKeyPressed(Key::PageDown))
-                    lineSteps += pageLines;
+                if (!isComposing)
+                {
+                    if (IsKeyPressed(Key::UpArrow))
+                        lineSteps -= 1;
+                    if (IsKeyPressed(Key::DownArrow))
+                        lineSteps += 1;
+                    if (IsKeyPressed(Key::PageUp))
+                        lineSteps -= pageLines;
+                    if (IsKeyPressed(Key::PageDown))
+                        lineSteps += pageLines;
+                }
                 if (lineSteps != 0)
                 {
                     // Past the first line is the start of the text, past the last its end, as on macOS.
@@ -290,36 +328,42 @@ namespace Carbon
                 }
 
                 // Home and End go to the ends of the line; with the shortcut modifier, of the text.
-                if (IsKeyPressed(Key::Home))
+                if (!isComposing && IsKeyPressed(Key::Home))
                 {
                     const size_t offset = isShortcutHeld ? 0 : layout.Lines[layout.FindLine(editor.GetCaret())].Start;
                     editor.SetCaret(text, offset, isShiftHeld);
                 }
-                if (IsKeyPressed(Key::End))
+                if (!isComposing && IsKeyPressed(Key::End))
                 {
                     const TextAreaLine& line = layout.Lines[layout.FindLine(editor.GetCaret())];
                     editor.SetCaret(text, isShortcutHeld ? text.size() : layout.GetLastOffset(text, line), isShiftHeld);
                 }
 
-                Internal::TextInputOptions inputOptions;
-                inputOptions.MaxLength = options.MaxLength;
-                inputOptions.MaxBytes = maxBytes;
                 changed = Internal::ApplyTextInput(context, editor, text, inputOptions) || changed;
 
-                if (IsKeyPressed(Key::Enter) || IsKeyPressed(Key::KeypadEnter))
-                    changed = editor.Insert(text, "\n", options.MaxLength, maxBytes) || changed;
-                // A tab only for Tab alone: Ctrl+Tab and Shift+Tab move the focus.
-                if (options.AcceptsTab && IsKeyPressed(Key::Tab) && input.Modifiers == KeyModifiers::None)
-                    changed = editor.Insert(text, "\t", options.MaxLength, maxBytes) || changed;
-                if (IsKeyPressed(Key::Escape, false))
-                    ClearFocus();
+                if (!isComposing)
+                {
+                    if (IsKeyPressed(Key::Enter) || IsKeyPressed(Key::KeypadEnter))
+                        changed = editor.Insert(text, "\n", options.MaxLength, maxBytes) || changed;
+                    // A tab only for Tab alone: Ctrl+Tab and Shift+Tab move the focus.
+                    if (options.AcceptsTab && IsKeyPressed(Key::Tab) && input.Modifiers == KeyModifiers::None)
+                        changed = editor.Insert(text, "\t", options.MaxLength, maxBytes) || changed;
+                    if (IsKeyPressed(Key::Escape, false))
+                        ClearFocus();
+                }
             }
-            if (changed)
-                LayOutText(text, spec, wrapWidth, tabWidth, edit);
+            // The pre-edit text changes from frame to frame and is laid out with the rest.
+            if (changed || showsComposition())
+            {
+                display = getDisplay();
+                LayOutText(display, spec, wrapWidth, tabWidth, edit);
+            }
             const float textHeight = lineHeight * static_cast<float>(layout.Lines.size());
 
             // After the caret moved, scroll just enough to show it, at once.
-            if (isFocused && (changed || editor.GetCaret() != caretBefore || editor.GetAnchor() != anchorBefore))
+            const bool hasCompositionChanged = showsComposition() && input.CompositionChanged;
+            if (isFocused && (changed || hasCompositionChanged || editor.GetCaret() != caretBefore ||
+                              editor.GetAnchor() != anchorBefore))
             {
                 state.RevealFrames = 2;
                 edit.BlinkTime = 0.0f;
@@ -328,7 +372,7 @@ namespace Carbon
             {
                 state.RevealFrames--;
                 const float visibleHeight = getVisibleHeight(textHeight);
-                const float caretY = lineHeight * static_cast<float>(layout.FindLine(editor.GetCaret()));
+                const float caretY = lineHeight * static_cast<float>(layout.FindLine(getDisplayCaret()));
                 const Vec2 offset = GetScrollOffset(label);
                 float target = offset.Y;
                 if (caretY + lineHeight > target + visibleHeight)
@@ -367,6 +411,14 @@ namespace Carbon
                     SetFocus(id, false);
                     isFocused = updateSession();
                     editor.SetMultiLine(true);
+                    // A click ends a composition: the pre-edit text stays as it is, and the click acts on the
+                    // result, laid out anew.
+                    if (Internal::IsComposing(context))
+                    {
+                        changed = Internal::CommitComposition(context, editor, text, inputOptions) || changed;
+                        display = getDisplay();
+                        LayOutText(display, spec, wrapWidth, tabWidth, edit);
+                    }
                     const int clicks = input.MouseClickCount[static_cast<size_t>(MouseButton::Left)];
                     if (clicks >= 3)
                         editor.SelectAll(text);
@@ -385,7 +437,7 @@ namespace Carbon
                     {
                         interactionState.ActiveID = ID();
                     }
-                    else if (edit.IsDragSelecting && edit.Owner == id)
+                    else if (edit.IsDragSelecting && edit.Owner == id && !showsComposition())
                     {
                         // Dragging past the top or the bottom selects on, and scrolls as the caret follows.
                         const size_t offset = layout.HitTest(text, pointer, lineHeight);
@@ -425,17 +477,21 @@ namespace Carbon
             const size_t selectionEnd = isEditing ? editor.GetSelectionEnd() : 0;
             const Color selectionColor = context.Style.GetColor(StyleColor::TextSelection);
             const Color textColor = context.Style.GetColor(StyleColor::Label);
-            const std::string_view all = text;
+            const bool isComposing = showsComposition();
+            const size_t compositionStart = editor.GetCaret();
             for (size_t index = firstVisible; index < endVisible; index++)
             {
                 const TextAreaLine& line = lines[index];
                 const float y = content.Y + lineHeight * static_cast<float>(index);
+                // At a wrap, the end of a line is the start of the next, whose caret position belongs to that line.
+                const auto getX = [&](size_t offset)
+                { return content.X + (offset == line.End ? line.Width : layout.CaretX[offset]); };
 
                 if (selectionStart < selectionEnd && selectionStart <= line.End && selectionEnd > line.Start)
                 {
                     const size_t from = std::max(selectionStart, line.Start);
                     const size_t to = std::min(selectionEnd, line.End);
-                    float right = content.X + (to == line.End ? line.Width : layout.CaretX[to]);
+                    float right = getX(to);
                     // A selected line break shows as a little extra width.
                     if (line.EndsParagraph && selectionEnd > line.End)
                         right += LineBreakSelectionWidth;
@@ -448,18 +504,24 @@ namespace Carbon
                 size_t piece = line.Start;
                 while (piece < line.End)
                 {
-                    const size_t tab = all.find('\t', piece);
+                    const size_t tab = display.find('\t', piece);
                     const size_t pieceEnd = std::min(tab, line.End);
                     if (pieceEnd > piece)
                     {
                         drawList.AddText(context.Scale.Snap(Vec2(content.X + layout.CaretX[piece], y)),
-                                         all.substr(piece, pieceEnd - piece), spec, textColor);
+                                         display.substr(piece, pieceEnd - piece), spec, textColor);
                     }
                     piece = pieceEnd + 1;
                 }
+
+                if (isComposing)
+                {
+                    Internal::DrawCompositionUnderline(context, drawList, compositionStart, line.Start, line.End, getX,
+                                                       y + lineHeight, textColor);
+                }
             }
 
-            if (text.empty())
+            if (display.empty())
             {
                 const std::string_view placeholder =
                     options.Placeholder.empty() ? GetDisplayLabel(label) : options.Placeholder;
@@ -469,14 +531,22 @@ namespace Carbon
                                  context.Style.GetColor(StyleColor::TertiaryLabel));
             }
 
-            if (isEditing && !editor.HasSelection() && std::fmod(edit.BlinkTime, BlinkPeriod) < BlinkPeriod * 0.5f)
+            // Where a caret goes: after spaces that hang past the end of a line, it waits at the edge.
+            const auto getCaretRect = [&](size_t offset)
             {
-                // After spaces that hang past the end of a line, the caret waits at the edge.
-                const size_t caret = editor.GetCaret();
-                const float x = std::min(layout.CaretX[caret], wrapWidth);
-                const float y = lineHeight * static_cast<float>(layout.FindLine(caret));
-                const Rect caretRect(content.X + x, content.Y + y, CaretWidth, lineHeight);
-                drawList.AddRect(context.Scale.Snap(caretRect), context.Style.GetColor(StyleColor::Accent));
+                const float x = std::min(layout.CaretX[offset], wrapWidth);
+                const float y = lineHeight * static_cast<float>(layout.FindLine(offset));
+                return Rect(content.X + x, content.Y + y, CaretWidth, lineHeight);
+            };
+            if (isEditing && !editor.HasSelection() && std::fmod(edit.BlinkTime, BlinkPeriod) < BlinkPeriod * 0.5f)
+                drawList.AddRect(context.Scale.Snap(getCaretRect(getDisplayCaret())),
+                                 context.Style.GetColor(StyleColor::Accent));
+            // Where the host's input method shows its candidates: at the caret, or the clause being converted.
+            if (isEditing)
+            {
+                const size_t anchor =
+                    isComposing ? compositionStart + Internal::GetCompositionAnchor(context) : editor.GetCaret();
+                interactionState.TextInputCaretRect = getCaretRect(anchor);
             }
 
             EndScrollView();

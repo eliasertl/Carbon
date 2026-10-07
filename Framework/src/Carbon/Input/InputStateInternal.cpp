@@ -2,6 +2,8 @@
 
 #include <cmath>
 
+#include "Carbon/Core/UTF8.h"
+
 namespace Carbon::Internal
 {
     namespace
@@ -34,6 +36,7 @@ namespace Carbon::Internal
         KeyRepeated.fill(false);
         KeyReleased.fill(false);
         Characters.clear();
+        CompositionChanged = false;
 
         bool mouseMoved = false;
         bool textEntered = false;
@@ -142,6 +145,22 @@ namespace Carbon::Internal
                     textEntered = true;
                     break;
                 }
+                case InputEventType::CompositionStart:
+                case InputEventType::CompositionUpdate:
+                case InputEventType::CompositionCommit:
+                case InputEventType::CompositionCancel:
+                {
+                    // Compositions are text: they keep their order relative to editing keys, as characters do.
+                    if (actionKeyPressed)
+                    {
+                        defer = true;
+                        break;
+                    }
+                    ApplyComposition(io, event);
+                    CompositionChanged = true;
+                    textEntered = true;
+                    break;
+                }
                 case InputEventType::Focus:
                 {
                     Focused = event.Down;
@@ -155,6 +174,13 @@ namespace Carbon::Internal
                 break;
         }
         events.erase(events.begin(), events.begin() + static_cast<std::ptrdiff_t>(consumed));
+        // The text of composition events is stored next to the queue; it is no longer needed once the queue is
+        // empty. Deferred events keep their offsets until then.
+        if (events.empty())
+        {
+            io.m_EventText.clear();
+            io.m_EventClauses.clear();
+        }
 
         MouseDelta = (hadMousePos && HasMousePos) ? MousePos - previousMousePos : Vec2();
 
@@ -182,6 +208,61 @@ namespace Carbon::Internal
             Modifiers = Modifiers | KeyModifiers::Alt;
         if (KeyDown[static_cast<size_t>(Key::LeftSuper)] || KeyDown[static_cast<size_t>(Key::RightSuper)])
             Modifiers = Modifiers | KeyModifiers::Super;
+    }
+
+    void CompositionState::Clear()
+    {
+        IsActive = false;
+        Text.clear();
+        Caret = 0;
+        Clauses.clear();
+    }
+
+    void InputState::ApplyComposition(const IO& io, const InputEvent& event)
+    {
+        const std::string_view text = std::string_view(io.m_EventText).substr(event.TextStart, event.TextLength);
+        switch (event.Type)
+        {
+            case InputEventType::CompositionStart:
+            {
+                Composition.Clear();
+                Composition.IsActive = true;
+                break;
+            }
+            case InputEventType::CompositionUpdate:
+            {
+                // An input method that is told to cancel may still send an empty update; it starts nothing.
+                if (!Composition.IsActive && text.empty())
+                    break;
+                Composition.IsActive = true;
+                Composition.Text.assign(text);
+                Composition.Caret = event.Caret;
+                const CompositionClause* clauses = io.m_EventClauses.data() + event.ClauseStart;
+                Composition.Clauses.assign(clauses, clauses + event.ClauseCount);
+                break;
+            }
+            case InputEventType::CompositionCommit:
+            {
+                // Committed text is typed text; control characters are dropped as AddInputCharacter does.
+                size_t offset = 0;
+                while (offset < text.size())
+                {
+                    const UTF8Decoded decoded = DecodeUTF8(text, offset);
+                    if (decoded.Codepoint >= 0x20 && decoded.Codepoint != 0x7F)
+                        Characters.push_back(decoded.Codepoint);
+                    offset += decoded.Length;
+                }
+                Composition.Clear();
+                break;
+            }
+            case InputEventType::CompositionCancel:
+            {
+                Composition.Clear();
+                break;
+            }
+            default:
+                break;
+        }
     }
 
     void InputState::ReleaseAll()

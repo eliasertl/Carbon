@@ -83,7 +83,10 @@ Shift extends the selection with every key that moves the caret. Ctrl is the def
 - Only the lines in view are drawn, so long texts cost little to draw; the whole text is laid out every frame.
 - While the area is focused, `io.WantsTextInput()` is true and the caret blinks without keeping `IsAnimating()`
   true, as in a text field.
-- Input method composition (IME) and right-to-left text are not supported in this version.
+- **Input methods.** Text being composed through an input method is laid out with the lines at the caret and
+  underlined, as in a [text field](TextField.md#notes); it wraps like the rest, and Return and the arrow keys
+  go to the input method while it composes.
+- Right-to-left text is not supported in this version.
 
 ## Guidance from the HIG
 

@@ -144,6 +144,7 @@ Call these from your window's event handlers; Carbon queues the events and appli
 | Key | `io.AddKeyEvent(key, down)` | Map your key codes to `Carbon::Key`; include modifier keys |
 | Text | `io.AddInputCharactersUTF8(text)` or `io.AddInputCharacter(codepoint)` | From the OS's character events, not from key codes |
 | Window focus | `io.AddFocusEvent(focused)` | Losing focus releases all held keys and buttons |
+| Input method | `io.AddComposition...Event` | Start, update, commit, cancel; see [Input methods](#input-methods) |
 
 Details worth knowing:
 
@@ -159,6 +160,51 @@ Details worth knowing:
 - **Sharing input with your own content.** After `NewFrame`, `io.WantsMouse()`, `io.WantsKeyboard()` and
   `io.WantsTextInput()` tell you whether Carbon is using the mouse or keyboard, so your application can ignore
   those events for its own viewport.
+
+## Input methods
+
+Japanese, Chinese, Korean and many other languages are typed through an *input method* (IME): the user types a
+reading, the input method shows it as *pre-edit text*, offers conversions in a candidate window, and *commits*
+the result. Carbon draws the pre-edit text inline in the text field or text area being edited, underlined, with a
+thicker underline under the clause being converted. The input method itself belongs to the platform, so the host
+forwards what it does:
+
+```cpp
+io.AddCompositionStartEvent();                              // optional: an update starts one too
+io.AddCompositionUpdateEvent(preEdit, caret, clauses);      // UTF-8, caret and clauses as byte offsets
+io.AddCompositionCommitEvent(result);                       // inserted like typed text; ends the composition
+io.AddCompositionCancelEvent();                             // the user abandoned it
+```
+
+- `clauses` is an optional span of `Carbon::CompositionClause { Start, End, IsActive }`, byte ranges of the
+  pre-edit text; the active one is the clause being converted. Offsets inside a character move back to its start;
+  offsets outside the text are reported through the assert callback.
+- Composition events take their place in the input queue like typed characters, so they keep their order
+  relative to keys such as Backspace and Enter. A commit is typed text: send the committed text only once, as a
+  commit or as characters, not both.
+- While a composition is in progress the text control leaves editing keys to the input method. Most platforms
+  do not report the keys an input method used (Windows reports `VK_PROCESSKEY`), so this only matters for a host
+  that forwards everything.
+
+After `EndFrame`, the host reads what Carbon needs from the input method:
+
+| Output | Use |
+| --- | --- |
+| `io.WantsTextInput()` | A text control is being edited: enable the input method (and an on-screen keyboard); disable it otherwise |
+| `io.GetCaretRect()` | The caret in points, or during a composition the start of the clause being converted: place the candidate window just below it (multiply by the content scale for pixels) |
+| `io.WantsCompositionCancel()` | Carbon ended a composition itself, because the user clicked or moved the focus, and kept the pre-edit text as it stood: cancel the input method's composition so that it does not commit the same text again |
+
+Carbon commits an interrupted composition itself because only it knows where the text belongs: a click moves the
+caret, and a focus change hands the keyboard to another control before the input method could answer. A
+composition that no text control shows any more (its field disappeared) is dropped, with the same request to
+cancel.
+
+On Windows this maps to IMM32: `WM_IME_COMPOSITION` with `GCS_COMPSTR`, `GCS_CURSORPOS`, `GCS_COMPCLAUSE` and
+`GCS_COMPATTR` gives the update, `GCS_RESULTSTR` the commit, `WM_IME_ENDCOMPOSITION` without a result the cancel;
+`ImmSetCandidateWindow` places the candidates and `ImmNotifyIME(..., CPS_CANCEL)` cancels. On other platforms
+the same four events
+come from the platform's text-input API (`setMarkedText` and `insertText` on macOS, `text-input-v3` pre-edit and
+commit on Wayland, XIM pre-edit callbacks or `SDL_EVENT_TEXT_EDITING` and `SDL_EVENT_TEXT_INPUT` with SDL).
 
 ## Points, pixels and DPI
 

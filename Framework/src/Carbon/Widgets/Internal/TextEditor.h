@@ -125,12 +125,21 @@ namespace Carbon::Internal
         uint64_t PendingSelectionFrame = 0;
         size_t PendingAnchor = 0;
         size_t PendingCaret = 0;
+        /// Pre-edit text that a field was composing when another field took the focus, and the caret where it
+        /// goes: the field PendingCommitOwner inserts it on its next call, in this frame or the next. See
+        /// HandOverComposition.
+        ID PendingCommitOwner;
+        uint64_t PendingCommitFrame = 0;
+        size_t PendingCommitCaret = 0;
+        std::string PendingCommitText;
         /// The text of a field bound to a fixed buffer or to a callback, while that field runs. Its capacity is
         /// kept, so those fields do not allocate either.
         std::string BoundText;
         /// Scratch storage reused between frames.
         std::vector<float> CaretPositions;
         std::string SecureText;
+        /// The text with an input method's pre-edit text inserted at the caret, as a field shows it.
+        std::string ComposedText;
         /// The layout of the text area being drawn: its visual lines, and the caret's horizontal position before
         /// each byte, relative to the start of the byte's line. Reused by every text area in turn.
         std::vector<TextAreaLine> AreaLines;

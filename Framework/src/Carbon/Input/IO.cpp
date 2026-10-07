@@ -1,5 +1,7 @@
 #include "Carbon/Input/IO.h"
 
+#include <algorithm>
+
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/UTF8.h"
@@ -97,6 +99,73 @@ namespace Carbon
         InputEvent event;
         event.Type = InputEventType::Focus;
         event.Down = focused;
+        m_Events.push_back(event);
+    }
+
+    namespace
+    {
+        // Moves an offset into the text and back onto the start of a character.
+        size_t ToCharacterBoundary(std::string_view text, size_t offset)
+        {
+            offset = std::min(offset, text.size());
+            while (offset > 0 && offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xC0) == 0x80)
+                offset--;
+            return offset;
+        }
+    } // namespace
+
+    void IO::AddCompositionStartEvent()
+    {
+        InputEvent event;
+        event.Type = InputEventType::CompositionStart;
+        m_Events.push_back(event);
+    }
+
+    void IO::AddCompositionUpdateEvent(std::string_view text, size_t caret, std::span<const CompositionClause> clauses)
+    {
+        CB_VERIFY(caret <= text.size(), "Composition caret {} is outside its text of {} bytes", caret, text.size());
+        InputEvent event;
+        event.Type = InputEventType::CompositionUpdate;
+        event.TextStart = static_cast<uint32_t>(m_EventText.size());
+        event.TextLength = static_cast<uint32_t>(text.size());
+        event.Caret = static_cast<uint32_t>(ToCharacterBoundary(text, caret));
+        event.ClauseStart = static_cast<uint32_t>(m_EventClauses.size());
+        m_EventText.append(text);
+
+        // Clauses are kept in order, inside the text and on character boundaries; empty ones are dropped.
+        size_t previousEnd = 0;
+        for (const CompositionClause& clause : clauses)
+        {
+            CB_VERIFY(clause.Start <= clause.End && clause.End <= text.size(),
+                      "Composition clause [{}, {}) is outside its text of {} bytes", clause.Start, clause.End,
+                      text.size());
+            CompositionClause stored;
+            stored.Start = std::max(ToCharacterBoundary(text, clause.Start), previousEnd);
+            stored.End = ToCharacterBoundary(text, clause.End);
+            stored.IsActive = clause.IsActive;
+            if (stored.End <= stored.Start)
+                continue;
+            m_EventClauses.push_back(stored);
+            previousEnd = stored.End;
+        }
+        event.ClauseCount = static_cast<uint32_t>(m_EventClauses.size()) - event.ClauseStart;
+        m_Events.push_back(event);
+    }
+
+    void IO::AddCompositionCommitEvent(std::string_view text)
+    {
+        InputEvent event;
+        event.Type = InputEventType::CompositionCommit;
+        event.TextStart = static_cast<uint32_t>(m_EventText.size());
+        event.TextLength = static_cast<uint32_t>(text.size());
+        m_EventText.append(text);
+        m_Events.push_back(event);
+    }
+
+    void IO::AddCompositionCancelEvent()
+    {
+        InputEvent event;
+        event.Type = InputEventType::CompositionCancel;
         m_Events.push_back(event);
     }
 

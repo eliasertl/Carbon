@@ -118,6 +118,7 @@ io.AddMouseButtonEvent(Carbon::MouseButton::Left, true);
 io.AddMouseWheelEvent(0.0f, -1.0f);
 io.AddKeyEvent(Carbon::Key::Tab, true);
 io.AddInputCharactersUTF8(text);
+io.AddCompositionUpdateEvent(preEdit, caret);   // input methods: also start, commit, cancel
 io.AddFocusEvent(true);
 
 Carbon::NewFrame();
@@ -159,6 +160,7 @@ void PushDisabled(bool disabled = true);             void PopDisabled();
 
 // IO outputs the host reads after NewFrame
 bool IO::WantsMouse() const;  bool IO::WantsKeyboard() const;  bool IO::WantsTextInput() const;
+Rect IO::GetCaretRect() const;  bool IO::WantsCompositionCancel() const;   // for the input method
 ```
 
 ### Per-call option structs
@@ -257,7 +259,8 @@ EndFrame()                   close root layout, store measured sizes, resolve Ta
 - **Input queue.** `Add*Event` appends to a queue; `NewFrame` applies it in order. An event that would hide an
   earlier change stays queued for the next frame: a second change of the same button or key, a mouse move after a
   button change (so presses keep their position), and editing keys versus typed characters (so `a`, Backspace,
-  `b` never collapses). Clicks and keystrokes are therefore never lost or reordered at low frame rates. Held keys
+  `b` never collapses); input method compositions are ordered like typed characters. Clicks and keystrokes are
+  therefore never lost or reordered at low frame rates. Held keys
   repeat on Carbon's clock (0.4 s delay, 50 ms interval); host-side repeat events are ignored.
 - **Hit-test stability.** Hover uses the current frame's rects but overlay occlusion uses the previous frame's
   overlay rects, so a widget under a popover never reacts on the frame the popover is submitted after it.
@@ -635,6 +638,12 @@ struct Theme
 - `IO` holds display size, content scale, delta time, mouse state (position, buttons, wheel, click count), key
   state with repeat, modifiers and the text-input queue. Modifier keys are ordinary keys; `Key::Shortcut` is the
   platform shortcut modifier (Ctrl by default, configurable) used for copy/paste/select-all.
+- **Input methods.** The host forwards an input method's composition as events: start, update (pre-edit text,
+  caret and clauses), commit (becomes typed characters) and cancel. The text control being edited draws the
+  pre-edit text inline, underlined per clause, and leaves editing keys to the input method while it composes.
+  A click in the control or a focus change commits the pre-edit text into the control it belongs to, and
+  `IO::WantsCompositionCancel` asks the host to drop the input method's copy; `IO::GetCaretRect` tells the host
+  where the candidate window goes. *Decision 137.*
 - **Focus.** Focusable widgets register in submission order. Tab / Shift+Tab move to the next/previous registered
   widget (resolved at `EndFrame`, applied next frame, wrapping). Carbon behaves like macOS with Full Keyboard
   Access on: every control is reachable.
@@ -945,6 +954,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 134 | `TextArea` is a core widget built on the internal `TextEditor` (now with a multi-line mode that keeps line breaks and tabs) inside a real `ScrollView`, with the three text forms of `TextField`. It lays out its own visual lines from `GetCaretPositions` (greedy wrap after the last space that fits, a long word anywhere, tabs to stops every four spaces), so caret, selection, hit testing and drawing share one layout; it draws only the lines in view. A caret at a wrap belongs to the next line. The keys both text controls share moved into `Internal::TextInput`. Tab moves the focus unless `AcceptsTab` is set; then the area claims Tab for the next frame (`Internal::TakeTabKey`), Ctrl+Tab moves on and Shift+Tab back. Caret reveal sets the scroll offset before the scroll view begins and repeats for a second frame | It needs `TextEditor`, an internal header, so it cannot be an extension. The text system wraps only while drawing and reports no line ranges, and the editor needs byte-exact lines; laying out from caret positions reuses the shaping cache and allocates nothing in settled frames. A real scroll view brings the wheel, the indicator, clamping and nesting for free. Tab is resolved at the start of a frame, before any widget runs, so a widget can only claim it a frame ahead; Ctrl+Tab is how macOS leaves a text view. The scroll view clamps its offset to the content measured the frame before, so a line added at the end is revealed one frame later without the second pass. Code-editor features (line numbers, highlighting, a monospaced mode) are out of scope |
 | 135 | The minimal integrations share one folder, `Examples/Minimal`, with one source per backend (`<Backend>Minimal.cpp`) and the host triangles' shaders; the executables keep their names and are built into `Examples/Minimal` of the build tree. This refines decision 123 | Every other example has one folder whatever the number of backends; the minimal ones differ only in that each has its own source, which does not need a folder of its own. One folder makes the six integrations easy to compare side by side |
 | 136 | Every example executable is built into `Examples/<Backend>/<Example>` of the build tree (`Examples/WebGPU/Gallery`, `Examples/Vulkan/Minimal`, `Examples/WebGPU/Reflection`), through `OUTPUT_NAME` and `RUNTIME_OUTPUT_DIRECTORY` set per example target in `carbon_configure_example`; the target names stay `<Backend><Example>` (and `ReflectionExample`). The screenshot manifest names examples by that path. This refines decisions 94 and 135 | One folder per backend holds everything that runs on it, and an example has the same name on every backend. Only example targets get an output directory: no global setting changes, so Carbon's libraries and a host project's targets are unaffected |
+| 137 | An input method's composition reaches Carbon as four IO events in the input queue: start, update (UTF-8 pre-edit text, caret and optional clauses as byte offsets), commit and cancel. A commit becomes typed characters; the other events are ordered like them. The text field or text area being edited draws the pre-edit text inline at its caret (a thin underline per clause, a thick one under the active clause), deletes a selection once there is pre-edit text, and ignores editing keys while composing. A click in the control, a focus change and the control losing focus commit the pre-edit text as it stands into the control it belongs to, and `IO::WantsCompositionCancel()` asks the host to cancel the input method's composition; a composition that no control showed in a frame is dropped the same way. `IO::GetCaretRect()` is the caret, or the start of the active clause, for the candidate window. Secure fields show no pre-edit text | Pre-edit text has to be laid out with the text it is inserted into, which only Carbon does, so the host cannot draw it in a window of its own the way Dear ImGui hosts do. Events in the queue keep the guarantee that no input is lost or reordered at low frame rates, and their text lives in a buffer next to the queue that keeps its capacity, so composing does not allocate in steady state. Only Carbon knows where an interrupted composition belongs: when the focus moves, the new control resets the shared editor in the same frame, so the old control's caret is handed over with the text; asking the input method to complete the composition would deliver the text a frame later to whichever control is focused then |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

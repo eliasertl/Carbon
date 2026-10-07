@@ -115,7 +115,12 @@ Ctrl is the default shortcut modifier; see [Keyboard navigation](../KeyboardNavi
 - Pasted line breaks and tabs become spaces; other control characters are dropped.
 - The focus ring shows whenever the field has focus, as on macOS.
 - The application may change the text at any time, also while the field is focused.
-- Input method composition (IME) and right-to-left text are not supported in this version.
+- **Input methods.** Japanese, Chinese, Korean and other text typed through an input method appears at the
+  caret while it is composed, underlined, with a thicker line under the clause being converted; the keys go to
+  the input method meanwhile. What it commits is inserted like typed text (one undo step), and a click or a
+  focus change commits what is being composed as it stands. A secure field shows only committed text. The
+  host forwards the composition; see [Integration](../Integration.md#input-methods).
+- Right-to-left text is not supported in this version.
 - While a field is focused, `io.WantsTextInput()` is true and the caret blinks. The caret does not keep
   `IsAnimating()` true: it asks for a frame each time it changes, twice a second, which a host that renders on
   demand learns from `GetNextFrameDelay()` (see [Animation](../Animation.md#rendering-on-demand)).

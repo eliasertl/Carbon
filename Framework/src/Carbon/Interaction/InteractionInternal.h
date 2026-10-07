@@ -78,6 +78,10 @@ namespace Carbon::Internal
         Cursor ShownCursor = Cursor::Arrow;
         /// A text field is being edited this frame.
         bool IsTextInputActive = false;
+        /// The caret of the text field being edited, in points, for the host's input method; see IO::GetCaretRect.
+        Rect TextInputCaretRect;
+        /// Carbon ended a composition this frame that the host's input method still holds.
+        bool IsCompositionCancelRequested = false;
 
         struct LastItemData
         {

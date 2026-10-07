@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <cstdint>
+#include <string>
 #include <vector>
 
 #include "Carbon/Core/Vec2.h"
@@ -20,6 +21,22 @@ namespace Carbon::Internal
     inline constexpr double MultiClickTime = 0.4;
     inline constexpr float MultiClickDistance = 4.0f;
 
+    /// An input method's composition in progress: the pre-edit text the user is composing, which is shown at the
+    /// caret of the text being edited but is not part of it.
+    struct CompositionState
+    {
+        bool IsActive = false;
+        /// UTF-8; may be empty while a composition is active.
+        std::string Text;
+        /// Byte offset of the caret in Text.
+        size_t Caret = 0;
+        /// Ordered, non-overlapping and non-empty; empty when the host sent none.
+        std::vector<CompositionClause> Clauses;
+
+        /// Ends the composition. Keeps the storage, so composing does not allocate once it has grown.
+        void Clear();
+    };
+
     /// The input state of one frame, built in NewFrame from the events the host queued on the IO object.
     struct InputState
     {
@@ -33,6 +50,9 @@ namespace Carbon::Internal
 
         /// Releases every key and button, as when the host window loses focus.
         void ReleaseAll();
+
+        /// Applies one composition event; the commit's text goes to Characters.
+        void ApplyComposition(const IO& io, const InputEvent& event);
 
         bool HasMousePos = false;
         Vec2 MousePos;
@@ -54,7 +74,12 @@ namespace Carbon::Internal
         std::array<float, KeyCount> KeyDownDuration{};
         KeyModifiers Modifiers = KeyModifiers::None;
 
+        /// Typed characters, and the text of compositions committed this frame, in the order they arrived.
         std::vector<char32_t> Characters;
+        /// The composition after this frame's events.
+        CompositionState Composition;
+        /// A composition event arrived this frame.
+        bool CompositionChanged = false;
         bool Focused = true;
     };
 } // namespace Carbon::Internal
