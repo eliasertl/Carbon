@@ -173,7 +173,23 @@ namespace Carbon::Internal
                                        std::string_view name, bool copyData);
         uint16_t GetPrimaryFace(const TextSpec& spec) const;
         uint16_t GetIconFace(const TextSpec& spec) const;
-        uint16_t ResolveFace(char32_t codepoint, uint16_t primaryFace, uint16_t currentFace,
+        /// What font selection looks at: a character and the characters that join it, such as an emoji with its
+        /// skin tone or the people of a family joined by zero-width joiners. They all go into one run, so that
+        /// the font can shape them into one glyph.
+        struct FallbackCluster
+        {
+            /// Byte offset just after the cluster.
+            size_t End = 0;
+            /// The first character, which decides the font.
+            char32_t Base = 0;
+            /// Asks for a color glyph (VS16, an emoji shown as emoji by default, a skin tone, a flag, a keycap) or
+            /// for a plain one (VS15).
+            bool WantsColor = false;
+            bool WantsText = false;
+        };
+
+        static FallbackCluster FindFallbackCluster(std::string_view line, size_t offset);
+        uint16_t ResolveFace(const FallbackCluster& cluster, uint16_t primaryFace, uint16_t currentFace,
                              const TextSpec& spec) const;
         void ShapeRun(std::string_view line, size_t start, size_t length, uint16_t face, uint16_t primaryFace,
                       const TextSpec& spec, ShapedLine& shaped);

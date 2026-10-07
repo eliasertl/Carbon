@@ -1,6 +1,7 @@
 #include "Support/ContextTest.h"
 
 #include <cmath>
+#include <filesystem>
 #include <string>
 
 #include "Carbon/Core/ContextInternal.h"
@@ -205,6 +206,142 @@ namespace Carbon
         DrawText(ToUTF8(TestFonts::ColorCodepoint), 20.0f);
         EXPECT_NE(GetTextSystem().GetColorAtlas()->GetGeneration(), generation);
         EXPECT_EQ(GetTextSystem().GetCachedGlyphCount(), 1u);
+    }
+
+    // ---- Fallback: which font draws an emoji --------------------------------------------------------------------
+
+    class EmojiFallbackTests : public ColorGlyphTests
+    {
+    protected:
+        // A plain font first, then a color font: the order in which an application would add a CJK font and the
+        // system's emoji font.
+        void SetUp() override
+        {
+            ColorGlyphTests::SetUp();
+            m_PlainData = TestFonts::MakePlainFont();
+            m_ColorData = TestFonts::MakeCbdtFont();
+            m_Plain = AddFontFromMemory(m_PlainData, {.Name = "Plain"});
+            m_Color = AddFontFromMemory(m_ColorData, {.Name = "Color"});
+            ASSERT_NE(m_Plain, nullptr);
+            ASSERT_NE(m_Color, nullptr);
+        }
+
+        // The faces the glyphs of `text` come from, in the default font.
+        std::vector<uint16_t> GetFaces(std::string_view text)
+        {
+            std::vector<uint16_t> faces;
+            for (const Internal::ShapedGlyph& glyph : GetTextSystem().Shape(text, TextSpec()).Glyphs)
+                faces.push_back(glyph.Face);
+            return faces;
+        }
+
+        uint16_t GetFace(Font* font) const { return font->Roman; }
+
+        std::vector<uint8_t> m_PlainData;
+        std::vector<uint8_t> m_ColorData;
+        Font* m_Plain = nullptr;
+        Font* m_Color = nullptr;
+    };
+
+    TEST_F(EmojiFallbackTests, AnEmojiPrefersAColorFontAddedAfterAPlainOne)
+    {
+        // The plain font comes first in the order of fallbacks and has a glyph, but an emoji is shown as emoji.
+        EXPECT_EQ(GetFaces(ToUTF8(TestFonts::ColorCodepoint)), std::vector<uint16_t>{GetFace(m_Color)});
+        // A character that is not an emoji still takes the first font that has it.
+        EXPECT_EQ(GetFaces(ToUTF8(TestFonts::PlainCodepoint)), std::vector<uint16_t>{GetDefaultFont()->Roman});
+    }
+
+    TEST_F(EmojiFallbackTests, TextPresentationPrefersAFontWithoutColor)
+    {
+        // VS15 asks for the plain version, which the plain font has.
+        const std::string text = ToUTF8(TestFonts::ColorCodepoint) + ToUTF8(0xFE0E);
+        const std::vector<uint16_t> faces = GetFaces(text);
+        ASSERT_FALSE(faces.empty());
+        EXPECT_EQ(faces[0], GetFace(m_Plain));
+    }
+
+    TEST_F(EmojiFallbackTests, ASequenceStaysInTheFontOfItsFirstCharacter)
+    {
+        // A zero-width joiner the plain font has too, a skin tone and VS16: none of them breaks the run, so the
+        // color font gets the whole sequence and could shape it into one glyph.
+        const std::string family = ToUTF8(TestFonts::ColorCodepoint) + ToUTF8(TestFonts::ZwjCodepoint) +
+                                   ToUTF8(TestFonts::SecondColorCodepoint) + ToUTF8(0x1F3FD) + ToUTF8(0xFE0F);
+        for (const uint16_t face : GetFaces(family))
+            EXPECT_EQ(face, GetFace(m_Color));
+
+        // Text around the sequence keeps its own font.
+        const std::vector<uint16_t> faces = GetFaces("a" + family + "b");
+        ASSERT_GE(faces.size(), 3u);
+        EXPECT_EQ(faces.front(), GetDefaultFont()->Roman);
+        EXPECT_EQ(faces.back(), GetDefaultFont()->Roman);
+    }
+
+    TEST_F(EmojiFallbackTests, TwoRegionalIndicatorsAreOneFlagAndAThirdStartsTheNext)
+    {
+        // No font here has the letters of flags; what matters is where the clusters end.
+        const std::string flags = ToUTF8(0x1F1E9) + ToUTF8(0x1F1EA) + ToUTF8(0x1F1EB);
+        const Internal::ShapedLine& shaped = GetTextSystem().Shape(flags, TextSpec());
+        EXPECT_FALSE(shaped.Glyphs.empty());
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(EmojiFallbackTests, TextWithoutEmojiShapesAsBefore)
+    {
+        // Latin text and a joiner between letters (used by some scripts) stay in the default font.
+        const std::string text = "Hello" + ToUTF8(TestFonts::ZwjCodepoint) + "World";
+        const uint16_t defaultFace = GetDefaultFont()->Roman;
+        for (const uint16_t face : GetFaces(text))
+            EXPECT_EQ(face, defaultFace);
+    }
+
+    // The system's emoji font, where there is one: each emoji sequence becomes one emoji, a single color glyph or
+    // (Segoe UI Emoji's families) a few overlapping ones, one emoji wide.
+    TEST_F(ColorGlyphTests, TheSystemsEmojiFontJoinsSequencesIntoOneEmoji)
+    {
+        const char* candidates[] = {
+            "C:/Windows/Fonts/seguiemj.ttf", "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+            "/usr/share/fonts/noto/NotoColorEmoji.ttf", "/System/Library/Fonts/Apple Color Emoji.ttc"};
+        std::filesystem::path path;
+        std::error_code error;
+        for (const char* candidate : candidates)
+        {
+            if (std::filesystem::is_regular_file(candidate, error))
+            {
+                path = candidate;
+                break;
+            }
+        }
+        if (path.empty())
+            GTEST_SKIP() << "no system emoji font";
+        m_Font = AddFontFromFile(path);
+        ASSERT_NE(m_Font, nullptr) << path.string();
+
+        const std::string sequences[] = {
+            ToUTF8(0x1F600),                                                                       // grinning face
+            ToUTF8(0x1F44D) + ToUTF8(0x1F3FD),                                                     // thumbs up, tone
+            ToUTF8(0x1F468) + ToUTF8(0x200D) + ToUTF8(0x1F469) + ToUTF8(0x200D) + ToUTF8(0x1F467), // family
+            ToUTF8(0x2764) + ToUTF8(0xFE0F),                                                       // red heart
+            "1" + ToUTF8(0xFE0F) + ToUTF8(0x20E3),                                                 // keycap one
+        };
+        const float emojiWidth = GetTextSystem().Shape(sequences[0], TextSpec()).Width;
+        for (const std::string& sequence : sequences)
+        {
+            // Shaped from the default font: the emoji font is a fallback.
+            const Internal::ShapedLine& shaped = GetTextSystem().Shape(sequence, TextSpec());
+            ASSERT_FALSE(shaped.Glyphs.empty());
+            for (const Internal::ShapedGlyph& glyph : shaped.Glyphs)
+            {
+                EXPECT_EQ(glyph.Cluster, 0u) << "sequence of " << sequence.size() << " bytes";
+                EXPECT_TRUE(glyph.IsColor) << "sequence of " << sequence.size() << " bytes";
+            }
+            EXPECT_NEAR(shaped.Width, emojiWidth, emojiWidth * 0.2f) << "sequence of " << sequence.size() << " bytes";
+        }
+        for (const float scale : {1.0f, 2.0f})
+        {
+            GetIO().SetContentScale(scale);
+            m_Font = nullptr;
+            EXPECT_FALSE(DrawText(sequences[2], 20.0f).empty()) << "scale " << scale;
+        }
     }
 
     TEST_F(ColorGlyphTests, ColorGlyphsAreMarkedWhenTheyAreShaped)

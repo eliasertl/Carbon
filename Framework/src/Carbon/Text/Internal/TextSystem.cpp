@@ -40,6 +40,64 @@ namespace Carbon::Internal
         {
             return codepoint >= 0xE000 && codepoint <= 0xF8FF;
         }
+
+        // Characters that join the one before them into an emoji, or choose how it is shown.
+        constexpr char32_t ZeroWidthJoiner = 0x200D;
+        constexpr char32_t TextPresentation = 0xFE0E;  // VS15
+        constexpr char32_t EmojiPresentation = 0xFE0F; // VS16
+        constexpr char32_t CombiningKeycap = 0x20E3;
+
+        bool IsEmojiModifier(char32_t codepoint)
+        {
+            return codepoint >= 0x1F3FB && codepoint <= 0x1F3FF; // the skin tones
+        }
+
+        bool IsRegionalIndicator(char32_t codepoint)
+        {
+            return codepoint >= 0x1F1E6 && codepoint <= 0x1F1FF; // the letters of flags
+        }
+
+        bool IsTag(char32_t codepoint)
+        {
+            return codepoint >= 0xE0020 && codepoint <= 0xE007F; // subdivision flags (England, Scotland, Wales)
+        }
+
+        bool IsVariationSelector(char32_t codepoint)
+        {
+            return codepoint >= 0xFE00 && codepoint <= 0xFE0F;
+        }
+
+        // Characters with Unicode's Emoji_Presentation property: shown as emoji without VS16. Ranges of
+        // emoji-data.txt (Unicode 16), merged where nothing in between is a character.
+        constexpr std::pair<char32_t, char32_t> EmojiPresentationRanges[] = {
+            {0x231A, 0x231B},   {0x23E9, 0x23EC},   {0x23F0, 0x23F0},   {0x23F3, 0x23F3},   {0x25FD, 0x25FE},
+            {0x2614, 0x2615},   {0x2648, 0x2653},   {0x267F, 0x267F},   {0x2693, 0x2693},   {0x26A1, 0x26A1},
+            {0x26AA, 0x26AB},   {0x26BD, 0x26BE},   {0x26C4, 0x26C5},   {0x26CE, 0x26CE},   {0x26D4, 0x26D4},
+            {0x26EA, 0x26EA},   {0x26F2, 0x26F3},   {0x26F5, 0x26F5},   {0x26FA, 0x26FA},   {0x26FD, 0x26FD},
+            {0x2705, 0x2705},   {0x270A, 0x270B},   {0x2728, 0x2728},   {0x274C, 0x274C},   {0x274E, 0x274E},
+            {0x2753, 0x2755},   {0x2757, 0x2757},   {0x2795, 0x2797},   {0x27B0, 0x27B0},   {0x27BF, 0x27BF},
+            {0x2B1B, 0x2B1C},   {0x2B50, 0x2B50},   {0x2B55, 0x2B55},   {0x1F004, 0x1F004}, {0x1F0CF, 0x1F0CF},
+            {0x1F18E, 0x1F18E}, {0x1F191, 0x1F19A}, {0x1F1E6, 0x1F1FF}, {0x1F201, 0x1F201}, {0x1F21A, 0x1F21A},
+            {0x1F22F, 0x1F22F}, {0x1F232, 0x1F236}, {0x1F238, 0x1F23A}, {0x1F250, 0x1F251}, {0x1F300, 0x1F320},
+            {0x1F32D, 0x1F335}, {0x1F337, 0x1F37C}, {0x1F37E, 0x1F393}, {0x1F3A0, 0x1F3CA}, {0x1F3CF, 0x1F3D3},
+            {0x1F3E0, 0x1F3F0}, {0x1F3F4, 0x1F3F4}, {0x1F3F8, 0x1F43E}, {0x1F440, 0x1F440}, {0x1F442, 0x1F4FC},
+            {0x1F4FF, 0x1F53D}, {0x1F54B, 0x1F54E}, {0x1F550, 0x1F567}, {0x1F57A, 0x1F57A}, {0x1F595, 0x1F596},
+            {0x1F5A4, 0x1F5A4}, {0x1F5FB, 0x1F64F}, {0x1F680, 0x1F6C5}, {0x1F6CC, 0x1F6CC}, {0x1F6D0, 0x1F6D2},
+            {0x1F6D5, 0x1F6D7}, {0x1F6DC, 0x1F6DF}, {0x1F6EB, 0x1F6EC}, {0x1F6F4, 0x1F6FC}, {0x1F7E0, 0x1F7EB},
+            {0x1F7F0, 0x1F7F0}, {0x1F90C, 0x1F93A}, {0x1F93C, 0x1F945}, {0x1F947, 0x1F9FF}, {0x1FA70, 0x1FA7C},
+            {0x1FA80, 0x1FA89}, {0x1FA8F, 0x1FAC6}, {0x1FACE, 0x1FADC}, {0x1FADF, 0x1FAE9}, {0x1FAF0, 0x1FAF8},
+        };
+
+        bool IsEmojiPresentation(char32_t codepoint)
+        {
+            // Almost every character is below the first range; that answer costs one comparison.
+            if (codepoint < EmojiPresentationRanges[0].first)
+                return false;
+            const auto after = std::upper_bound(
+                std::begin(EmojiPresentationRanges), std::end(EmojiPresentationRanges), codepoint,
+                [](char32_t value, const std::pair<char32_t, char32_t>& range) { return value < range.first; });
+            return after != std::begin(EmojiPresentationRanges) && codepoint <= (after - 1)->second;
+        }
     } // namespace
 
     size_t TextSystem::GlyphKeyHash::operator()(const GlyphKey& key) const noexcept
@@ -246,15 +304,16 @@ namespace Carbon::Internal
         // One glyph per byte is the most a line shapes to in practice; the storage is reused when it is recycled.
         shaped.Glyphs.reserve(line.size());
 
-        // Split the line into runs that use the same face, then shape each run.
+        // Split the line into runs that use the same face, then shape each run. A character and the characters
+        // that join it (an emoji sequence) choose their face together.
         const uint16_t primaryFace = GetPrimaryFace(spec);
         uint16_t runFace = primaryFace;
         size_t runStart = 0;
         size_t offset = 0;
         while (offset < line.size())
         {
-            const UTF8Decoded decoded = DecodeUTF8(line, offset);
-            const uint16_t face = ResolveFace(decoded.Codepoint, primaryFace, runFace, spec);
+            const FallbackCluster cluster = FindFallbackCluster(line, offset);
+            const uint16_t face = ResolveFace(cluster, primaryFace, runFace, spec);
             if (face != runFace)
             {
                 if (offset > runStart)
@@ -262,7 +321,7 @@ namespace Carbon::Internal
                 runFace = face;
                 runStart = offset;
             }
-            offset += decoded.Length;
+            offset = cluster.End;
         }
         if (offset > runStart)
             ShapeRun(line, runStart, offset - runStart, runFace, primaryFace, spec, shaped);
@@ -501,9 +560,57 @@ namespace Carbon::Internal
         return spec.Weight >= FontWeight::Semibold ? m_IconBold : m_IconRegular;
     }
 
-    uint16_t TextSystem::ResolveFace(char32_t codepoint, uint16_t primaryFace, uint16_t currentFace,
+    TextSystem::FallbackCluster TextSystem::FindFallbackCluster(std::string_view line, size_t offset)
+    {
+        FallbackCluster cluster;
+        const UTF8Decoded base = DecodeUTF8(line, offset);
+        cluster.Base = base.Codepoint;
+        cluster.End = offset + base.Length;
+        cluster.WantsColor = IsEmojiPresentation(base.Codepoint);
+        bool isPairedFlag = false;
+        while (cluster.End < line.size())
+        {
+            const UTF8Decoded next = DecodeUTF8(line, cluster.End);
+            const char32_t codepoint = next.Codepoint;
+            if (codepoint == ZeroWidthJoiner)
+            {
+                // The joiner and the character after it belong to the sequence, which goes on from there.
+                cluster.End += next.Length;
+                if (cluster.End < line.size())
+                    cluster.End += DecodeUTF8(line, cluster.End).Length;
+                continue;
+            }
+            if (IsVariationSelector(codepoint) || IsEmojiModifier(codepoint) || IsTag(codepoint) ||
+                codepoint == CombiningKeycap)
+            {
+                if (codepoint == EmojiPresentation || IsEmojiModifier(codepoint) || IsTag(codepoint) ||
+                    codepoint == CombiningKeycap)
+                    cluster.WantsColor = true;
+                if (codepoint == TextPresentation)
+                    cluster.WantsText = true;
+                cluster.End += next.Length;
+                continue;
+            }
+            // Two regional indicators are one flag.
+            if (IsRegionalIndicator(base.Codepoint) && IsRegionalIndicator(codepoint) && !isPairedFlag)
+            {
+                isPairedFlag = true;
+                cluster.End += next.Length;
+                continue;
+            }
+            break;
+        }
+        // VS15 asks for text presentation even of a character that is an emoji by default.
+        if (cluster.WantsText)
+            cluster.WantsColor = false;
+        return cluster;
+    }
+
+    uint16_t TextSystem::ResolveFace(const FallbackCluster& cluster, uint16_t primaryFace, uint16_t currentFace,
                                      const TextSpec& spec) const
     {
+        const char32_t codepoint = cluster.Base;
+
         // Carbon::Icons live in the Private Use Area, where some fonts have glyphs of their own (JetBrains Mono's
         // powerline symbols share code points with Phosphor). An icon must look the same in every font, so the
         // icon font comes first there.
@@ -514,18 +621,37 @@ namespace Carbon::Internal
                 return iconFace;
         }
 
-        if (m_Faces[primaryFace]->GetGlyphIndex(codepoint) != 0)
-            return primaryFace;
-
-        for (const std::unique_ptr<Font>& font : m_Fonts)
+        // The faces in the order they are tried: the requested one, then the fonts in the order they were added.
+        // An emoji tries those with color glyphs first, so that a font with a plain version of it (many CJK fonts
+        // have some) does not take it from the emoji font added after it; VS15 asks for the plain ones first.
+        const auto findFace = [&](bool withColor, bool withoutColor)
         {
-            const uint16_t face = spec.Italic ? font->Italic : font->Roman;
-            if (face != primaryFace && m_Faces[face]->GetGlyphIndex(codepoint) != 0)
-                return face;
-        }
+            const auto accepts = [&](uint16_t face)
+            {
+                const bool hasColor = m_Faces[face]->HasColorGlyphs();
+                return ((hasColor && withColor) || (!hasColor && withoutColor)) &&
+                       m_Faces[face]->GetGlyphIndex(codepoint) != 0;
+            };
+            if (accepts(primaryFace))
+                return primaryFace;
+            for (const std::unique_ptr<Font>& font : m_Fonts)
+            {
+                const uint16_t face = spec.Italic ? font->Italic : font->Roman;
+                if (face != primaryFace && accepts(face))
+                    return face;
+            }
+            return InvalidFace;
+        };
+        uint16_t face = InvalidFace;
+        if (cluster.WantsColor)
+            face = findFace(true, false);
+        else if (cluster.WantsText)
+            face = findFace(false, true);
+        if (face == InvalidFace)
+            face = findFace(true, true);
 
         // Nobody has it (control characters, joiners, unsupported scripts): stay in the current run.
-        return currentFace;
+        return face != InvalidFace ? face : currentFace;
     }
 
     void TextSystem::ShapeRun(std::string_view line, size_t start, size_t length, uint16_t face, uint16_t primaryFace,

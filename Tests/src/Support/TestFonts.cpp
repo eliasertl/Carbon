@@ -466,9 +466,11 @@ namespace Carbon::TestFonts
 
     std::vector<uint8_t> MakePlainFont()
     {
-        std::vector<TestGlyph> glyphs(3);
+        std::vector<TestGlyph> glyphs(5);
         glyphs[1] = {UnitsPerEm, true, Em, ColorCodepoint};
         glyphs[2] = {UnitsPerEm, true, Em, PlainCodepoint};
+        glyphs[3] = {0, false, {}, ZwjCodepoint};
+        glyphs[4] = {UnitsPerEm, true, Em, SecondColorCodepoint};
         return Assemble(MakeOutlineTables(glyphs));
     }
 } // namespace Carbon::TestFonts
