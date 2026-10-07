@@ -127,11 +127,12 @@ namespace Carbon
         const auto getHighlightTop = [] { return GetDrawData().Vertices[8].Position.Y + 1.0f; };
         EXPECT_FLOAT_EQ(getHighlightTop(), m_Rects[4].Y);
 
-        Click(m_Rects[0].GetCenter(), Interface());
-        EXPECT_EQ(m_Selected, 0);
+        MoveMouse(m_Rects[0].GetCenter(), Interface());
+        PressMouse(Interface());
+        EXPECT_EQ(m_Selected, 0) << "a row is picked when the button goes down";
         EXPECT_FLOAT_EQ(getHighlightTop(), m_Rects[4].Y) << "the highlight stays while the selection changes hands";
 
-        Frame(Interface());
+        ReleaseMouse(Interface());
         Frame(Interface());
         EXPECT_LT(getHighlightTop(), m_Rects[4].Y);
         EXPECT_GT(getHighlightTop(), m_Rects[0].Y) << "it slides, it does not jump";

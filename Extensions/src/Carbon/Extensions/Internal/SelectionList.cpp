@@ -200,6 +200,8 @@ namespace Carbon::Internal
             ButtonBehaviorOptions behavior;
             behavior.Focusable = false;
             behavior.Disabled = isDisabled;
+            // As in macOS lists, a row is selected when the mouse button goes down, not when it is released.
+            behavior.ActivateOnPress = true;
             row.Interaction = ButtonBehavior(id, row.Bounds, behavior);
             row.Clicked = row.Interaction.Clicked;
             if (row.Clicked)
