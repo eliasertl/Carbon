@@ -11,6 +11,8 @@
 #endif
 
 #include "GlfwInput.h"
+#include "InputMethod.h"
+#include "SystemFonts.h"
 
 namespace Example
 {
@@ -91,6 +93,8 @@ namespace Example
         InstallPlatformCallbacks(m_Host.GetWindow(), description.Callbacks);
         m_Context = Carbon::CreateContext(description);
         InstallInputCallbacks(m_Host.GetWindow());
+        InstallInputMethod(m_Host.GetWindow());
+        AddSystemFallbackFonts();
 
         // Carbon renders through the backend of the device this executable was built for.
         m_IsBackendReady = m_Host.GetDevice().InitCarbon();
@@ -140,6 +144,7 @@ namespace Example
         Carbon::NewFrame();
         m_Build();
         Carbon::EndFrame();
+        UpdateInputMethod(m_Host.GetWindow());
 
         // The host clears to the theme's background, which glides during a theme switch, and Carbon draws on top.
         m_Host.GetDevice().Render(Carbon::GetStyleColor(Carbon::StyleColor::Background));

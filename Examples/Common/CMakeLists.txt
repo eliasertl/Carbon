@@ -1,6 +1,7 @@
 # Host-side code shared by the examples.
 
-# Backend-neutral: command-line arguments, GLFW input forwarding, PNG screenshots, and the host of the main examples
+# Backend-neutral: command-line arguments, GLFW input forwarding, the input method, system fallback fonts, PNG
+# screenshots, and the host of the main examples
 # (window, frame loop, Carbon context) written against Example::GraphicsDevice. Every example uses it, whatever
 # renderer backend it runs on, and it is compiled once. The host gets its device from CreateGraphicsDevice(), which
 # the device of each backend defines (below).
@@ -14,14 +15,22 @@ add_library(CarbonExampleBase STATIC
     GlfwInput.cpp
     GlfwInput.h
     GraphicsDevice.h
+    InputMethod.cpp
+    InputMethod.h
     Screenshot.cpp
     Screenshot.h
+    SystemFonts.cpp
+    SystemFonts.h
 )
 target_include_directories(CarbonExampleBase PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(CarbonExampleBase
     PUBLIC Carbon::Carbon ${CARBON_DEPS_GLFW_NAME}
     PRIVATE ${CARBON_DEPS_STB_NAME}
 )
+# The input method of Windows (IMM32) composes Japanese, Chinese and Korean text in Carbon's text fields.
+if(WIN32)
+    target_link_libraries(CarbonExampleBase PRIVATE imm32)
+endif()
 carbon_configure_target(CarbonExampleBase)
 
 # stb is third-party code: compiled separately, without Carbon's warning flags.

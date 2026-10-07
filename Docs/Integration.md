@@ -128,7 +128,9 @@ pushed or the theme's font.
 
 Fonts you add are also used as fallbacks, in the order they were added, for characters the requested font lacks.
 The embedded monospaced font is not a fallback. The embedded fonts cover Latin text; add a font for other
-scripts. See [Styling](Styling.md) for the type ramp and icons. The embedded fonts' licenses are in
+scripts. The examples add the system's Japanese, Chinese and Korean fonts when they find them
+([Examples/Common/SystemFonts.cpp](../Examples/Common/SystemFonts.cpp)), so that text typed through an input
+method shows. See [Styling](Styling.md) for the type ramp and icons. The embedded fonts' licenses are in
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
 
 ## Forwarding input
@@ -169,6 +171,8 @@ the result. Carbon draws the pre-edit text inline in the text field or text area
 thicker underline under the clause being converted. The input method itself belongs to the platform, so the host
 forwards what it does:
 
+![A text field composing Japanese: the clause being converted has a thick underline, the others a thin one](Images/InputMethod-Light.png)
+
 ```cpp
 io.AddCompositionStartEvent();                              // optional: an update starts one too
 io.AddCompositionUpdateEvent(preEdit, caret, clauses);      // UTF-8, caret and clauses as byte offsets
@@ -201,8 +205,9 @@ cancel.
 
 On Windows this maps to IMM32: `WM_IME_COMPOSITION` with `GCS_COMPSTR`, `GCS_CURSORPOS`, `GCS_COMPCLAUSE` and
 `GCS_COMPATTR` gives the update, `GCS_RESULTSTR` the commit, `WM_IME_ENDCOMPOSITION` without a result the cancel;
-`ImmSetCandidateWindow` places the candidates and `ImmNotifyIME(..., CPS_CANCEL)` cancels. On other platforms
-the same four events
+`ImmSetCandidateWindow` places the candidates and `ImmNotifyIME(..., CPS_CANCEL)` cancels. The examples do this
+in [Examples/Common/InputMethod.cpp](../Examples/Common/InputMethod.cpp), by replacing the window procedure of
+their GLFW window, since GLFW has no input method API. On other platforms the same four events
 come from the platform's text-input API (`setMarkedText` and `insertText` on macOS, `text-input-v3` pre-edit and
 commit on Wayland, XIM pre-edit callbacks or `SDL_EVENT_TEXT_EDITING` and `SDL_EVENT_TEXT_INPUT` with SDL).
 
