@@ -29,28 +29,43 @@ namespace Example
         }
     } // namespace
 
-    void AddSystemFallbackFonts()
+    SystemFallbackFonts AddSystemFallbackFonts()
     {
+        SystemFallbackFonts found;
         // Fallbacks are tried in the order they were added. Japanese comes first, so that the characters Japanese
         // shares with Chinese take their Japanese forms; Chinese fills in simplified characters, Korean the Hangul.
 #if defined(_WIN32)
         wchar_t windows[MAX_PATH] = L"C:\\Windows";
         GetWindowsDirectoryW(windows, MAX_PATH);
         const std::filesystem::path fonts = std::filesystem::path(windows) / "Fonts";
-        AddFirstFont(fonts, {"YuGothM.ttc", "YuGothR.ttc", "meiryo.ttc", "msgothic.ttc"});
-        AddFirstFont(fonts, {"msyh.ttc", "simsun.ttc"});
-        AddFirstFont(fonts, {"malgun.ttf", "gulim.ttc"});
+        found.HasCjk = AddFirstFont(fonts, {"YuGothM.ttc", "YuGothR.ttc", "meiryo.ttc", "msgothic.ttc"});
+        found.HasCjk = AddFirstFont(fonts, {"msyh.ttc", "simsun.ttc"}) || found.HasCjk;
+        found.HasCjk = AddFirstFont(fonts, {"malgun.ttf", "gulim.ttc"}) || found.HasCjk;
+        // Segoe UI Emoji: COLR version 1, with version 0 layers for older renderers.
+        found.HasEmoji = AddFirstFont(fonts, {"seguiemj.ttf"});
 #elif defined(__APPLE__)
-        AddFirstFont("/System/Library/Fonts", {"Hiragino Sans GB.ttc", "PingFang.ttc"});
-        AddFirstFont("/System/Library/Fonts", {"AppleSDGothicNeo.ttc"});
+        found.HasCjk = AddFirstFont("/System/Library/Fonts", {"Hiragino Sans GB.ttc", "PingFang.ttc"});
+        found.HasCjk = AddFirstFont("/System/Library/Fonts", {"AppleSDGothicNeo.ttc"}) || found.HasCjk;
+        // Apple Color Emoji: sbix images.
+        found.HasEmoji = AddFirstFont("/System/Library/Fonts", {"Apple Color Emoji.ttc"});
 #elif !defined(__EMSCRIPTEN__)
         // Noto Sans CJK covers all three; distributions put it in different places.
         for (const char* folder : {"/usr/share/fonts/opentype/noto", "/usr/share/fonts/noto-cjk",
                                    "/usr/share/fonts/google-noto-cjk", "/usr/share/fonts/OTF"})
         {
-            if (AddFirstFont(folder, {"NotoSansCJK-Regular.ttc", "NotoSansCJKjp-Regular.otf"}))
+            found.HasCjk = AddFirstFont(folder, {"NotoSansCJK-Regular.ttc", "NotoSansCJKjp-Regular.otf"});
+            if (found.HasCjk)
+                break;
+        }
+        // Noto Color Emoji: CBDT images in most distributions' package.
+        for (const char* folder : {"/usr/share/fonts/truetype/noto", "/usr/share/fonts/noto",
+                                   "/usr/share/fonts/google-noto-emoji", "/usr/share/fonts/google-noto-color-emoji"})
+        {
+            found.HasEmoji = AddFirstFont(folder, {"NotoColorEmoji.ttf"});
+            if (found.HasEmoji)
                 break;
         }
 #endif
+        return found;
     }
 } // namespace Example

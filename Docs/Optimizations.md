@@ -492,6 +492,25 @@ The baseline. What it shows:
   caches still empty: the Windows job 732 → 460 s (its build step 465 → 265 s, tests 17 → 8 s, no package check),
   Emscripten tests 40 → under 4 s. (`66272b9`)
 
+### Color glyphs and input methods: nothing for text without them
+
+Not an optimization but a check: color emoji and input method composition must cost nothing where they are not
+used. The benchmarks before them (`5d9770b`, after input methods) and after them (color glyphs, emoji fallback),
+same machine, back to back, median of 3:
+
+| Metric | Case | Before | After | Change |
+| --- | --- | --- | --- | --- |
+| Frame time (median) | Gallery, typography page | 23.7 µs | 24.2 µs | +2% |
+| Frame time (median) | Gallery, text fields page | 41.0 µs | 38.6 µs | −6% |
+| Frame time (median) | Scrolled labels, in the middle | 1.14 ms | 1.09 ms | −4% |
+| Frame time (median) | Changing strings | 74.3 µs | 76.4 µs | +3% |
+| Frame time (median) | Idle, focused text field | 31.3 µs | 32.1 µs | +3% |
+
+Every other counter of these and of the other Gallery, Text, Idle and Controls benchmarks (allocations, vertices,
+indices, primitives, draw commands, atlas bytes) is the same before and after, and the frame times move within
+the noise of the machine in both directions. Building HarfBuzz's raster library adds 4 objects and about 13 CPU
+seconds to a clean Release build, and the PNG decoder about 4.
+
 ### Tried and rejected
 
 - **WebGPU: skip binding the texture's bind group when it has not changed.** Render time of the small scene (4 draw

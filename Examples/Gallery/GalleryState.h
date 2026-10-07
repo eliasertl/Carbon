@@ -46,6 +46,8 @@ namespace Gallery
         std::string Show;
         bool IsDark = false;
         bool ReduceMotion = false;
+        /// The system has an emoji font, which the example added as a fallback: the typography page shows emoji.
+        bool HasEmojiFont = false;
 
         // Core pages.
         bool WiFi = true;

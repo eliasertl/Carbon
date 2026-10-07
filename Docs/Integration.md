@@ -127,11 +127,47 @@ theme.Font = brand; Carbon::SetTheme(theme);        // for the whole interface
 pushed or the theme's font.
 
 Fonts you add are also used as fallbacks, in the order they were added, for characters the requested font lacks.
+Emoji go to fonts with color glyphs first; see [Emoji](#emoji) below.
 The embedded monospaced font is not a fallback. The embedded fonts cover Latin text; add a font for other
 scripts. The examples add the system's Japanese, Chinese and Korean fonts when they find them
 ([Examples/Common/SystemFonts.cpp](../Examples/Common/SystemFonts.cpp)), so that text typed through an input
 method shows. See [Styling](Styling.md) for the type ramp and icons. The embedded fonts' licenses are in
 [THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md).
+
+### Emoji
+
+Carbon embeds no emoji font. Add the system's as a fallback, like any other font, and emoji in any text are
+drawn in color, at every content scale and on every backend:
+
+```cpp
+// Windows: Segoe UI Emoji (COLR). Linux: Noto Color Emoji (CBDT). macOS: Apple Color Emoji (sbix).
+for (const char* path : {"C:/Windows/Fonts/seguiemj.ttf", "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+                         "/System/Library/Fonts/Apple Color Emoji.ttc"})
+{
+    if (std::filesystem::exists(path) && Carbon::AddFontFromFile(path) != nullptr)
+        break;
+}
+Carbon::Text("Ready \xF0\x9F\x9A\x80");   // "Ready 🚀"
+```
+
+- **Formats.** COLR versions 0 and 1 (painted by HarfBuzz's raster library, which the bundled HarfBuzz includes),
+  and the PNG images of CBDT and sbix fonts, scaled from the size the font stores that suits best. A font of
+  bitmaps only, such as Noto Color Emoji, is accepted.
+- **Sequences.** An emoji and what joins it stay in one font, so the font can draw them as one: skin tones
+  (👍🏽), people joined by zero-width joiners (👩‍💻, 👨‍👩‍👧), keycaps (1️⃣), flags (🇩🇪) and the variation selectors
+  that ask for emoji (❤️) or text (☺︎) presentation.
+- **Which font.** A character that is shown as an emoji by default (😀), or that asks for it with VS16, takes the
+  first font with color glyphs that has it, even if a font added before it, such as a CJK font, has a plain version.
+  Everything else takes the first font that has it, as before; VS15 prefers fonts without color.
+- **Drawing.** Color glyphs keep their own colors: the text color does not tint them, but its opacity fades them,
+  as do `PushOpacity` and disabled controls. They go into a second glyph atlas, created when the first one is drawn,
+  so text without emoji costs nothing extra.
+- **What the font decides.** Windows' Segoe UI Emoji has no flags and shows a flag as its two letters, as Windows
+  does everywhere. Layers of a COLR glyph that use the text's color are drawn black.
+
+The examples add the system's emoji font when they find one
+([Examples/Common/SystemFonts.cpp](../Examples/Common/SystemFonts.cpp)); the Gallery's typography page then shows
+emoji.
 
 ## Forwarding input
 

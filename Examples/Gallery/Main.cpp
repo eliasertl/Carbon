@@ -91,7 +91,7 @@ namespace Gallery
             switch (state.CurrentPage)
             {
                 case Page::Typography:
-                    TypographyPage();
+                    TypographyPage(state);
                     break;
                 case Page::Icons:
                     IconsPage();
@@ -216,6 +216,7 @@ int main(int argc, char** argv)
 
     Gallery::GalleryState state;
     state.IsDark = app.GetArguments().IsDark;
+    state.HasEmojiFont = app.GetSystemFonts().HasEmoji;
     // With --section, menus and popovers open once the section has been scrolled into place, so that they are
     // placed where the screenshot shows them.
     const bool isShowDelayed = !app.GetArguments().Section.empty();

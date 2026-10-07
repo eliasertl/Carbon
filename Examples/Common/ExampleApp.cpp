@@ -12,7 +12,6 @@
 
 #include "GlfwInput.h"
 #include "InputMethod.h"
-#include "SystemFonts.h"
 
 namespace Example
 {
@@ -96,7 +95,7 @@ namespace Example
         m_Context = Carbon::CreateContext(description);
         InstallInputCallbacks(m_Host.GetWindow());
         InstallInputMethod(m_Host.GetWindow());
-        AddSystemFallbackFonts();
+        m_SystemFonts = AddSystemFallbackFonts();
 
         // Carbon renders through the backend of the device this executable was built for.
         m_IsBackendReady = m_Host.GetDevice().InitCarbon();

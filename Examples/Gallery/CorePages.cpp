@@ -106,11 +106,13 @@ namespace Gallery
         EndHStack();
     }
 
-    void TypographyPage()
+    void TypographyPage(const GalleryState& state)
     {
-        BeginSection("Typography",
-                     "The macOS type ramp, set in Public Sans. Sizes and line heights follow the "
-                     "Human Interface Guidelines.");
+        BeginSection("Typography", state.HasEmojiFont
+                                       ? "The macOS type ramp, set in Public Sans. Sizes and line heights follow the "
+                                         "Human Interface Guidelines. Emoji come from the system's emoji font."
+                                       : "The macOS type ramp, set in Public Sans. Sizes and line heights follow the "
+                                         "Human Interface Guidelines.");
         struct Entry
         {
             TextStyle Style;
@@ -136,6 +138,23 @@ namespace Gallery
             Text(entry.Name, {.Style = entry.Style, .Emphasized = true});
             EndHStack();
             PopID();
+        }
+        if (state.HasEmojiFont)
+        {
+            // Grinning face, thumbs up with a skin tone, technologist (joined by a zero-width joiner), party
+            // popper, red heart (with VS16), globe, rocket.
+            static constexpr const char* Emoji =
+                "\xF0\x9F\x98\x80 \xF0\x9F\x91\x8D\xF0\x9F\x8F\xBD "
+                "\xF0\x9F\x91\xA9\xE2\x80\x8D\xF0\x9F\x92\xBB "
+                "\xF0\x9F\x8E\x89 \xE2\x9D\xA4\xEF\xB8\x8F "
+                "\xF0\x9F\x8C\x8D \xF0\x9F\x9A\x80";
+            BeginHStack(
+                {.Spacing = 12.0f, .Alignment = VerticalAlignment::Center, .Width = Size::Fill(), .ID = "Emoji"});
+            Text("Emoji", {.Style = TextStyle::Caption1, .Secondary = true, .Width = LabelColumn});
+            Text(Emoji, {.Style = TextStyle::Title1});
+            Spacer();
+            Text(Emoji, {.Style = TextStyle::Body});
+            EndHStack();
         }
         EndSection();
     }

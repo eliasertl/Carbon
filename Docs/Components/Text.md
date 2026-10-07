@@ -3,7 +3,7 @@
 Displays text in one of the macOS text styles.
 HIG: [Typography](https://developer.apple.com/design/human-interface-guidelines/typography)
 
-![The macOS type ramp in regular and emphasized weights](../Images/Components/Text.png)
+![The macOS type ramp in regular and emphasized weights, and a row of color emoji](../Images/Components/Text.png)
 
 ```cpp
 Carbon::Text("Settings", { .Style = Carbon::TextStyle::LargeTitle, .Emphasized = true });
@@ -20,6 +20,20 @@ Carbon::Text("int main() { return 0; }", { .Font = Carbon::GetMonospacedFont() }
 ```
 
 Lines are separated by `'\n'`.
+
+## Emoji
+
+Emoji are drawn in color when the host has added a color emoji font, such as the system's (Segoe UI Emoji on
+Windows, Noto Color Emoji on Linux, Apple Color Emoji on macOS); Carbon embeds none. Any text can contain them,
+and sequences such as skin tones, families and flags stay together:
+
+```cpp
+Carbon::AddFontFromFile("C:/Windows/Fonts/seguiemj.ttf");   // once, at startup
+Carbon::Text("Launch \xF0\x9F\x9A\x80", { .Style = Carbon::TextStyle::Title1 });   // "Launch 🚀"
+```
+
+They keep their own colors whatever `Color` the text has, and fade with its opacity. Without an emoji font they
+show as the fallback fonts' plain glyphs, or not at all. [Integration](../Integration.md#emoji) has the details.
 
 ## Options
 

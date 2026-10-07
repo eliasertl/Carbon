@@ -5,6 +5,7 @@
 #include <Carbon/Carbon.h>
 
 #include "ExampleHost.h"
+#include "SystemFonts.h"
 
 namespace Example
 {
@@ -26,6 +27,8 @@ namespace Example
         bool IsReady() const { return m_Host.IsReady() && m_IsBackendReady; }
         Host& GetHost() { return m_Host; }
         const Arguments& GetArguments() const { return m_Host.GetArguments(); }
+        /// The fonts of the system that were added as fallbacks, such as an emoji font.
+        const SystemFallbackFonts& GetSystemFonts() const { return m_SystemFonts; }
 
         /// Runs until the window is closed (or the screenshot is saved). `build` is called once per frame, between
         /// NewFrame and EndFrame, and builds the interface. Returns the process exit code. In a browser the page
@@ -40,6 +43,7 @@ namespace Example
         Host m_Host;
         Carbon::Context* m_Context = nullptr;
         bool m_IsBackendReady = false;
+        SystemFallbackFonts m_SystemFonts;
         std::function<void()> m_Build;
     };
 } // namespace Example

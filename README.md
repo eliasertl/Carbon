@@ -64,7 +64,9 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
   shader, so it is crisp and antialiased at any scale.
 - **Text**: shaped with HarfBuzz and rasterized with FreeType at the display's content scale, with the embedded
   Public Sans variable font and the monospaced JetBrains Mono, the macOS type ramp, per-text and pushed fonts,
-  wrapping and truncation.
+  wrapping and truncation; color emoji from the system's emoji font (COLR, CBDT, sbix), with skin tones, families
+  and flags; Japanese, Chinese and Korean input through the platform's input method, composed inline in text
+  fields and text areas.
 - **Icons**: 1530 embedded Phosphor icons in three weights, usable inside any text.
 - **Layout**: stacks, grids, spacers, fit/fixed/fill sizes and scroll views with overlay indicators.
 - **Motion**: interruptible, frame-rate-independent springs, timing curves, reduce motion and animated theme

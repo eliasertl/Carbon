@@ -21,7 +21,7 @@ namespace Carbon::Benchmarks
         };
 
         const PageInfo Pages[] = {
-            {Page::Typography, "Typography", [](GalleryState&) { Gallery::TypographyPage(); }},
+            {Page::Typography, "Typography", [](GalleryState& state) { Gallery::TypographyPage(state); }},
             {Page::Icons, "Icons", [](GalleryState&) { Gallery::IconsPage(); }},
             {Page::Buttons, "Buttons", Gallery::ButtonsPage},
             {Page::Toggles, "Toggles", Gallery::TogglesPage},

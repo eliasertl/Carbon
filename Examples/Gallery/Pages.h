@@ -26,7 +26,7 @@ namespace Gallery
     void ResetCapturedArea();
 
     // Core components (CorePages.cpp).
-    void TypographyPage();
+    void TypographyPage(const GalleryState& state);
     void IconsPage();
     void ButtonsPage(GalleryState& state);
     void TogglesPage(GalleryState& state);
