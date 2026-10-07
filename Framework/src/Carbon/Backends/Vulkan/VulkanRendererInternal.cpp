@@ -30,7 +30,7 @@ namespace Carbon::Internal
         };
 
         constexpr VkDeviceSize MinimumBufferSize = 16 * 1024;
-        // Descriptor sets in Carbon's own pool: one per host texture in use, plus the atlas and the frames.
+        // Descriptor sets in Carbon's own pool: one per host texture in use, plus the two atlases and the frames.
         constexpr uint32_t PoolTextureSets = 1024;
 
         constexpr VkMemoryPropertyFlags HostMemory =
@@ -97,13 +97,8 @@ namespace Carbon::Internal
             if (slot.PrimitiveSet != VK_NULL_HANDLE)
                 vkFreeDescriptorSets(device, m_DescriptorPool, 1, &slot.PrimitiveSet);
         }
-        if (m_AtlasSet != VK_NULL_HANDLE)
-            vkFreeDescriptorSets(device, m_DescriptorPool, 1, &m_AtlasSet);
-        if (m_AtlasView != VK_NULL_HANDLE)
-            vkDestroyImageView(device, m_AtlasView, callbacks);
-        if (m_AtlasImage != VK_NULL_HANDLE)
-            vkDestroyImage(device, m_AtlasImage, callbacks);
-        m_Allocator->Free(m_AtlasMemory);
+        DestroyAtlasImage(m_Atlas);
+        DestroyAtlasImage(m_ColorAtlas);
 
         if (m_CommandPool != VK_NULL_HANDLE)
             vkDestroyCommandPool(device, m_CommandPool, callbacks);
@@ -467,30 +462,24 @@ namespace Carbon::Internal
         return set;
     }
 
-    bool VulkanRenderer::CreateAtlasImage(uint32_t width, uint32_t height)
+    bool VulkanRenderer::CreateAtlasImage(AtlasImage& atlas, VkFormat format, uint32_t width, uint32_t height)
     {
         // The old atlas may still be sampled by frames in flight.
-        if (m_AtlasImage != VK_NULL_HANDLE)
+        if (atlas.Image != VK_NULL_HANDLE)
         {
             Retired retired;
-            retired.Image = m_AtlasImage;
-            retired.View = m_AtlasView;
-            retired.Set = m_AtlasSet;
-            retired.Memory = m_AtlasMemory;
+            retired.Image = atlas.Image;
+            retired.View = atlas.View;
+            retired.Set = atlas.Set;
+            retired.Memory = atlas.Memory;
             Retire(retired);
         }
-        m_AtlasImage = VK_NULL_HANDLE;
-        m_AtlasView = VK_NULL_HANDLE;
-        m_AtlasSet = VK_NULL_HANDLE;
-        m_AtlasMemory = VulkanAllocation();
-        m_AtlasWidth = 0;
-        m_AtlasHeight = 0;
-        m_IsAtlasInitialized = false;
+        atlas = AtlasImage();
 
         VkImageCreateInfo imageInfo = {};
         imageInfo.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
         imageInfo.imageType = VK_IMAGE_TYPE_2D;
-        imageInfo.format = VK_FORMAT_R8_UNORM;
+        imageInfo.format = format;
         imageInfo.extent = {width, height, 1};
         imageInfo.mipLevels = 1;
         imageInfo.arrayLayers = 1;
@@ -499,31 +488,43 @@ namespace Carbon::Internal
         imageInfo.usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         imageInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
         imageInfo.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-        if (!Check(vkCreateImage(m_Info.Device, &imageInfo, m_Info.Allocator, &m_AtlasImage), "vkCreateImage"))
+        if (!Check(vkCreateImage(m_Info.Device, &imageInfo, m_Info.Allocator, &atlas.Image), "vkCreateImage"))
             return false;
 
         VkMemoryRequirements requirements = {};
-        vkGetImageMemoryRequirements(m_Info.Device, m_AtlasImage, &requirements);
-        if (!m_Allocator->Allocate(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true, m_AtlasMemory) ||
-            !Check(vkBindImageMemory(m_Info.Device, m_AtlasImage, m_AtlasMemory.Memory, m_AtlasMemory.Offset),
+        vkGetImageMemoryRequirements(m_Info.Device, atlas.Image, &requirements);
+        if (!m_Allocator->Allocate(requirements, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, true, atlas.Memory) ||
+            !Check(vkBindImageMemory(m_Info.Device, atlas.Image, atlas.Memory.Memory, atlas.Memory.Offset),
                    "vkBindImageMemory"))
             return false;
 
         VkImageViewCreateInfo viewInfo = {};
         viewInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        viewInfo.image = m_AtlasImage;
+        viewInfo.image = atlas.Image;
         viewInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-        viewInfo.format = VK_FORMAT_R8_UNORM;
+        viewInfo.format = format;
         viewInfo.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
-        if (!Check(vkCreateImageView(m_Info.Device, &viewInfo, m_Info.Allocator, &m_AtlasView), "vkCreateImageView"))
+        if (!Check(vkCreateImageView(m_Info.Device, &viewInfo, m_Info.Allocator, &atlas.View), "vkCreateImageView"))
             return false;
 
-        m_AtlasSet = AllocateTextureSet(m_AtlasView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-        if (m_AtlasSet == VK_NULL_HANDLE)
+        atlas.Set = AllocateTextureSet(atlas.View, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        if (atlas.Set == VK_NULL_HANDLE)
             return false;
-        m_AtlasWidth = width;
-        m_AtlasHeight = height;
+        atlas.Width = width;
+        atlas.Height = height;
         return true;
+    }
+
+    void VulkanRenderer::DestroyAtlasImage(AtlasImage& atlas)
+    {
+        if (atlas.Set != VK_NULL_HANDLE)
+            vkFreeDescriptorSets(m_Info.Device, m_DescriptorPool, 1, &atlas.Set);
+        if (atlas.View != VK_NULL_HANDLE)
+            vkDestroyImageView(m_Info.Device, atlas.View, m_Info.Allocator);
+        if (atlas.Image != VK_NULL_HANDLE)
+            vkDestroyImage(m_Info.Device, atlas.Image, m_Info.Allocator);
+        m_Allocator->Free(atlas.Memory);
+        atlas = AtlasImage();
     }
 
     RendererBackendCapabilities VulkanRenderer::GetCapabilities() const
@@ -542,9 +543,13 @@ namespace Carbon::Internal
 
     void VulkanRenderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
-        if (m_AtlasImage == VK_NULL_HANDLE || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
+        const bool isColor = update.Format == GlyphAtlasFormat::Color;
+        AtlasImage& atlas = isColor ? m_ColorAtlas : m_Atlas;
+        const uint32_t bytesPerTexel = isColor ? 4 : 1;
+        if (atlas.Image == VK_NULL_HANDLE || atlas.Width != update.Width || atlas.Height != update.Height)
         {
-            if (!CreateAtlasImage(update.Width, update.Height))
+            const VkFormat format = isColor ? VK_FORMAT_R8G8B8A8_UNORM : VK_FORMAT_R8_UNORM;
+            if (!CreateAtlasImage(atlas, format, update.Width, update.Height))
             {
                 InvalidateGlyphAtlas();
                 return;
@@ -554,7 +559,7 @@ namespace Carbon::Internal
         // A new image has undefined contents, so it always gets every row.
         uint32_t firstRow = update.FirstRow;
         uint32_t rowCount = update.RowCount;
-        if (!m_IsAtlasInitialized)
+        if (!atlas.IsInitialized)
         {
             firstRow = 0;
             rowCount = update.Height;
@@ -572,7 +577,8 @@ namespace Carbon::Internal
         }
 
         // The staging buffer of this upload is idle: it can be replaced at once.
-        const VkDeviceSize size = static_cast<VkDeviceSize>(update.Width) * rowCount;
+        const VkDeviceSize rowBytes = static_cast<VkDeviceSize>(update.Width) * bytesPerTexel;
+        const VkDeviceSize size = rowBytes * rowCount;
         if (upload.Staging.Capacity < size)
         {
             DestroyBuffer(upload.Staging);
@@ -585,7 +591,7 @@ namespace Carbon::Internal
                 return;
             }
         }
-        std::memcpy(upload.Staging.Memory.Mapped, update.Pixels.data() + static_cast<size_t>(firstRow) * update.Width,
+        std::memcpy(upload.Staging.Memory.Mapped, update.Pixels.data() + static_cast<size_t>(firstRow * rowBytes),
                     static_cast<size_t>(size));
 
         VkCommandBufferBeginInfo beginInfo = {};
@@ -598,11 +604,11 @@ namespace Carbon::Internal
         barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
         barrier.srcAccessMask = 0;
         barrier.dstAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
-        barrier.oldLayout = m_IsAtlasInitialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
+        barrier.oldLayout = atlas.IsInitialized ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL : VK_IMAGE_LAYOUT_UNDEFINED;
         barrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
         barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-        barrier.image = m_AtlasImage;
+        barrier.image = atlas.Image;
         barrier.subresourceRange = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1};
         vkCmdPipelineBarrier(upload.CommandBuffer, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
                              VK_PIPELINE_STAGE_TRANSFER_BIT, 0, 0, nullptr, 0, nullptr, 1, &barrier);
@@ -612,7 +618,7 @@ namespace Carbon::Internal
         region.imageSubresource = {VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1};
         region.imageOffset = {0, static_cast<int32_t>(firstRow), 0};
         region.imageExtent = {update.Width, rowCount, 1};
-        vkCmdCopyBufferToImage(upload.CommandBuffer, upload.Staging.Handle, m_AtlasImage,
+        vkCmdCopyBufferToImage(upload.CommandBuffer, upload.Staging.Handle, atlas.Image,
                                VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &region);
 
         // Later frames, submitted after this, sample the new rows.
@@ -634,13 +640,13 @@ namespace Carbon::Internal
             return;
         }
         upload.IsPending = true;
-        m_IsAtlasInitialized = true;
+        atlas.IsInitialized = true;
     }
 
     void VulkanRenderer::Render(const DrawData& drawData)
     {
         CB_VERIFY(m_CommandBuffer != VK_NULL_HANDLE, "The Vulkan renderer has no command buffer to record into");
-        if (m_CommandBuffer == VK_NULL_HANDLE || m_AtlasSet == VK_NULL_HANDLE)
+        if (m_CommandBuffer == VK_NULL_HANDLE || m_Atlas.Set == VK_NULL_HANDLE)
             return;
 
         // A new frame takes the next slot; drawing the same frame again reuses what was uploaded.
@@ -716,8 +722,15 @@ namespace Carbon::Internal
             if (right <= left || bottom <= top)
                 continue;
 
-            VkDescriptorSet set = m_AtlasSet;
-            if (command.Texture != TextureID())
+            VkDescriptorSet set = m_Atlas.Set;
+            if (command.Texture == ColorGlyphAtlasTextureID)
+            {
+                // Sent before any command samples it; without it there is nothing to draw.
+                if (m_ColorAtlas.Set == VK_NULL_HANDLE)
+                    continue;
+                set = m_ColorAtlas.Set;
+            }
+            else if (command.Texture != TextureID())
             {
                 // A texture not registered with VulkanGetTextureID is a raw VkImageView (MakeTextureID), sampled in
                 // VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL.

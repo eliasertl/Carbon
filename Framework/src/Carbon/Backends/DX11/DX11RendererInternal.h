@@ -112,10 +112,16 @@ namespace Carbon::Internal
         UINT m_IndexCapacity = 0;
         UINT m_PrimitiveCapacity = 0;
 
-        ComPtr<ID3D11Texture2D> m_AtlasTexture;
-        ComPtr<ID3D11ShaderResourceView> m_AtlasView;
-        uint32_t m_AtlasWidth = 0;
-        uint32_t m_AtlasHeight = 0;
+        /// One of the glyph atlases: R8_UNORM for coverage, R8G8B8A8_UNORM for color glyphs.
+        struct AtlasTexture
+        {
+            ComPtr<ID3D11Texture2D> Texture;
+            ComPtr<ID3D11ShaderResourceView> View;
+            uint32_t Width = 0;
+            uint32_t Height = 0;
+        };
+        AtlasTexture m_Atlas;
+        AtlasTexture m_ColorAtlas;
 
         /// Host views by key, each holding a reference while it is in use.
         std::unordered_map<uint64_t, ComPtr<ID3D11ShaderResourceView>> m_HostTextures;

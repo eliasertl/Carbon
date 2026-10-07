@@ -12,14 +12,19 @@ namespace Carbon
     /// Corner smoothing that matches the look of Apple's continuous corners.
     inline constexpr float DefaultCornerSmoothing = 0.6f;
 
-    /// Identifies a texture a draw command samples. The default value (0) is Carbon's glyph atlas; any other value
-    /// is a host texture: what the renderer backend's GetTextureID function returned, or MakeTextureID(handle).
+    /// Identifies a texture a draw command samples. The default value (0) is Carbon's glyph atlas and
+    /// ColorGlyphAtlasTextureID its atlas of color glyphs; any other value is a host texture: what the renderer
+    /// backend's GetTextureID function returned, or MakeTextureID(handle).
     struct TextureID
     {
         uint64_t Value = 0;
 
         constexpr bool operator==(const TextureID& other) const = default;
     };
+
+    /// The atlas of color glyphs, such as emoji: four bytes per texel instead of the glyph atlas's one. Its value
+    /// (all bits set) is never the handle of a texture, so it cannot be mistaken for a host texture.
+    inline constexpr TextureID ColorGlyphAtlasTextureID{~uint64_t(0)};
 
     /// Makes the TextureID of a native texture handle of the renderer backend in use, which can then be drawn
     /// without registering it first: the C handle of a texture view for WebGPU (`view.Get()`), an image view for
@@ -69,7 +74,9 @@ namespace Carbon
         /// Glyph coverage sampled from the atlas.
         Glyph,
         /// Texture sampled and masked by a squircle.
-        Image
+        Image,
+        /// Color glyph sampled from the color glyph atlas: premultiplied RGBA, multiplied by the vertex color.
+        ColorGlyph
     };
 
     /// Shape parameters shared by the four vertices of a quad. Uploaded to the GPU as-is (32 bytes).

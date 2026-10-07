@@ -4,7 +4,7 @@
 // them together.
 
 uniform vec4 Frame;
-// The texture of the draw command: the glyph atlas or a host texture.
+// The texture of the draw command: one of the glyph atlases or a host texture.
 uniform sampler2D ColorTexture;
 // The frame's primitives, two RGBA32UI texels each: (half size, radius, smoothing) and (stroke width, softness,
 // kind, reserved), 1024 primitives per row. Floats are stored as their bits, so an integer format returns them
@@ -17,6 +17,7 @@ const uint KindSquircleStroke = 1u;
 const uint KindShadow = 2u;
 const uint KindGlyph = 3u;
 const uint KindImage = 4u;
+const uint KindColorGlyph = 5u;
 
 in vec2 vLocal;
 in vec2 vUV;
@@ -24,6 +25,13 @@ in vec4 vColor;
 flat in uint vPrimitive;
 
 layout(location = 0) out vec4 outColor;
+
+vec3 SrgbToLinear(vec3 color)
+{
+    vec3 low = color / 12.92;
+    vec3 high = pow((color + vec3(0.055)) / 1.055, vec3(2.4));
+    return mix(high, low, lessThanEqual(color, vec3(0.04045)));
+}
 
 float SquircleExtent(vec2 halfSize, float radius, float smoothing)
 {
@@ -86,9 +94,10 @@ void main()
     float softness = uintBitsToFloat(second.y);
     uint kind = second.z;
 
-    // Glyph UVs are in texels of the atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
+    // Glyph UVs are in texels of their atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
     vec2 dimensions = vec2(textureSize(ColorTexture, 0));
-    vec2 uv = kind == KindGlyph ? vUV / dimensions : vUV;
+    bool isGlyph = kind == KindGlyph || kind == KindColorGlyph;
+    vec2 uv = isGlyph ? vUV / dimensions : vUV;
     vec4 texel = textureLod(ColorTexture, uv, 0.0);
 
     vec4 color = vColor;
@@ -118,6 +127,15 @@ void main()
     {
         color = color * texel;
         coverage = Coverage(SquircleDistance(vLocal, halfSize, radius, smoothing));
+    }
+    else if (kind == KindColorGlyph)
+    {
+        // The color atlas is premultiplied and sRGB-encoded; sRGB targets need its colors linear. The vertex color
+        // tints and fades it (white draws it as it is).
+        vec3 straight = texel.rgb / max(texel.a, 0.0001);
+        vec3 rgb = mix(texel.rgb, SrgbToLinear(straight) * texel.a, Frame.w);
+        outColor = vec4(rgb * color.rgb, texel.a) * color.a;
+        return;
     }
 
     // Premultiplied alpha output.

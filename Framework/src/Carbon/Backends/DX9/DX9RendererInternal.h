@@ -72,9 +72,15 @@ namespace Carbon::Internal
         ComPtr<IDirect3DIndexBuffer9> m_IndexBuffer;
         UINT m_VertexCapacity = 0;
         UINT m_IndexCapacity = 0;
-        ComPtr<IDirect3DTexture9> m_AtlasTexture;
-        uint32_t m_AtlasWidth = 0;
-        uint32_t m_AtlasHeight = 0;
+        /// One of the glyph atlases: L8 for coverage, A8R8G8B8 for color glyphs.
+        struct AtlasTexture
+        {
+            ComPtr<IDirect3DTexture9> Texture;
+            uint32_t Width = 0;
+            uint32_t Height = 0;
+        };
+        AtlasTexture m_Atlas;
+        AtlasTexture m_ColorAtlas;
 
         /// Host textures by key, each holding a reference while it is in use.
         std::unordered_map<uint64_t, ComPtr<IDirect3DTexture9>> m_HostTextures;

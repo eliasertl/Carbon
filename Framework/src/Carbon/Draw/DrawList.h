@@ -81,6 +81,9 @@ namespace Carbon
         void AddText(Vec2 position, std::string_view text, const TextSpec& spec, Color color);
         /// One glyph from the glyph atlas. Used by the text layer; `uv` is the glyph's atlas region in texels.
         void AddGlyph(const Rect& rect, const Rect& uv, Color color);
+        /// One glyph from the color glyph atlas, such as an emoji, drawn in its own colors multiplied by `tint`:
+        /// white draws it as it is, a translucent white fades it. `uv` is the glyph's atlas region in texels.
+        void AddColorGlyph(const Rect& rect, const Rect& uv, Color tint = Color::White());
 
         /// Adds a filled squircle whose rectangle is not known yet, at this point of the drawing order. A container
         /// uses it for its background: the shape must be drawn before the content, but its size is only known
@@ -152,6 +155,8 @@ namespace Carbon
         float m_Padding = 1.0f;
         uint32_t m_GlyphPrimitive = 0;
         bool m_HasGlyphPrimitive = false;
+        uint32_t m_ColorGlyphPrimitive = 0;
+        bool m_HasColorGlyphPrimitive = false;
     };
 
     /// Returns the draw list of the current frame. Custom components draw their shapes through it.

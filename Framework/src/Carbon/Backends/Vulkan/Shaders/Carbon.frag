@@ -26,6 +26,7 @@ const uint KindSquircleStroke = 1u;
 const uint KindShadow = 2u;
 const uint KindGlyph = 3u;
 const uint KindImage = 4u;
+const uint KindColorGlyph = 5u;
 
 layout(std430, set = 0, binding = 0) readonly buffer Primitives
 {
@@ -37,6 +38,13 @@ layout(location = 0) in vec2 inLocal;
 layout(location = 1) in vec2 inUV;
 layout(location = 2) in vec4 inColor;
 layout(location = 3) flat in uint inPrimitive;
+
+vec3 SrgbToLinear(vec3 color)
+{
+    vec3 low = color / 12.92;
+    vec3 high = pow((color + vec3(0.055)) / 1.055, vec3(2.4));
+    return mix(high, low, lessThanEqual(color, vec3(0.04045)));
+}
 
 layout(location = 0) out vec4 outColor;
 
@@ -93,9 +101,10 @@ void main()
 {
     Primitive primitive = primitives[inPrimitive];
 
-    // Glyph UVs are in texels of the atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
+    // Glyph UVs are in texels of their atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
     vec2 dimensions = vec2(textureSize(colorTexture, 0));
-    vec2 uv = primitive.Kind == KindGlyph ? inUV / dimensions : inUV;
+    bool isGlyph = primitive.Kind == KindGlyph || primitive.Kind == KindColorGlyph;
+    vec2 uv = isGlyph ? inUV / dimensions : inUV;
     vec4 texel = textureLod(colorTexture, uv, 0.0);
 
     vec4 color = inColor;
@@ -125,6 +134,15 @@ void main()
     {
         color = color * texel;
         coverage = Coverage(SquircleDistance(inLocal, primitive.HalfSize, primitive.Radius, primitive.Smoothing));
+    }
+    else if (primitive.Kind == KindColorGlyph)
+    {
+        // The color atlas is premultiplied and sRGB-encoded; sRGB targets need its colors linear. The vertex color
+        // tints and fades it (white draws it as it is).
+        vec3 straight = texel.rgb / max(texel.a, 0.0001);
+        vec3 rgb = mix(texel.rgb, SrgbToLinear(straight) * texel.a, frame.LinearOutput);
+        outColor = vec4(rgb * color.rgb, texel.a) * color.a;
+        return;
     }
 
     // Premultiplied alpha output.

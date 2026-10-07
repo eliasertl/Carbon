@@ -14,7 +14,8 @@ namespace Carbon::Internal
         uint32_t Height = 0;
     };
 
-    /// A single-channel texture that glyph bitmaps are packed into as they are first used.
+    /// A texture that glyph bitmaps are packed into as they are first used: coverage with one byte per texel, or
+    /// color glyphs with four.
     ///
     /// Packing uses the skyline algorithm. When the atlas is full it doubles in size up to a maximum; existing
     /// regions keep their texel coordinates, so quads already emitted this frame stay valid. The renderer uploads
@@ -22,10 +23,10 @@ namespace Carbon::Internal
     class GlyphAtlas
     {
     public:
-        GlyphAtlas(uint32_t width, uint32_t height, uint32_t maxSize);
+        GlyphAtlas(uint32_t width, uint32_t height, uint32_t maxSize, uint32_t bytesPerTexel = 1);
 
-        /// Copies a bitmap (`pitch` bytes per row) into the atlas and returns where it was placed. Returns false
-        /// when it does not fit even after growing to the maximum size.
+        /// Copies a bitmap (`pitch` bytes per row, `width` texels of the atlas's size each) into the atlas and
+        /// returns where it was placed. Returns false when it does not fit even after growing to the maximum size.
         bool Insert(uint32_t width, uint32_t height, const uint8_t* pixels, int32_t pitch, AtlasRegion& region);
 
         /// Removes all glyphs but keeps the current size.
@@ -38,6 +39,8 @@ namespace Carbon::Internal
 
         uint32_t GetWidth() const { return m_Width; }
         uint32_t GetHeight() const { return m_Height; }
+        uint32_t GetBytesPerTexel() const { return m_BytesPerTexel; }
+        /// Width * Height texels of GetBytesPerTexel() bytes each, row by row from the top.
         const std::vector<uint8_t>& GetPixels() const { return m_Pixels; }
 
         /// Changes whenever the atlas grows or is cleared: the texture must be recreated or fully re-uploaded.
@@ -67,6 +70,7 @@ namespace Carbon::Internal
         uint32_t m_Width;
         uint32_t m_Height;
         uint32_t m_MaxSize;
+        uint32_t m_BytesPerTexel;
         std::vector<uint8_t> m_Pixels;
         std::vector<SkylineNode> m_Skyline;
         uint32_t m_Generation = 1;

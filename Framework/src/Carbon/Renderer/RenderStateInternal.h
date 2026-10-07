@@ -30,8 +30,10 @@ namespace Carbon::Internal
         /// the next RenderDrawData or FlushGlyphAtlas, where the backend may touch the GPU.
         std::vector<TextureID> PendingReleases;
 
-        /// The atlas generation the backend received last; 0 when it has to receive a full update.
+        /// The atlas generations the backend received last, of the glyph atlas and of the color glyph atlas; 0
+        /// when it has to receive a full update.
         uint32_t AtlasGeneration = 0;
+        uint32_t ColorAtlasGeneration = 0;
         bool HasReportedMissingBackend = false;
     };
 

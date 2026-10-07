@@ -118,7 +118,7 @@ variables:
 | `GOOGLETEST` | `GTest::gtest_main` | tests | `GTest` |
 | `GOOGLEBENCHMARK` | `benchmark::benchmark` | benchmarks | `benchmark` |
 | `GLFW` | `glfw` | examples, and the OpenGL backend's tests and benchmarks | `glfw3` |
-| `STB` | `stb` | examples and tests | header search for `stb_image_write.h` |
+| `STB` | `stb` | `Carbon` (its PNG decoder, compiled in privately), examples and tests | header search for `stb_image.h` |
 | `DAWN` | `dawn::webgpu_dawn` | `Carbon` (WebGPU backend) | `Dawn` (never built; only searched while `CARBON_BACKEND_WEBGPU` is not `OFF`) |
 
 Rules:
@@ -128,8 +128,12 @@ Rules:
 - With `_BUILD=OFF`, Carbon calls `find_package` and then links exactly `_NAME`. If your package exports a
   different target (for example `Freetype::Freetype`), set `_NAME` to it.
 - Bundled FreeType is built without HarfBuzz, PNG, zlib, bzip2 and Brotli, and bundled HarfBuzz is built against
-  that FreeType target. Dependencies are built statically with their tests, examples, docs and install rules
-  disabled.
+  that FreeType target, with its raster library (`harfbuzz-raster`, which paints COLR color glyphs) and without
+  libpng. Dependencies are built statically with their tests, examples, docs and install rules disabled.
+- `CARBON_DEPS_HARFBUZZ_RASTER_NAME` (default `harfbuzz-raster`) is the target of HarfBuzz's raster library. A
+  HarfBuzz found on the system is used with `harfbuzz::harfbuzz-raster` when its package has it. Without the
+  library Carbon still builds; COLR color glyphs (Segoe UI Emoji, Noto Color Emoji's COLRv1 version) are then drawn
+  in the text color, while CBDT and sbix ones keep their colors, since Carbon decodes their PNG images itself.
 - Public Sans, JetBrains Mono and Phosphor are assets, not libraries, and have no switches.
 
 Example — use system FreeType and HarfBuzz:
@@ -203,7 +207,7 @@ For screenshots of states that need input, and of parts of a window, there are m
 | `--page <name>` | The Gallery page to start on, by its key (`selection`, `menus`, `dates`, `reflection`, ...), or the section of the Reflection example (`general`, `appearance`, `audio`, `network`) |
 | `--show <name>` | Something the Gallery opens at startup: `menu`, `popover`, `alert`, `sheet`, `notification`, `datepicker`, `pathmenu`, `toolbaroverflow` |
 | `--pointer`, `--click`, `--right-click <x>x<y>` | Put the pointer there, and click, before the screenshot is taken |
-| `--compose <text>` | After the click, an input method composes this text in the focused text field: `|` separates its clauses, the first is the one being converted, and `\uXXXX` stands for a character |
+| `--compose <text>` | After the click, an input method composes this text in the focused text field: `|` separates its clauses, the first is the one being converted, and `\uXXXX` or `\UXXXXXXXX` stands for a character |
 | `--crop <x>,<y>,<width>,<height>` | Save only this area of the window, in points |
 | `--section <key>[,<key>...]` | Gallery: scroll to these sections and save only their boxes. A key is a section's title in lower case without spaces or punctuation. Pointer positions are then relative to the box |
 | `--extend <left>,<top>,<right>,<bottom>` | Grow the saved area, for a menu or popover that reaches out of a section |
@@ -289,13 +293,14 @@ What gets installed:
 
 - `lib/`: the static libraries `Carbon`, `CarbonExtensions` and `CarbonReflection`. Carbon is static, so an application links
   FreeType and HarfBuzz as well: copies built from the submodules are installed next to Carbon and exported as
-  `Carbon::freetype` and `Carbon::harfbuzz` (linked automatically through `Carbon::Carbon`). Copies that
+  `Carbon::freetype`, `Carbon::harfbuzz` and `Carbon::harfbuzz-raster` (linked automatically through
+  `Carbon::Carbon`). Copies that
   were found with `find_package` (`CARBON_DEPS_<NAME>_BUILD=OFF`) are found again by `CarbonConfig.cmake`.
 - `include/`: the public headers only. Internal headers are not installed. `Carbon/Reflection/Detail/` is
   installed because the reflection templates are compiled in the application; it is not meant for direct use.
 - `lib/cmake/Carbon/`: the package files.
 - `share/doc/Carbon/`: Carbon's license, the third-party notices and, in `Licenses/`, the license texts of the
-  embedded fonts, FreeType and HarfBuzz. Ship them with your application.
+  embedded fonts, FreeType, HarfBuzz and stb. Ship them with your application.
 
 `Carbon_BACKENDS` lists the renderer backends the package was built with. Their graphics libraries are not
 installed with Carbon; the application's build must be able to find them: the same Dawn install for WebGPU, the

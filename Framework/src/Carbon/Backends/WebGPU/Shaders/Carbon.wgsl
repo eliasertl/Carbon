@@ -27,6 +27,7 @@ const KindSquircleStroke: u32 = 1u;
 const KindShadow: u32 = 2u;
 const KindGlyph: u32 = 3u;
 const KindImage: u32 = 4u;
+const KindColorGlyph: u32 = 5u;
 
 @group(0) @binding(0) var<uniform> frame: Frame;
 @group(0) @binding(1) var<storage, read> primitives: array<Primitive>;
@@ -121,9 +122,10 @@ fn Coverage(distance: f32) -> f32 {
 fn FragmentMain(input: VertexOutput) -> @location(0) vec4f {
     let primitive = primitives[input.primitive];
 
-    // Glyph UVs are in texels of the atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
+    // Glyph UVs are in texels of their atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
     let dimensions = vec2f(textureDimensions(colorTexture));
-    let uv = select(input.uv, input.uv / dimensions, primitive.kind == KindGlyph);
+    let isGlyph = primitive.kind == KindGlyph || primitive.kind == KindColorGlyph;
+    let uv = select(input.uv, input.uv / dimensions, isGlyph);
     let texel = textureSampleLevel(colorTexture, colorSampler, uv, 0.0);
 
     var color = input.color;
@@ -149,6 +151,13 @@ fn FragmentMain(input: VertexOutput) -> @location(0) vec4f {
         case KindImage: {
             color = color * texel;
             coverage = Coverage(SquircleDistance(input.local, primitive.halfSize, primitive.radius, primitive.smoothing));
+        }
+        case KindColorGlyph: {
+            // The color atlas is premultiplied and sRGB-encoded; sRGB targets need its colors linear. The vertex
+            // color tints and fades it (white draws it as it is).
+            let straight = texel.rgb / max(texel.a, 0.0001);
+            let rgb = mix(texel.rgb, SrgbToLinear(straight) * texel.a, frame.linearOutput);
+            return vec4f(rgb * color.rgb, texel.a) * color.a;
         }
         default: {
         }

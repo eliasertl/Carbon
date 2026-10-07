@@ -16,8 +16,11 @@ namespace Carbon
     /// the format of the glyph atlas. It changes whenever an existing backend has to change to stay correct.
     ///
     /// A backend outside the repository pins the version it was written for, so that a later change stops its
-    /// build instead of drawing wrong pixels: `static_assert(Carbon::RendererBackendVersion == 1);`
-    inline constexpr uint32_t RendererBackendVersion = 1;
+    /// build instead of drawing wrong pixels: `static_assert(Carbon::RendererBackendVersion == 2);`
+    ///
+    /// Version 2 added color glyphs: a second atlas (GlyphAtlasFormat::Color) that draw commands sample through
+    /// ColorGlyphAtlasTextureID, and DrawPrimitiveKind::ColorGlyph.
+    inline constexpr uint32_t RendererBackendVersion = 2;
 
     /// Limits of the device a backend draws with. Every field has a default that suits a desktop GPU, so a
     /// backend only sets what its device restricts.
@@ -28,14 +31,26 @@ namespace Carbon
         uint32_t MaxTextureSize = 4096;
     };
 
-    /// Glyph-atlas pixels a backend has to copy into its atlas texture.
-    ///
-    /// The atlas is one texture with a single 8-bit channel that holds the coverage of every glyph in use. Draw
-    /// commands with the default TextureID sample it; glyph quads carry UVs in texels.
+    /// The two glyph atlases, by the format of their texels.
+    enum class GlyphAtlasFormat : uint8_t
+    {
+        /// The glyph atlas: one byte per texel (an 8-bit single-channel texture such as R8Unorm) holding the
+        /// coverage of every glyph in use. Draw commands with the default TextureID sample it.
+        Coverage,
+        /// The color glyph atlas: four bytes per texel, R, G, B, A in that order (an RGBA8Unorm texture), with
+        /// premultiplied alpha and sRGB-encoded colors like vertex colors. Draw commands with
+        /// ColorGlyphAtlasTextureID sample it. It exists only once a color glyph (an emoji) has been drawn.
+        Color
+    };
+
+    /// Glyph-atlas pixels a backend has to copy into one of its two atlas textures. Glyph quads carry UVs in
+    /// texels of their atlas.
     struct GlyphAtlasUpdate
     {
-        /// The whole atlas: Width * Height bytes, one per texel, row by row from the top, without padding.
-        /// Valid during the call only.
+        /// Which atlas, and so the format of its texels.
+        GlyphAtlasFormat Format = GlyphAtlasFormat::Coverage;
+        /// The whole atlas: Width * Height texels (one byte each for Coverage, four for Color), row by row from
+        /// the top, without padding. Valid during the call only.
         std::span<const uint8_t> Pixels;
         /// Size of the atlas in texels.
         uint32_t Width = 0;
@@ -83,18 +98,19 @@ namespace Carbon
         /// that same draw data, so a backend can upload its buffers once per frame however often it is drawn.
         virtual void EndFrame() {}
 
-        /// Copies glyph-atlas pixels into the backend's atlas texture. Called before Render whenever the atlas
-        /// changed, and always once, with a full update, before the first Render.
+        /// Copies glyph-atlas pixels into the backend's texture for that atlas (update.Format). Called before Render
+        /// whenever an atlas changed, and always once for the glyph atlas, with a full update, before the first
+        /// Render; the color glyph atlas follows with a full update of its own once it exists.
         virtual void UpdateGlyphAtlas(const GlyphAtlasUpdate& update) = 0;
 
         /// Draws a finished frame into the target the host gave the backend. `drawData` has at least one command
         /// and a display of at least one pixel; it stays valid until the next NewFrame.
         ///
         /// Draw every command in order with premultiplied-alpha blending, clipped to its ClipRect (points; times
-        /// ContentScale for pixels). TextureID() is the glyph atlas; other IDs are host textures. An ID the backend
-        /// has not seen yet is a native handle the host drew without registering it (MakeTextureID): the backend
-        /// resolves it then, as its GetTextureID function would with default settings, or skips the command with a
-        /// warning if its API cannot draw a raw handle.
+        /// ContentScale for pixels). TextureID() is the glyph atlas and ColorGlyphAtlasTextureID the color glyph
+        /// atlas; other IDs are host textures. An ID the backend has not seen yet is a native handle the host drew
+        /// without registering it (MakeTextureID): the backend resolves it then, as its GetTextureID function
+        /// would with default settings, or skips the command with a warning if its API cannot draw a raw handle.
         virtual void Render(const DrawData& drawData) = 0;
 
         /// A host texture is no longer in use: a whole frame passed in which it was neither registered nor
@@ -151,13 +167,13 @@ namespace Carbon
     /// the host calls earlier. RenderDrawData then has nothing left to upload.
     void FlushGlyphAtlas();
 
-    /// Makes the next glyph-atlas update a full one. For a backend that lost its texture (device reset, lost
-    /// context) or could not create it. May be called from UpdateGlyphAtlas.
+    /// Makes the next update of both glyph atlases a full one. For a backend that lost its textures (device reset,
+    /// lost context) or could not create them. May be called from UpdateGlyphAtlas.
     void InvalidateGlyphAtlas();
 
     /// Marks a host texture as used in the current frame and returns its TextureID, whose Value is `key`. The key
     /// is whatever identifies the texture to the backend, such as a handle or the address of an object; zero is
-    /// the glyph atlas and returns the default TextureID.
+    /// the glyph atlas and returns the default TextureID, and the color glyph atlas's value is not a valid key.
     ///
     /// A texture stays registered while it is registered again or drawn in every frame; after a whole frame
     /// without either, the backend's ReleaseTexture is called. A backend calls this from its GetTextureID

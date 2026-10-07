@@ -90,6 +90,7 @@ set(CARBON_INTERNAL_HEADERS
     src/Carbon/Style/StyleInternal.h
     src/Carbon/Text/Internal/FontFace.h
     src/Carbon/Text/Internal/GlyphAtlas.h
+    src/Carbon/Text/Internal/PngDecoder.h
     src/Carbon/Text/Internal/TextSystem.h
     src/Carbon/Widgets/Internal/TextEditor.h
     src/Carbon/Widgets/Internal/TextInput.h
@@ -125,6 +126,7 @@ set(CARBON_SOURCES
     src/Carbon/Text/Font.cpp
     src/Carbon/Text/Internal/FontFace.cpp
     src/Carbon/Text/Internal/GlyphAtlas.cpp
+    src/Carbon/Text/Internal/PngDecoder.cpp
     src/Carbon/Text/Internal/TextSystem.cpp
     src/Carbon/Text/TextSpec.cpp
     src/Carbon/Widgets/Button.cpp
@@ -238,6 +240,15 @@ endif()
 
 # FreeType and HarfBuzz are implementation details; as static libraries they still reach the final link.
 target_link_libraries(Carbon PRIVATE ${CARBON_DEPS_FREETYPE_NAME} ${CARBON_DEPS_HARFBUZZ_NAME})
+# HarfBuzz's raster library paints COLR color glyphs, when there is one (see ThirdParty/CMakeLists.txt).
+if(TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
+    target_link_libraries(Carbon PRIVATE ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
+    target_compile_definitions(Carbon PRIVATE CARBON_HAS_HARFBUZZ_RASTER=1)
+endif()
+# stb_image decodes the PNG glyphs of CBDT and sbix color fonts, compiled privately into PngDecoder.cpp. Only its
+# headers are needed, and only while building, so the installed package does not depend on it.
+target_include_directories(Carbon SYSTEM PRIVATE
+    "$<BUILD_INTERFACE:$<TARGET_PROPERTY:${CARBON_DEPS_STB_NAME},INTERFACE_INCLUDE_DIRECTORIES>>")
 
 # ---- Renderer backends ------------------------------------------------------------------------
 # Every enabled backend is compiled into Carbon. Its graphics API appears in the backend's public header, so the
@@ -314,9 +325,13 @@ if(CARBON_INSTALL)
     )
 
     # Carbon is a static library, so whoever links it also links FreeType and HarfBuzz. Copies built from the
-    # submodules are installed next to Carbon and exported with it (as Carbon::freetype and Carbon::harfbuzz);
-    # copies that were found on the system are found again by CarbonConfig.cmake.
-    foreach(dependency IN ITEMS FREETYPE HARFBUZZ)
+    # submodules are installed next to Carbon and exported with it (as Carbon::freetype, Carbon::harfbuzz and
+    # Carbon::harfbuzz-raster); copies that were found on the system are found again by CarbonConfig.cmake.
+    set(carbon_bundled_dependencies FREETYPE HARFBUZZ)
+    if(TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
+        list(APPEND carbon_bundled_dependencies HARFBUZZ_RASTER)
+    endif()
+    foreach(dependency IN LISTS carbon_bundled_dependencies)
         get_target_property(dependency_target ${CARBON_DEPS_${dependency}_NAME} ALIASED_TARGET)
         if(NOT dependency_target)
             set(dependency_target ${CARBON_DEPS_${dependency}_NAME})
@@ -350,7 +365,7 @@ if(CARBON_INSTALL)
     install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"
         DESTINATION "${CMAKE_INSTALL_DATADIR}/doc/Carbon"
     )
-    # The licenses of what is inside the installed libraries: the embedded fonts, and FreeType and HarfBuzz.
+    # The licenses of what is inside the installed libraries: the embedded fonts, FreeType, HarfBuzz and stb.
     # The fonts' licenses require their text to accompany every distribution.
     set(carbon_license_files
         "PublicSans/OFL.txt|PublicSans-OFL.txt"
@@ -358,6 +373,7 @@ if(CARBON_INSTALL)
         "Phosphor/LICENSE|Phosphor-LICENSE.txt"
         "FreeType/docs/FTL.TXT|FreeType-FTL.txt"
         "HarfBuzz/COPYING|HarfBuzz-COPYING.txt"
+        "Stb/LICENSE|stb-LICENSE.txt"
     )
     foreach(license_file IN LISTS carbon_license_files)
         string(REPLACE "|" ";" license_file "${license_file}")

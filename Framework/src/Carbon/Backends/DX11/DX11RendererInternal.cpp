@@ -153,41 +153,44 @@ namespace Carbon::Internal
 
     void DX11Renderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
+        const bool isColor = update.Format == GlyphAtlasFormat::Color;
+        AtlasTexture& atlas = isColor ? m_ColorAtlas : m_Atlas;
+        const UINT rowBytes = update.Width * (isColor ? 4 : 1);
+
         // A full update may come with a new size; the changed rows of a partial one fit the texture there is.
-        if (m_AtlasTexture == nullptr || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
+        if (atlas.Texture == nullptr || atlas.Width != update.Width || atlas.Height != update.Height)
         {
             D3D11_TEXTURE2D_DESC desc = {};
             desc.Width = update.Width;
             desc.Height = update.Height;
             desc.MipLevels = 1;
             desc.ArraySize = 1;
-            desc.Format = DXGI_FORMAT_R8_UNORM;
+            desc.Format = isColor ? DXGI_FORMAT_R8G8B8A8_UNORM : DXGI_FORMAT_R8_UNORM;
             desc.SampleDesc.Count = 1;
             desc.Usage = D3D11_USAGE_DEFAULT;
             desc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
             D3D11_SUBRESOURCE_DATA data = {};
             data.pSysMem = update.Pixels.data();
-            data.SysMemPitch = update.Width;
-            m_AtlasView.Reset();
-            m_AtlasTexture.Reset();
-            if (!Check(m_Device->CreateTexture2D(&desc, &data, &m_AtlasTexture), "CreateTexture2D (glyph atlas)") ||
-                !Check(m_Device->CreateShaderResourceView(m_AtlasTexture.Get(), nullptr, &m_AtlasView),
+            data.SysMemPitch = rowBytes;
+            atlas = AtlasTexture();
+            if (!Check(m_Device->CreateTexture2D(&desc, &data, &atlas.Texture), "CreateTexture2D (glyph atlas)") ||
+                !Check(m_Device->CreateShaderResourceView(atlas.Texture.Get(), nullptr, &atlas.View),
                        "CreateShaderResourceView (glyph atlas)"))
             {
-                m_AtlasTexture.Reset();
+                atlas = AtlasTexture();
                 InvalidateGlyphAtlas();
                 return;
             }
-            m_AtlasWidth = update.Width;
-            m_AtlasHeight = update.Height;
+            atlas.Width = update.Width;
+            atlas.Height = update.Height;
             return;
         }
         if (update.RowCount == 0)
             return;
 
         const D3D11_BOX box = {0, update.FirstRow, 0, update.Width, update.FirstRow + update.RowCount, 1};
-        const uint8_t* rows = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * update.Width;
-        m_CurrentContext->UpdateSubresource(m_AtlasTexture.Get(), 0, &box, rows, update.Width, 0);
+        const uint8_t* rows = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * rowBytes;
+        m_CurrentContext->UpdateSubresource(atlas.Texture.Get(), 0, &box, rows, rowBytes, 0);
     }
 
     void DX11Renderer::SaveState(ID3D11DeviceContext* context, SavedState& state) const
@@ -244,7 +247,7 @@ namespace Carbon::Internal
     void DX11Renderer::Render(const DrawData& drawData)
     {
         ID3D11DeviceContext* context = m_CurrentContext;
-        if (m_AtlasView == nullptr)
+        if (m_Atlas.View == nullptr)
             return;
 
         // Buffers: written whole once per frame, discarding what the GPU may still read.
@@ -345,8 +348,15 @@ namespace Carbon::Internal
             if (right <= left || bottom <= top)
                 continue;
 
-            ID3D11ShaderResourceView* view = m_AtlasView.Get();
-            if (command.Texture != TextureID())
+            ID3D11ShaderResourceView* view = m_Atlas.View.Get();
+            if (command.Texture == ColorGlyphAtlasTextureID)
+            {
+                // Sent before any command samples it; without it there is nothing to draw.
+                if (m_ColorAtlas.View == nullptr)
+                    continue;
+                view = m_ColorAtlas.View.Get();
+            }
+            else if (command.Texture != TextureID())
             {
                 // A view not registered with DX11GetTextureID is a raw handle (MakeTextureID): Carbon takes its
                 // reference now.

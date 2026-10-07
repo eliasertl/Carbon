@@ -47,14 +47,17 @@ namespace Carbon::Internal
         float Scale = 1.0f;
         /// Byte offset, in the shaped line, of the first character this glyph belongs to.
         uint32_t Cluster = 0;
+        /// Drawn in its own colors from the color glyph atlas, such as an emoji.
+        bool IsColor = false;
     };
 
-    /// A rasterized glyph in the atlas.
+    /// A rasterized glyph in the atlas, or in the color glyph atlas.
     struct CachedGlyph
     {
         AtlasRegion Region;
         int32_t Left = 0;
         int32_t Top = 0;
+        bool IsColor = false;
     };
 
     /// Where a glyph of a shaped line was found in the glyph cache the last time the line was drawn. A line that
@@ -123,6 +126,9 @@ namespace Carbon::Internal
         void GetCaretPositions(std::string_view line, const TextSpec& spec, std::vector<float>& positions);
 
         GlyphAtlas& GetAtlas() { return m_Atlas; }
+        /// The atlas of color glyphs (RGBA), created when the first one is drawn; null until then, so that text
+        /// without color glyphs costs nothing for it.
+        GlyphAtlas* GetColorAtlas() { return m_ColorAtlas.get(); }
         /// Limits how large the atlas may grow, for renderer backends whose device has small textures. The size
         /// is kept between the atlas's initial size and Carbon's own maximum.
         void SetMaxAtlasSize(uint32_t size);
@@ -198,6 +204,7 @@ namespace Carbon::Internal
         uint16_t m_IconFill = 0;
 
         GlyphAtlas m_Atlas;
+        std::unique_ptr<GlyphAtlas> m_ColorAtlas;
         std::unordered_map<GlyphKey, CachedGlyph, GlyphKeyHash> m_Glyphs;
         /// Changes whenever m_Glyphs is emptied. Starts at 1, so that a new line's slots are never valid.
         uint64_t m_GlyphEpoch = 1;

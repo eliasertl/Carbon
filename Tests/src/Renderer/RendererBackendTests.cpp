@@ -5,6 +5,8 @@
 #include <string>
 #include <vector>
 
+#include "Support/TestFonts.h"
+
 namespace Carbon
 {
     namespace
@@ -564,10 +566,70 @@ namespace Carbon
         RemoveRendererBackend();
     }
 
+    TEST_F(RendererBackendTests, TheColorGlyphAtlasIsSentOnceAColorGlyphIsDrawn)
+    {
+        const std::vector<uint8_t> font = TestFonts::MakeCbdtFont();
+        TextSpec spec;
+        spec.Font = AddFontFromMemory(font, {.Name = "Cbdt"});
+        ASSERT_NE(spec.Font, nullptr);
+        Install();
+        Frame([] { DrawSmallText("Plain"); });
+        RenderDrawData();
+        ASSERT_EQ(m_Record.Updates.size(), 1u);
+        EXPECT_EQ(m_Record.Updates[0].Format, GlyphAtlasFormat::Coverage);
+
+        // The first color glyph brings the color atlas, in full, after the glyph atlas's changes.
+        std::string emoji;
+        AppendUTF8(emoji, TestFonts::ColorCodepoint);
+        Frame([&] { GetDrawList().AddText(Vec2(10.0f, 40.0f), emoji, spec, Color::Black()); });
+        m_Record.Updates.clear();
+        m_Record.UpdatePixelCounts.clear();
+        RenderDrawData();
+        ASSERT_EQ(m_Record.Updates.size(), 1u);
+        const GlyphAtlasUpdate& update = m_Record.Updates[0];
+        EXPECT_EQ(update.Format, GlyphAtlasFormat::Color);
+        EXPECT_TRUE(update.IsFull);
+        EXPECT_EQ(m_Record.UpdatePixelCounts[0], static_cast<size_t>(update.Width) * update.Height * 4);
+
+        // Nothing new: nothing sent. Invalidating sends both atlases in full.
+        m_Record.Updates.clear();
+        RenderDrawData();
+        EXPECT_TRUE(m_Record.Updates.empty());
+        InvalidateGlyphAtlas();
+        RenderDrawData();
+        ASSERT_EQ(m_Record.Updates.size(), 2u);
+        EXPECT_EQ(m_Record.Updates[0].Format, GlyphAtlasFormat::Coverage);
+        EXPECT_EQ(m_Record.Updates[1].Format, GlyphAtlasFormat::Color);
+        EXPECT_TRUE(m_Record.Updates[1].IsFull);
+    }
+
+    TEST_F(RendererBackendTests, TheColorGlyphAtlasIsNeverAHostTexture)
+    {
+        const std::vector<uint8_t> font = TestFonts::MakeCbdtFont();
+        TextSpec spec;
+        spec.Font = AddFontFromMemory(font, {.Name = "Cbdt"});
+        std::string emoji;
+        AppendUTF8(emoji, TestFonts::ColorCodepoint);
+        Install();
+        // Drawn in one frame and not the next ones: a host texture would be released; the atlas is not.
+        Frame([&] { GetDrawList().AddText(Vec2(10.0f, 40.0f), emoji, spec, Color::Black()); });
+        RenderDrawData();
+        RunFrame();
+        RunFrame();
+        Frame(DrawRect);
+        RenderDrawData();
+        EXPECT_TRUE(m_Record.Released.empty());
+
+        // Registering its value as a host texture is a mistake.
+        RunFrame();
+        EXPECT_EQ(RegisterHostTexture(ColorGlyphAtlasTextureID.Value), TextureID());
+        EXPECT_EQ(m_AssertMessages.size(), 1u);
+    }
+
     TEST_F(RendererBackendTests, TheContractHasAVersion)
     {
         // A backend outside the repository pins the version like this.
-        static_assert(RendererBackendVersion == 1);
+        static_assert(RendererBackendVersion == 2);
         SUCCEED();
     }
 } // namespace Carbon

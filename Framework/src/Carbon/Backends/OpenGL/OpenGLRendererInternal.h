@@ -110,9 +110,15 @@ namespace Carbon::Internal
         GLuint m_PrimitiveTexture = 0;
         GLsizei m_PrimitiveRows = 0;
 
-        GLuint m_AtlasTexture = 0;
-        uint32_t m_AtlasWidth = 0;
-        uint32_t m_AtlasHeight = 0;
+        /// One of the glyph atlases: R8 for coverage, RGBA8 for color glyphs.
+        struct AtlasTexture
+        {
+            GLuint Texture = 0;
+            uint32_t Width = 0;
+            uint32_t Height = 0;
+        };
+        AtlasTexture m_Atlas;
+        AtlasTexture m_ColorAtlas;
     };
 
     /// The same renderer installed by the OpenGL ES backend. A type of its own, so that OpenGLRender and

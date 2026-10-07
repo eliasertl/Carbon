@@ -12,10 +12,13 @@ namespace Carbon::Internal
         constexpr uint32_t Gutter = 1;
     } // namespace
 
-    GlyphAtlas::GlyphAtlas(uint32_t width, uint32_t height, uint32_t maxSize)
-        : m_Width(width), m_Height(height), m_MaxSize(std::max(maxSize, std::max(width, height)))
+    GlyphAtlas::GlyphAtlas(uint32_t width, uint32_t height, uint32_t maxSize, uint32_t bytesPerTexel)
+        : m_Width(width),
+          m_Height(height),
+          m_MaxSize(std::max(maxSize, std::max(width, height))),
+          m_BytesPerTexel(std::max(bytesPerTexel, 1u))
     {
-        m_Pixels.assign(static_cast<size_t>(m_Width) * m_Height, 0);
+        m_Pixels.assign(static_cast<size_t>(m_Width) * m_Height * m_BytesPerTexel, 0);
         Clear();
         m_Generation = 1;
     }
@@ -36,11 +39,12 @@ namespace Carbon::Internal
                 return false;
         }
 
+        const size_t rowBytes = static_cast<size_t>(width) * m_BytesPerTexel;
         for (uint32_t row = 0; row < height; row++)
         {
             const uint8_t* source = pixels + static_cast<ptrdiff_t>(row) * pitch;
-            uint8_t* destination = m_Pixels.data() + static_cast<size_t>(y + row) * m_Width + x;
-            std::memcpy(destination, source, width);
+            uint8_t* destination = m_Pixels.data() + (static_cast<size_t>(y + row) * m_Width + x) * m_BytesPerTexel;
+            std::memcpy(destination, source, rowBytes);
         }
 
         if (!IsDirty())
@@ -81,7 +85,7 @@ namespace Carbon::Internal
 
         m_Width = std::min(m_Width, m_MaxSize);
         m_Height = std::min(m_Height, m_MaxSize);
-        m_Pixels.assign(static_cast<size_t>(m_Width) * m_Height, 0);
+        m_Pixels.assign(static_cast<size_t>(m_Width) * m_Height * m_BytesPerTexel, 0);
         Clear();
         return true;
     }
@@ -190,11 +194,12 @@ namespace Carbon::Internal
 
         const uint32_t newWidth = std::min(m_Width * 2, m_MaxSize);
         const uint32_t newHeight = std::min(m_Height * 2, m_MaxSize);
-        std::vector<uint8_t> pixels(static_cast<size_t>(newWidth) * newHeight, 0);
+        std::vector<uint8_t> pixels(static_cast<size_t>(newWidth) * newHeight * m_BytesPerTexel, 0);
         for (uint32_t row = 0; row < m_Height; row++)
         {
-            std::memcpy(pixels.data() + static_cast<size_t>(row) * newWidth,
-                        m_Pixels.data() + static_cast<size_t>(row) * m_Width, m_Width);
+            std::memcpy(pixels.data() + static_cast<size_t>(row) * newWidth * m_BytesPerTexel,
+                        m_Pixels.data() + static_cast<size_t>(row) * m_Width * m_BytesPerTexel,
+                        static_cast<size_t>(m_Width) * m_BytesPerTexel);
         }
         m_Pixels = std::move(pixels);
 

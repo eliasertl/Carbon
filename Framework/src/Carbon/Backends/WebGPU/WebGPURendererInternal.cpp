@@ -78,7 +78,7 @@ namespace Carbon::Internal
         frameLayoutDescriptor.entries = frameEntries.data();
         m_FrameLayout = m_Device.CreateBindGroupLayout(&frameLayoutDescriptor);
 
-        // Group 1: the texture of a draw command (the glyph atlas or a host texture).
+        // Group 1: the texture of a draw command (one of the glyph atlases or a host texture).
         std::array<wgpu::BindGroupLayoutEntry, 2> textureEntries;
         textureEntries[0].binding = 0;
         textureEntries[0].visibility = wgpu::ShaderStage::Fragment;
@@ -198,31 +198,36 @@ namespace Carbon::Internal
 
     void WebGPURenderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
+        const bool isColor = update.Format == GlyphAtlasFormat::Color;
+        AtlasTexture& atlas = isColor ? m_ColorAtlas : m_Atlas;
+        const uint32_t bytesPerTexel = isColor ? 4 : 1;
+
         // A full update may come with a new size; the changed rows of a partial one fit the texture there is.
-        if (m_AtlasTexture == nullptr || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
+        if (atlas.Texture == nullptr || atlas.Width != update.Width || atlas.Height != update.Height)
         {
             wgpu::TextureDescriptor descriptor;
-            descriptor.label = "Carbon glyph atlas";
+            descriptor.label = isColor ? "Carbon color glyph atlas" : "Carbon glyph atlas";
             descriptor.size = {update.Width, update.Height, 1};
-            descriptor.format = wgpu::TextureFormat::R8Unorm;
+            descriptor.format = isColor ? wgpu::TextureFormat::RGBA8Unorm : wgpu::TextureFormat::R8Unorm;
             descriptor.usage = wgpu::TextureUsage::TextureBinding | wgpu::TextureUsage::CopyDst;
-            m_AtlasTexture = m_Device.CreateTexture(&descriptor);
-            m_AtlasBindGroup = CreateTextureBindGroup(m_AtlasTexture.CreateView());
-            m_AtlasWidth = update.Width;
-            m_AtlasHeight = update.Height;
+            atlas.Texture = m_Device.CreateTexture(&descriptor);
+            atlas.BindGroup = CreateTextureBindGroup(atlas.Texture.CreateView());
+            atlas.Width = update.Width;
+            atlas.Height = update.Height;
         }
         if (update.RowCount == 0)
             return;
 
         wgpu::TexelCopyTextureInfo destination;
-        destination.texture = m_AtlasTexture;
+        destination.texture = atlas.Texture;
         destination.origin = {0, update.FirstRow, 0};
         wgpu::TexelCopyBufferLayout layout;
-        layout.bytesPerRow = update.Width;
+        layout.bytesPerRow = update.Width * bytesPerTexel;
         layout.rowsPerImage = update.RowCount;
         const wgpu::Extent3D extent = {update.Width, update.RowCount, 1};
-        const uint8_t* pixels = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * update.Width;
-        m_Queue.WriteTexture(&destination, pixels, static_cast<size_t>(extent.width) * extent.height, &layout, &extent);
+        const size_t rowBytes = static_cast<size_t>(update.Width) * bytesPerTexel;
+        const uint8_t* pixels = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * rowBytes;
+        m_Queue.WriteTexture(&destination, pixels, rowBytes * extent.height, &layout, &extent);
     }
 
     wgpu::BindGroup WebGPURenderer::CreateTextureBindGroup(const wgpu::TextureView& view) const
@@ -313,7 +318,14 @@ namespace Carbon::Internal
 
             if (command.Texture == TextureID())
             {
-                pass.SetBindGroup(1, m_AtlasBindGroup);
+                pass.SetBindGroup(1, m_Atlas.BindGroup);
+            }
+            else if (command.Texture == ColorGlyphAtlasTextureID)
+            {
+                // Sent before any command samples it; without it there is nothing to draw.
+                if (m_ColorAtlas.BindGroup == nullptr)
+                    continue;
+                pass.SetBindGroup(1, m_ColorAtlas.BindGroup);
             }
             else
             {

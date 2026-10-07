@@ -23,15 +23,14 @@ namespace Carbon::Internal
         }
 
         // Sends the atlas rows the backend has not seen: everything for a new generation, else the dirty rows.
-        void SendGlyphAtlas(Context& context)
+        void SendAtlas(RenderState& state, GlyphAtlas& atlas, GlyphAtlasFormat format, uint32_t& sentGeneration)
         {
-            RenderState& state = context.Render;
-            GlyphAtlas& atlas = context.Text->GetAtlas();
-            const bool isFull = state.AtlasGeneration != atlas.GetGeneration();
+            const bool isFull = sentGeneration != atlas.GetGeneration();
             if (!isFull && !atlas.IsDirty())
                 return;
 
             GlyphAtlasUpdate update;
+            update.Format = format;
             update.Pixels = atlas.GetPixels();
             update.Width = atlas.GetWidth();
             update.Height = atlas.GetHeight();
@@ -41,9 +40,18 @@ namespace Carbon::Internal
             update.IsFull = isFull;
 
             // Recorded before the call, so that a backend can ask for the update again from inside it.
-            state.AtlasGeneration = atlas.GetGeneration();
+            sentGeneration = atlas.GetGeneration();
             atlas.ClearDirty();
             state.Backend->UpdateGlyphAtlas(update);
+        }
+
+        // Sends both atlases; the color glyph atlas only once it exists.
+        void SendGlyphAtlas(Context& context)
+        {
+            RenderState& state = context.Render;
+            SendAtlas(state, context.Text->GetAtlas(), GlyphAtlasFormat::Coverage, state.AtlasGeneration);
+            if (GlyphAtlas* colorAtlas = context.Text->GetColorAtlas())
+                SendAtlas(state, *colorAtlas, GlyphAtlasFormat::Color, state.ColorAtlasGeneration);
         }
 
         void ForgetPendingRelease(RenderState& state, TextureID texture)
@@ -83,7 +91,7 @@ namespace Carbon::Internal
         RenderState& state = context.Render;
         for (const DrawCommand& command : context.Draw.GetDrawData().Commands)
         {
-            if (command.Texture == TextureID())
+            if (command.Texture == TextureID() || command.Texture == ColorGlyphAtlasTextureID)
                 continue;
             const auto [entry, isNew] = state.Textures.try_emplace(command.Texture.Value, context.FrameCount);
             entry->second = context.FrameCount;
@@ -113,6 +121,7 @@ namespace Carbon::Internal
         state.Textures.clear();
         state.PendingReleases.clear();
         state.AtlasGeneration = 0;
+        state.ColorAtlasGeneration = 0;
         state.HasReportedMissingBackend = false;
         context.Text->SetMaxAtlasSize(state.Backend->GetCapabilities().MaxTextureSize);
         CB_LOG_INFO("Renderer", "Renderer backend '{}' installed", state.Backend->GetName());
@@ -130,6 +139,7 @@ namespace Carbon::Internal
         state.Textures.clear();
         state.PendingReleases.clear();
         state.AtlasGeneration = 0;
+        state.ColorAtlasGeneration = 0;
         context.Text->SetMaxAtlasSize(RendererBackendCapabilities().MaxTextureSize);
     }
 
@@ -196,12 +206,17 @@ namespace Carbon
 
     void InvalidateGlyphAtlas()
     {
-        Internal::GetContext().Render.AtlasGeneration = 0;
+        Internal::RenderState& state = Internal::GetContext().Render;
+        state.AtlasGeneration = 0;
+        state.ColorAtlasGeneration = 0;
     }
 
     TextureID RegisterHostTexture(uint64_t key)
     {
         if (key == 0)
+            return TextureID();
+        CB_VERIFY(key != ColorGlyphAtlasTextureID.Value, "{:#x} is the color glyph atlas, not a host texture", key);
+        if (key == ColorGlyphAtlasTextureID.Value)
             return TextureID();
         Context& context = Internal::GetContext();
         context.Render.Textures[key] = context.FrameCount;

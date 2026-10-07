@@ -23,6 +23,7 @@ static const uint KindSquircleStroke = 1;
 static const uint KindShadow = 2;
 static const uint KindGlyph = 3;
 static const uint KindImage = 4;
+static const uint KindColorGlyph = 5;
 
 struct VertexInput
 {
@@ -124,11 +125,12 @@ float4 PixelMain(PixelInput input) : SV_Target
     float softness = asfloat(second.y);
     uint kind = second.z;
 
-    // Glyph UVs are in texels of the atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
+    // Glyph UVs are in texels of their atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1.
     float width;
     float height;
     ColorTexture.GetDimensions(width, height);
-    float2 uv = kind == KindGlyph ? input.UV / float2(width, height) : input.UV;
+    bool isGlyph = kind == KindGlyph || kind == KindColorGlyph;
+    float2 uv = isGlyph ? input.UV / float2(width, height) : input.UV;
     float4 texel = ColorTexture.SampleLevel(ColorSampler, uv, 0.0);
 
     float4 color = input.Color;
@@ -157,6 +159,14 @@ float4 PixelMain(PixelInput input) : SV_Target
     {
         color = color * texel;
         coverage = Coverage(SquircleDistance(input.Local, halfSize, radius, smoothing));
+    }
+    else if (kind == KindColorGlyph)
+    {
+        // The color atlas is premultiplied and sRGB-encoded; sRGB targets need its colors linear. The vertex color
+        // tints and fades it (white draws it as it is).
+        float3 straight = texel.rgb / max(texel.a, 0.0001);
+        float3 rgb = lerp(texel.rgb, SrgbToLinear(straight) * texel.a, LinearOutput);
+        return float4(rgb * color.rgb, texel.a) * color.a;
     }
 
     // Premultiplied alpha output.

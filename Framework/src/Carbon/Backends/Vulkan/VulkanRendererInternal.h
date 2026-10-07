@@ -97,6 +97,19 @@ namespace Carbon::Internal
             VkDescriptorSet Set = VK_NULL_HANDLE;
         };
 
+        /// One of the glyph atlases: R8_UNORM for coverage, R8G8B8A8_UNORM for color glyphs.
+        struct AtlasImage
+        {
+            VkImage Image = VK_NULL_HANDLE;
+            VkImageView View = VK_NULL_HANDLE;
+            VulkanAllocation Memory;
+            VkDescriptorSet Set = VK_NULL_HANDLE;
+            uint32_t Width = 0;
+            uint32_t Height = 0;
+            /// The image has received a full upload; before that its contents are undefined.
+            bool IsInitialized = false;
+        };
+
         /// Something a frame in flight may still use, destroyed once FrameNumber + FramesInFlight is reached.
         struct Retired
         {
@@ -112,7 +125,8 @@ namespace Carbon::Internal
         bool CreatePipeline(VkFormat colorFormat, VkFormat depthFormat, VkFormat stencilFormat);
         bool CreateBuffer(Buffer& buffer, VkDeviceSize size, VkBufferUsageFlags usage);
         bool EnsureBuffer(Buffer& buffer, VkDeviceSize requiredSize, VkBufferUsageFlags usage);
-        bool CreateAtlasImage(uint32_t width, uint32_t height);
+        bool CreateAtlasImage(AtlasImage& atlas, VkFormat format, uint32_t width, uint32_t height);
+        void DestroyAtlasImage(AtlasImage& atlas);
         VkDescriptorSet AllocateTextureSet(VkImageView view, VkImageLayout layout);
         void Retire(Retired retired);
         void RetireBuffer(Buffer& buffer);
@@ -143,13 +157,8 @@ namespace Carbon::Internal
         bool m_HasNewDrawData = false;
         bool m_HasUploadedFrame = false;
 
-        VkImage m_AtlasImage = VK_NULL_HANDLE;
-        VkImageView m_AtlasView = VK_NULL_HANDLE;
-        VulkanAllocation m_AtlasMemory;
-        VkDescriptorSet m_AtlasSet = VK_NULL_HANDLE;
-        uint32_t m_AtlasWidth = 0;
-        uint32_t m_AtlasHeight = 0;
-        bool m_IsAtlasInitialized = false;
+        AtlasImage m_Atlas;
+        AtlasImage m_ColorAtlas;
 
         std::unordered_map<uint64_t, HostTexture> m_HostTextures;
         std::vector<Retired> m_Retired;

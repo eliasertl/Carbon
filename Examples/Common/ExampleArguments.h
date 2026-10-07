@@ -31,8 +31,8 @@ namespace Example
         /// 0 for the left button, 1 for the right one, -1 for no click.
         int ClickButton = -1;
         /// --compose <text>: in screenshot mode, after the click, an input method composes this text in the focused
-        /// text field: '|' separates its clauses, the first of which is being converted, and \uXXXX stands for
-        /// a character.
+        /// text field: '|' separates its clauses, the first of which is being converted, and \uXXXX or
+        /// \UXXXXXXXX stands for a character.
         std::string Composition;
         /// --crop <x>,<y>,<width>,<height>: in screenshot mode, saves only this area of the window, in points.
         float Crop[4] = {0.0f, 0.0f, 0.0f, 0.0f};

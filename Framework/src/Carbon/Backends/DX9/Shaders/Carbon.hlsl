@@ -10,7 +10,7 @@
 // pixel centers onto those of the other APIs.
 float4 Frame : register(c0);
 // x: pixels per point. y: 1.0 when the render target expects linear color values (D3DRS_SRGBWRITEENABLE). z, w: one
-// over the glyph atlas's size.
+// over the size of the glyph atlas bound, for the commands that sample one of the atlases.
 float4 Output : register(c1);
 
 sampler2D ColorTexture : register(s0);
@@ -20,6 +20,7 @@ static const float KindSquircleStroke = 1.0;
 static const float KindShadow = 2.0;
 static const float KindGlyph = 3.0;
 static const float KindImage = 4.0;
+static const float KindColorGlyph = 5.0;
 
 struct VertexInput
 {
@@ -133,9 +134,10 @@ float4 PixelMain(PixelShaderInput input) : COLOR0
     float softness = input.Stroke.y;
     float kind = floor(input.Stroke.z + 0.5);
 
-    // Glyph UVs are in texels of the atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1. The
+    // Glyph UVs are in texels of their atlas, so they survive the atlas growing mid-frame. Image UVs are 0..1. The
     // texture is read with an explicit level, which is allowed inside the branches below.
-    float2 uv = kind == KindGlyph ? input.UV * Output.zw : input.UV;
+    bool isGlyph = kind == KindGlyph || kind == KindColorGlyph;
+    float2 uv = isGlyph ? input.UV * Output.zw : input.UV;
     float4 texel = tex2Dlod(ColorTexture, float4(uv, 0.0, 0.0));
 
     float4 color = input.Color;
@@ -164,6 +166,14 @@ float4 PixelMain(PixelShaderInput input) : COLOR0
     {
         color = color * texel;
         coverage = Coverage(SquircleDistance(input.Local, halfSize, radius, smoothing));
+    }
+    else if (kind == KindColorGlyph)
+    {
+        // The color atlas is premultiplied and sRGB-encoded; sRGB targets need its colors linear. The vertex color
+        // tints and fades it (white draws it as it is).
+        float3 straight = texel.rgb / max(texel.a, 0.0001);
+        float3 rgb = lerp(texel.rgb, SrgbToLinear(straight) * texel.a, Output.y);
+        return float4(rgb * color.rgb, texel.a) * color.a;
     }
 
     // Premultiplied alpha output.

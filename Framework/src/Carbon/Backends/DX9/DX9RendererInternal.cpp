@@ -147,27 +147,29 @@ namespace Carbon::Internal
 
     void DX9Renderer::UpdateGlyphAtlas(const GlyphAtlasUpdate& update)
     {
+        const bool isColor = update.Format == GlyphAtlasFormat::Color;
+        AtlasTexture& atlas = isColor ? m_ColorAtlas : m_Atlas;
+
         // A new size gets a new texture; a lost one (InvalidateDeviceObjects) is created again with a full update.
         bool isNew = false;
-        if (m_AtlasTexture == nullptr || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
+        if (atlas.Texture == nullptr || atlas.Width != update.Width || atlas.Height != update.Height)
         {
-            m_AtlasTexture.Reset();
-            m_AtlasWidth = 0;
-            m_AtlasHeight = 0;
+            atlas = AtlasTexture();
             if (!update.IsFull)
             {
                 InvalidateGlyphAtlas();
                 return;
             }
-            if (!Check(m_Device->CreateTexture(update.Width, update.Height, 1, D3DUSAGE_DYNAMIC, D3DFMT_L8,
-                                               D3DPOOL_DEFAULT, &m_AtlasTexture, nullptr),
+            const D3DFORMAT format = isColor ? D3DFMT_A8R8G8B8 : D3DFMT_L8;
+            if (!Check(m_Device->CreateTexture(update.Width, update.Height, 1, D3DUSAGE_DYNAMIC, format,
+                                               D3DPOOL_DEFAULT, &atlas.Texture, nullptr),
                        "CreateTexture (glyph atlas)"))
             {
                 InvalidateGlyphAtlas();
                 return;
             }
-            m_AtlasWidth = update.Width;
-            m_AtlasHeight = update.Height;
+            atlas.Width = update.Width;
+            atlas.Height = update.Height;
             isNew = true;
         }
 
@@ -179,24 +181,38 @@ namespace Carbon::Internal
         const RECT rows = {0, static_cast<LONG>(firstRow), static_cast<LONG>(update.Width),
                            static_cast<LONG>(firstRow + rowCount)};
         D3DLOCKED_RECT locked = {};
-        if (!Check(m_AtlasTexture->LockRect(0, &locked, isWhole ? nullptr : &rows, isWhole ? D3DLOCK_DISCARD : 0),
+        if (!Check(atlas.Texture->LockRect(0, &locked, isWhole ? nullptr : &rows, isWhole ? D3DLOCK_DISCARD : 0),
                    "LockRect (glyph atlas)"))
         {
             InvalidateGlyphAtlas();
             return;
         }
+        const size_t rowBytes = static_cast<size_t>(update.Width) * (isColor ? 4 : 1);
         for (uint32_t row = 0; row < rowCount; row++)
         {
-            std::memcpy(static_cast<uint8_t*>(locked.pBits) + static_cast<size_t>(row) * locked.Pitch,
-                        update.Pixels.data() + static_cast<size_t>(firstRow + row) * update.Width, update.Width);
+            uint8_t* target = static_cast<uint8_t*>(locked.pBits) + static_cast<size_t>(row) * locked.Pitch;
+            const uint8_t* source = update.Pixels.data() + static_cast<size_t>(firstRow + row) * rowBytes;
+            if (!isColor)
+            {
+                std::memcpy(target, source, rowBytes);
+                continue;
+            }
+            // A8R8G8B8 is stored as B, G, R, A; the update is R, G, B, A.
+            for (size_t texel = 0; texel < rowBytes; texel += 4)
+            {
+                target[texel + 0] = source[texel + 2];
+                target[texel + 1] = source[texel + 1];
+                target[texel + 2] = source[texel + 0];
+                target[texel + 3] = source[texel + 3];
+            }
         }
-        m_AtlasTexture->UnlockRect(0);
+        atlas.Texture->UnlockRect(0);
     }
 
     void DX9Renderer::Render(const DrawData& drawData)
     {
         IDirect3DDevice9* device = m_Device.Get();
-        if (m_AtlasTexture == nullptr)
+        if (m_Atlas.Texture == nullptr)
             return;
         if (drawData.Vertices.size() - 1 > m_Caps.MaxVertexIndex)
         {
@@ -300,12 +316,14 @@ namespace Carbon::Internal
         // matches the other APIs, whose centers are at half-integers.
         const float frame[4] = {drawData.DisplaySize.X, drawData.DisplaySize.Y, -1.0f / targetWidth,
                                 1.0f / targetHeight};
-        const float output[4] = {scale, m_IsLinearOutput ? 1.0f : 0.0f, 1.0f / static_cast<float>(m_AtlasWidth),
-                                 1.0f / static_cast<float>(m_AtlasHeight)};
+        // The last two values are one over the size of the glyph atlas bound, set with the texture below.
+        float output[4] = {scale, m_IsLinearOutput ? 1.0f : 0.0f, 1.0f / static_cast<float>(m_Atlas.Width),
+                           1.0f / static_cast<float>(m_Atlas.Height)};
         device->SetVertexShaderConstantF(0, frame, 1);
         device->SetVertexShaderConstantF(1, output, 1);
         device->SetPixelShaderConstantF(0, frame, 1);
         device->SetPixelShaderConstantF(1, output, 1);
+        const AtlasTexture* boundAtlas = &m_Atlas;
 
         const UINT vertexCount = static_cast<UINT>(drawData.Vertices.size());
         IDirect3DTexture9* boundTexture = nullptr;
@@ -320,8 +338,17 @@ namespace Carbon::Internal
             if (right <= left || bottom <= top || command.IndexCount < 3)
                 continue;
 
-            IDirect3DTexture9* texture = m_AtlasTexture.Get();
-            if (command.Texture != TextureID())
+            IDirect3DTexture9* texture = m_Atlas.Texture.Get();
+            const AtlasTexture* atlas = &m_Atlas;
+            if (command.Texture == ColorGlyphAtlasTextureID)
+            {
+                // Sent before any command samples it; without it there is nothing to draw.
+                if (m_ColorAtlas.Texture == nullptr)
+                    continue;
+                texture = m_ColorAtlas.Texture.Get();
+                atlas = &m_ColorAtlas;
+            }
+            else if (command.Texture != TextureID())
             {
                 // A texture not registered with DX9GetTextureID is a raw handle (MakeTextureID): Carbon takes its
                 // reference now.
@@ -334,6 +361,17 @@ namespace Carbon::Internal
             {
                 device->SetTexture(0, texture);
                 boundTexture = texture;
+            }
+            // Glyph UVs are in texels: the shader divides by the size of the atlas it samples.
+            if (command.Texture == ColorGlyphAtlasTextureID || command.Texture == TextureID())
+            {
+                if (atlas != boundAtlas)
+                {
+                    output[2] = 1.0f / static_cast<float>(atlas->Width);
+                    output[3] = 1.0f / static_cast<float>(atlas->Height);
+                    device->SetPixelShaderConstantF(1, output, 1);
+                    boundAtlas = atlas;
+                }
             }
 
             const RECT scissor = {static_cast<LONG>(left), static_cast<LONG>(top), static_cast<LONG>(right),
@@ -357,9 +395,8 @@ namespace Carbon::Internal
         m_IndexCapacity = 0;
         // The frame's geometry went with the buffers.
         m_HasNewDrawData = true;
-        m_AtlasTexture.Reset();
-        m_AtlasWidth = 0;
-        m_AtlasHeight = 0;
+        m_Atlas = AtlasTexture();
+        m_ColorAtlas = AtlasTexture();
         InvalidateGlyphAtlas();
 
         // Host textures in D3DPOOL_DEFAULT must be released before a reset too; Carbon forgets them, and takes a

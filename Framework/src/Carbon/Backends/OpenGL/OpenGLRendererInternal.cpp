@@ -172,8 +172,11 @@ namespace Carbon::Internal
         const GLuint buffers[2] = {m_VertexBuffer, m_IndexBuffer};
         m_GL.DeleteBuffers(2, buffers);
         m_GL.DeleteTextures(1, &m_PrimitiveTexture);
-        if (m_AtlasTexture != 0)
-            m_GL.DeleteTextures(1, &m_AtlasTexture);
+        for (AtlasTexture* atlas : {&m_Atlas, &m_ColorAtlas})
+        {
+            if (atlas->Texture != 0)
+                m_GL.DeleteTextures(1, &atlas->Texture);
+        }
         m_GL.DeleteSamplers(1, &m_Sampler);
     }
 
@@ -406,24 +409,30 @@ namespace Carbon::Internal
         m_GL.GetIntegerv(GL::TextureBinding2D, &boundTexture);
         SetUnpackDefaults();
 
+        const bool isColor = update.Format == GlyphAtlasFormat::Color;
+        AtlasTexture& atlas = isColor ? m_ColorAtlas : m_Atlas;
+        const GLenum format = isColor ? GL::Rgba : GL::Red;
+        const size_t rowBytes = static_cast<size_t>(update.Width) * (isColor ? 4 : 1);
+
         // A full update may come with a new size; the changed rows of a partial one fit the texture there is.
-        if (m_AtlasTexture == 0 || m_AtlasWidth != update.Width || m_AtlasHeight != update.Height)
+        if (atlas.Texture == 0 || atlas.Width != update.Width || atlas.Height != update.Height)
         {
-            if (m_AtlasTexture == 0)
-                m_GL.GenTextures(1, &m_AtlasTexture);
-            m_GL.BindTexture(GL::Texture2D, m_AtlasTexture);
+            if (atlas.Texture == 0)
+                m_GL.GenTextures(1, &atlas.Texture);
+            m_GL.BindTexture(GL::Texture2D, atlas.Texture);
             m_GL.TexParameteri(GL::Texture2D, GL::TextureMaxLevel, 0);
-            m_GL.TexImage2D(GL::Texture2D, 0, static_cast<GLint>(GL::R8), static_cast<GLsizei>(update.Width),
-                            static_cast<GLsizei>(update.Height), 0, GL::Red, GL::UnsignedByte, update.Pixels.data());
-            m_AtlasWidth = update.Width;
-            m_AtlasHeight = update.Height;
+            m_GL.TexImage2D(GL::Texture2D, 0, static_cast<GLint>(isColor ? GL::Rgba8 : GL::R8),
+                            static_cast<GLsizei>(update.Width), static_cast<GLsizei>(update.Height), 0, format,
+                            GL::UnsignedByte, update.Pixels.data());
+            atlas.Width = update.Width;
+            atlas.Height = update.Height;
         }
         else if (update.RowCount > 0)
         {
-            m_GL.BindTexture(GL::Texture2D, m_AtlasTexture);
-            const uint8_t* rows = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * update.Width;
+            m_GL.BindTexture(GL::Texture2D, atlas.Texture);
+            const uint8_t* rows = update.Pixels.data() + static_cast<size_t>(update.FirstRow) * rowBytes;
             m_GL.TexSubImage2D(GL::Texture2D, 0, 0, static_cast<GLint>(update.FirstRow),
-                               static_cast<GLsizei>(update.Width), static_cast<GLsizei>(update.RowCount), GL::Red,
+                               static_cast<GLsizei>(update.Width), static_cast<GLsizei>(update.RowCount), format,
                                GL::UnsignedByte, rows);
         }
 
@@ -516,8 +525,15 @@ namespace Carbon::Internal
             if (right <= left || bottom <= top)
                 continue;
 
-            GLuint texture = m_AtlasTexture;
-            if (command.Texture != TextureID())
+            GLuint texture = m_Atlas.Texture;
+            if (command.Texture == ColorGlyphAtlasTextureID)
+            {
+                // Sent before any command samples it; without it there is nothing to draw.
+                if (m_ColorAtlas.Texture == 0)
+                    continue;
+                texture = m_ColorAtlas.Texture;
+            }
+            else if (command.Texture != TextureID())
             {
                 // Registered or not (MakeTextureID), a host texture is its GLuint name; nothing else is kept.
                 if (command.Texture.Value > UINT32_MAX)

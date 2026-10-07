@@ -25,18 +25,20 @@ namespace Example
             return arguments;
         }
 
-        // Replaces \uXXXX escapes by the UTF-8 of their code point. Command lines on Windows reach main() in the
-        // ANSI code page, so text in other scripts is passed this way.
+        // Replaces \uXXXX and \UXXXXXXXX escapes by the UTF-8 of their code point. Command lines on Windows reach
+        // main() in the ANSI code page, so text in other scripts is passed this way.
         std::string Unescape(std::string_view text)
         {
             std::string result;
             for (size_t i = 0; i < text.size(); i++)
             {
-                if (text[i] == '\\' && i + 5 < text.size() && text[i + 1] == 'u')
+                const size_t digitCount =
+                    i + 1 < text.size() ? (text[i + 1] == 'u' ? 4 : (text[i + 1] == 'U' ? 8 : 0)) : 0;
+                if (text[i] == '\\' && digitCount > 0 && i + 1 + digitCount < text.size())
                 {
-                    const std::string digits(text.substr(i + 2, 4));
+                    const std::string digits(text.substr(i + 2, digitCount));
                     Carbon::AppendUTF8(result, static_cast<char32_t>(std::strtoul(digits.c_str(), nullptr, 16)));
-                    i += 5;
+                    i += 1 + digitCount;
                     continue;
                 }
                 result += text[i];

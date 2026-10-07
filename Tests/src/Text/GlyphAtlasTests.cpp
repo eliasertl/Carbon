@@ -188,4 +188,88 @@ namespace Carbon::Internal
         EXPECT_EQ(stored[row1], 4);
         EXPECT_EQ(stored[row1 + 2], 6);
     }
+
+    // ---- The color glyph atlas: four bytes per texel ---------------------------------------------------------
+
+    namespace
+    {
+        // Inserts a color bitmap whose texels are all `rgba` and returns its region.
+        bool InsertColor(GlyphAtlas& atlas, uint32_t width, uint32_t height, uint32_t rgba, AtlasRegion& region)
+        {
+            std::vector<uint8_t> pixels(static_cast<size_t>(width) * height * 4);
+            for (size_t i = 0; i < pixels.size(); i += 4)
+            {
+                pixels[i + 0] = static_cast<uint8_t>(rgba >> 24);
+                pixels[i + 1] = static_cast<uint8_t>(rgba >> 16);
+                pixels[i + 2] = static_cast<uint8_t>(rgba >> 8);
+                pixels[i + 3] = static_cast<uint8_t>(rgba);
+            }
+            return atlas.Insert(width, height, pixels.data(), static_cast<int32_t>(width * 4), region);
+        }
+
+        bool IsColoredWith(const GlyphAtlas& atlas, const AtlasRegion& region, uint32_t rgba)
+        {
+            for (uint32_t y = region.Y; y < region.Y + region.Height; y++)
+            {
+                for (uint32_t x = region.X; x < region.X + region.Width; x++)
+                {
+                    const uint8_t* texel =
+                        atlas.GetPixels().data() + (static_cast<size_t>(y) * atlas.GetWidth() + x) * 4;
+                    const uint32_t value = (static_cast<uint32_t>(texel[0]) << 24) |
+                                           (static_cast<uint32_t>(texel[1]) << 16) |
+                                           (static_cast<uint32_t>(texel[2]) << 8) | texel[3];
+                    if (value != rgba)
+                        return false;
+                }
+            }
+            return true;
+        }
+    } // namespace
+
+    TEST(GlyphAtlasTests, AColorAtlasPacksFourBytesPerTexel)
+    {
+        GlyphAtlas atlas(64, 64, 256, 4);
+        EXPECT_EQ(atlas.GetBytesPerTexel(), 4u);
+        EXPECT_EQ(atlas.GetPixels().size(), 64u * 64u * 4u);
+
+        // Packing works in texels as for coverage; each region holds its own colors and leaves its gutter empty.
+        std::vector<AtlasRegion> regions;
+        for (uint32_t i = 0; i < 40; i++)
+        {
+            AtlasRegion region;
+            ASSERT_TRUE(InsertColor(atlas, 9 + i % 7, 11 + i % 5, 0x10203000u + i, region));
+            regions.push_back(region);
+        }
+        EXPECT_GT(atlas.GetWidth(), 64u) << "40 glyphs do not fit into 64 x 64";
+        EXPECT_EQ(atlas.GetPixels().size(), static_cast<size_t>(atlas.GetWidth()) * atlas.GetHeight() * 4);
+        for (uint32_t i = 0; i < regions.size(); i++)
+        {
+            EXPECT_TRUE(IsColoredWith(atlas, regions[i], 0x10203000u + i)) << "glyph " << i;
+            EXPECT_LE(regions[i].X + regions[i].Width, atlas.GetWidth());
+            EXPECT_LE(regions[i].Y + regions[i].Height, atlas.GetHeight());
+            for (size_t other = i + 1; other < regions.size(); other++)
+                EXPECT_FALSE(Overlaps(regions[i], regions[other]));
+        }
+    }
+
+    TEST(GlyphAtlasTests, AColorAtlasRespectsThePitchAndTracksDirtyRows)
+    {
+        GlyphAtlas atlas(32, 32, 32, 4);
+        atlas.ClearDirty();
+        // Two texels per row, stored with 12 bytes per row: the third texel is padding.
+        const uint8_t pixels[24] = {1, 2,  3,  4,  5,  6,  7,  8,  99, 99, 99, 99,
+                                    9, 10, 11, 12, 13, 14, 15, 16, 99, 99, 99, 99};
+        AtlasRegion region;
+        ASSERT_TRUE(atlas.Insert(2, 2, pixels, 12, region));
+        const uint8_t* row0 = atlas.GetPixels().data() + (static_cast<size_t>(region.Y) * 32 + region.X) * 4;
+        const uint8_t* row1 = row0 + 32 * 4;
+        EXPECT_EQ(row0[0], 1);
+        EXPECT_EQ(row0[7], 8);
+        EXPECT_EQ(row0[8], 0) << "the padding is not copied";
+        EXPECT_EQ(row1[0], 9);
+        EXPECT_EQ(row1[7], 16);
+        EXPECT_TRUE(atlas.IsDirty());
+        EXPECT_EQ(atlas.GetDirtyMinY(), region.Y);
+        EXPECT_EQ(atlas.GetDirtyMaxY(), region.Y + 2);
+    }
 } // namespace Carbon::Internal

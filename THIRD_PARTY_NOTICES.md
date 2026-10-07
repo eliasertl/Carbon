@@ -10,7 +10,8 @@ texts of everything that ends up inside the installed libraries to `share/doc/Ca
 | Component | Version | License | License file |
 | --- | --- | --- | --- |
 | [FreeType](https://freetype.org) | 2.14.3 | FreeType License (FTL) | `ThirdParty/FreeType/docs/FTL.TXT` |
-| [HarfBuzz](https://harfbuzz.github.io) | 14.5.1 | "Old MIT" license | `ThirdParty/HarfBuzz/COPYING` |
+| [HarfBuzz](https://harfbuzz.github.io) (with its raster library, which paints color glyphs) | 14.5.1 | "Old MIT" license | `ThirdParty/HarfBuzz/COPYING` |
+| [stb](https://github.com/nothings/stb) (`stb_image.h` 2.30, PNG only, decodes the glyphs of color fonts) | commit `2c980bb` | MIT or public domain (Unlicense) | `ThirdParty/Stb/LICENSE` |
 | [Dawn](https://dawn.googlesource.com/dawn) | provided by the host | BSD 3-Clause | `LICENSE` in the Dawn repository |
 
 FreeType is dual-licensed (FTL or GPLv2); Carbon uses it under the FreeType License. As that license requires:
@@ -45,6 +46,6 @@ notice to be included with copies of the fonts; include `ThirdParty/Phosphor/LIC
 | Component | Version | License | License file |
 | --- | --- | --- | --- |
 | [GLFW](https://www.glfw.org) | 3.5.1 | zlib/libpng | `ThirdParty/GLFW/LICENSE.md` |
-| [stb](https://github.com/nothings/stb) (`stb_image_write.h` 1.16) | commit `2c980bb` | MIT or public domain (Unlicense) | `ThirdParty/Stb/LICENSE` |
+| [stb](https://github.com/nothings/stb) (`stb_image_write.h` 1.16, writes PNG files) | commit `2c980bb` | MIT or public domain (Unlicense) | `ThirdParty/Stb/LICENSE` |
 | [GoogleTest](https://github.com/google/googletest) | 1.18.0 | BSD 3-Clause | `ThirdParty/GoogleTest/LICENSE` |
 | [Google Benchmark](https://github.com/google/benchmark) | 1.9.5 | Apache License 2.0 | `ThirdParty/GoogleBenchmark/LICENSE` |

@@ -125,6 +125,8 @@ namespace Carbon::Internal
         if (m_AtlasOverflowed || contentScale != m_ContentScale)
         {
             m_Atlas.Clear();
+            if (m_ColorAtlas != nullptr)
+                m_ColorAtlas->Clear();
             ClearGlyphs();
             m_AtlasOverflowed = false;
         }
@@ -205,8 +207,18 @@ namespace Carbon::Internal
 
     void TextSystem::SetMaxAtlasSize(uint32_t size)
     {
-        if (m_Atlas.SetMaxSize(std::clamp(size, InitialAtlasSize, MaxAtlasSize)))
+        const uint32_t maxSize = std::clamp(size, InitialAtlasSize, MaxAtlasSize);
+        // Either atlas shrinking empties both, since the glyph cache refers to both.
+        bool isCleared = m_Atlas.SetMaxSize(maxSize);
+        if (m_ColorAtlas != nullptr && m_ColorAtlas->SetMaxSize(maxSize))
+            isCleared = true;
+        if (isCleared)
+        {
+            m_Atlas.Clear();
+            if (m_ColorAtlas != nullptr)
+                m_ColorAtlas->Clear();
             ClearGlyphs();
+        }
     }
 
     void TextSystem::ClearGlyphs()
@@ -555,6 +567,7 @@ namespace Carbon::Internal
             glyph.Y = static_cast<float>(positions[i].y_offset) * emPerUnit + baselineShift;
             glyph.Scale = scale;
             glyph.Cluster = infos[i].cluster;
+            glyph.IsColor = fontFace.HasColorGlyphs() && fontFace.IsColorGlyph(glyph.Glyph, weight);
             shaped.Glyphs.push_back(glyph);
             pen += static_cast<float>(positions[i].x_advance) * emPerUnit;
         }
@@ -580,11 +593,17 @@ namespace Carbon::Internal
         if (m_Faces[glyph.Face]->Rasterize(glyph.Glyph, glyph.Weight, static_cast<float>(key.PixelSize) / 64.0f,
                                            subpixelX, bitmap))
         {
-            if (!m_Atlas.Insert(bitmap.Width, bitmap.Height, bitmap.Pixels, bitmap.Pitch, cached.Region))
+            // Color glyphs go into an atlas of their own, made when the first one appears.
+            cached.IsColor = bitmap.Format == GlyphFormat::Color;
+            if (cached.IsColor && m_ColorAtlas == nullptr)
+                m_ColorAtlas =
+                    std::make_unique<GlyphAtlas>(InitialAtlasSize, InitialAtlasSize, m_Atlas.GetMaxSize(), 4);
+            GlyphAtlas& atlas = cached.IsColor ? *m_ColorAtlas : m_Atlas;
+            if (!atlas.Insert(bitmap.Width, bitmap.Height, bitmap.Pixels, bitmap.Pitch, cached.Region))
             {
                 // The atlas is full at its maximum size. Skip this glyph now and start over next frame.
                 if (!m_AtlasOverflowed)
-                    CB_LOG_WARNING("Text", "Glyph atlas is full ({0} x {0}); it will be rebuilt", m_Atlas.GetWidth());
+                    CB_LOG_WARNING("Text", "Glyph atlas is full ({0} x {0}); it will be rebuilt", atlas.GetWidth());
                 m_AtlasOverflowed = true;
                 return nullptr;
             }
@@ -641,12 +660,17 @@ namespace Carbon::Internal
         }
         const uint32_t pixelSize = static_cast<uint32_t>(std::lround(pixelsPerEm * 64.0f));
 
+        // Color glyphs are drawn in their own colors, faded as the text is: only the color's opacity applies.
+        const Color colorGlyphTint = Color::White().WithOpacity(color.A);
+
         for (size_t i = first; i < end; i++)
         {
             const ShapedGlyph& glyph = shaped.Glyphs[i];
             const float penX = originX + GetGlyphX(shaped, spec, i) * scale;
 
-            const float quantized = std::floor(penX * static_cast<float>(SubpixelBins) + 0.5f);
+            // Color glyphs are pictures rather than strokes; one rasterization on the nearest pixel is enough.
+            const float quantized = glyph.IsColor ? std::round(penX) * static_cast<float>(SubpixelBins)
+                                                  : std::floor(penX * static_cast<float>(SubpixelBins) + 0.5f);
             const float wholeX = std::floor(quantized / static_cast<float>(SubpixelBins));
             const uint8_t bin = static_cast<uint8_t>(quantized - wholeX * static_cast<float>(SubpixelBins));
 
@@ -672,7 +696,10 @@ namespace Carbon::Internal
                             static_cast<float>(cached->Region.Height) / scale);
             const Rect texels(static_cast<float>(cached->Region.X), static_cast<float>(cached->Region.Y),
                               static_cast<float>(cached->Region.Width), static_cast<float>(cached->Region.Height));
-            drawList.AddGlyph(rect, texels, color);
+            if (cached->IsColor)
+                drawList.AddColorGlyph(rect, texels, colorGlyphTint);
+            else
+                drawList.AddGlyph(rect, texels, color);
         }
     }
 } // namespace Carbon::Internal

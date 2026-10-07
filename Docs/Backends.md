@@ -368,8 +368,8 @@ filtering, clamped to the edge.
 **Shaders.** `Backends/DX11/Shaders/Carbon.hlsl` is a port of the WGSL to shader model 4.0. `fxc` compiles it at
 build time into bytecode headers in the build tree; CMake finds `fxc` in the newest Windows SDK, or takes
 `-DCARBON_FXC_EXECUTABLE=<path>`. Primitives reach the pixel shader through a `Buffer<uint4>`, two elements each,
-whose floats are read back with `asfloat`. The glyph atlas is an `R8_UNORM` texture, updated row range by row range
-with `UpdateSubresource`.
+whose floats are read back with `asfloat`. The glyph atlas is an `R8_UNORM` texture and the color glyph atlas an
+`R8G8B8A8_UNORM` one, updated row range by row range with `UpdateSubresource`.
 
 ## Direct3D 9
 
@@ -425,7 +425,8 @@ shader moves everything by half a pixel, so the output matches the other backend
 **sRGB and textures.** Direct3D 9 has no sRGB surface formats: with an sRGB `ColorFormat` Carbon writes linear values
 with `D3DRS_SRGBWRITEENABLE`. `DX9GetTextureID(texture)` and `MakeTextureID(texture)` take an `IDirect3DTexture9*`;
 level 0 is sampled with linear filtering, clamped, without `D3DSAMP_SRGBTEXTURE`. The glyph atlas is a dynamic `L8`
-texture.
+texture, the color glyph atlas a dynamic `A8R8G8B8` one whose texels are swizzled to B, G, R, A on upload; the pixel
+shader learns the size of the atlas a command samples from a constant set with the texture.
 
 **Shaders.** `Backends/DX9/Shaders/Carbon.hlsl` is a port of the WGSL to shader model 3.0, compiled by `fxc` at
 build time like the Direct3D 11 backend's.
@@ -439,7 +440,7 @@ public header, `Carbon/Renderer/RendererBackend.h`, without changing Carbon. The
 ### The interface
 
 ```cpp
-static_assert(Carbon::RendererBackendVersion == 1);   // the contract this backend was written for
+static_assert(Carbon::RendererBackendVersion == 2);   // the contract this backend was written for
 
 class MyBackend : public Carbon::RendererBackend
 {
@@ -499,7 +500,7 @@ another backend's object.
 | --- | --- | --- |
 | `BeginFrame(frameCount)` | `NewFrame` | Bookkeeping only, such as counting down to destroying objects that frames in flight may still use |
 | `EndFrame()` | `EndFrame` | Bookkeeping only. The draw data is final; every `Render` until the next `EndFrame` gets the same data, so upload it once per frame |
-| `UpdateGlyphAtlas(update)` | `RenderDrawData`, `FlushGlyphAtlas` | Copy atlas rows into the atlas texture (below) |
+| `UpdateGlyphAtlas(update)` | `RenderDrawData`, `FlushGlyphAtlas` | Copy atlas rows into the texture of that atlas (below) |
 | `Render(drawData)` | `RenderDrawData` | Draw the frame into the target your render function stored |
 | `ReleaseTexture(id)` | `RenderDrawData`, `FlushGlyphAtlas`, `ReleaseHostTexture`, removal | Drop what you keep for that host texture |
 | destructor | `<Name>Shutdown`, `RemoveRendererBackend`, `DestroyContext` | Release everything; the backend's context is current |
@@ -518,7 +519,7 @@ the content scale. Upload them however suits the API; the WGSL shader of the Web
   (`Local`), UV, a straight-alpha sRGB color packed as RGBA8 (R in the lowest byte), and the index of the
   vertex's primitive.
 - **Primitives** (`DrawPrimitive`, 32 bytes): half size, corner radius, corner smoothing, stroke width, softness
-  and a kind (`Squircle`, `SquircleStroke`, `Shadow`, `Glyph`, `Image`). The fragment shader reads the primitive
+  and a kind (`Squircle`, `SquircleStroke`, `Shadow`, `Glyph`, `Image`, `ColorGlyph`). The fragment shader reads the primitive
   of a vertex and evaluates the shape per pixel. Storage buffers, texture buffers, a float texture or expanding
   primitives into the vertices are all fine.
 - **Position.** Points map to clip space with the display size: `x / width * 2 - 1`, `1 - y / height * 2` (y
@@ -526,33 +527,52 @@ the content scale. Upload them however suits the API; the WGSL shader of the Web
 - **Shapes.** The squircle distance function (`SquircleDistance` in `Draw/Squircle.cpp` and the shader) gives a
   signed distance in points; coverage is `clamp(0.5 - distance * contentScale, 0, 1)`. A stroke is the outer shape
   minus the shape inset by the stroke width; a shadow is a smoothstep over `2 × softness`; a glyph takes the atlas
-  coverage; an image multiplies the color by the texel and is masked by the squircle.
-- **UVs.** Glyph UVs are in atlas texels (divide by the atlas size); image UVs are 0 to 1, top-left origin.
+  coverage; an image multiplies the color by the texel and is masked by the squircle. A color glyph (an emoji) is
+  the texel of the color glyph atlas, which is premultiplied already, multiplied by the vertex color, which is white
+  with the text's opacity: `vec4(texel.rgb × color.rgb, texel.a) × color.a`. For an sRGB target convert the texel's
+  color to linear first (divide by alpha, convert, multiply again).
+- **UVs.** Glyph and color glyph UVs are in texels of their atlas (divide by the size of the texture bound); image
+  UVs are 0 to 1, top-left origin.
 - **Colors.** Convert the vertex color to linear when the target is sRGB, then write premultiplied alpha:
   `rgb × alpha × coverage, alpha × coverage`, blended with `One, OneMinusSrcAlpha`.
 - **Commands.** Draw each `DrawCommand` in order: `IndexCount` indices from `IndexOffset`, base vertex 0, with the
   clip rectangle (points, times the content scale, rounded to whole pixels and clamped to the target) as scissor.
-  `TextureID()` (zero) is the glyph atlas; any other ID is a host texture. An ID your backend has not seen is a
+  `TextureID()` (zero) is the glyph atlas and `ColorGlyphAtlasTextureID` (all bits set) the color glyph atlas;
+  any other ID is a host texture. An ID your backend has not seen is a
   native handle the host drew without registering it (`MakeTextureID`): resolve it as your `GetTextureID` function
   would with default settings, or skip the command with a warning if your API cannot.
 - **Sampling.** Linear filtering, clamped to the edge.
 
-### The glyph atlas
+### The glyph atlases
 
-The atlas is a single-channel (8-bit coverage) texture. `UpdateGlyphAtlas` receives the whole atlas each time
-(`Pixels`, `Width × Height` bytes, rows from the top), plus the rows that changed:
+There are two atlases, told apart by `update.Format`:
 
-- `IsFull` is set for the first update after the backend is installed, after the atlas grew or was cleared (a new
-  `Generation`, possibly a new size), and after `InvalidateGlyphAtlas()`. Create the texture if the size changed
-  and write every row.
+- `GlyphAtlasFormat::Coverage`, the glyph atlas: a single-channel texture of 8-bit coverage (`R8Unorm`,
+  `R8_UNORM`, `L8`, ...), sampled by commands with `TextureID()`.
+- `GlyphAtlasFormat::Color`, the color glyph atlas: four bytes per texel in the order R, G, B, A (`RGBA8Unorm`;
+  swizzle for an API whose texture is BGRA), premultiplied, with sRGB-encoded colors like the vertex colors. Do
+  not use an sRGB texture format for it. Commands with `ColorGlyphAtlasTextureID` sample it. It exists only once
+  text has drawn a color glyph, such as an emoji from a color font; until then there are no such commands, and a
+  frame without color glyphs costs a backend nothing extra.
+
+`UpdateGlyphAtlas` receives the whole atlas each time (`Pixels`, `Width × Height` texels of one or four bytes,
+rows from the top), plus the rows that changed:
+
+- `IsFull` is set for the first update of an atlas after the backend is installed, after the atlas grew or was
+  cleared (a new `Generation`, possibly a new size), and after `InvalidateGlyphAtlas()`. Create the texture if the
+  size changed and write every row.
 - Otherwise only rows `[FirstRow, FirstRow + RowCount)` changed; rows a backend skipped while it was not rendering
   are included.
 - The first `Render` is always preceded by a full update, so the atlas texture exists even for a frame without text.
 - If you cannot take an update (the texture could not be created), call `InvalidateGlyphAtlas()`: the next
-  update is a full one again. Do the same after losing the device (a Direct3D 9 reset, a lost GL ES context).
+  updates of both atlases are full ones again. Do the same after losing the device (a Direct3D 9 reset, a lost GL
+  ES context).
 - APIs that cannot upload textures where the frame is drawn (inside a render pass) can offer a function the host
   calls earlier, which calls `FlushGlyphAtlas()`; or they upload on a separate command buffer.
-- `GetCapabilities().MaxTextureSize` keeps the atlas within the device's limit.
+- `GetCapabilities().MaxTextureSize` keeps both atlases within the device's limit.
+- Version 1 of the contract had only the glyph atlas. A version 1 backend becomes a version 2 one by creating a
+  second texture for `GlyphAtlasFormat::Color` updates, binding it for `ColorGlyphAtlasTextureID`, and adding the
+  `ColorGlyph` case to its shader.
 
 ### Host textures
 

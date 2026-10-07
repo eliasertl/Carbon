@@ -92,7 +92,11 @@ if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME})
         set(HB_HAVE_FREETYPE ON CACHE BOOL "" FORCE)
         set(HB_BUILD_UTILS OFF CACHE BOOL "" FORCE)
         set(HB_BUILD_SUBSET OFF CACHE BOOL "" FORCE)
-        set(HB_BUILD_RASTER OFF CACHE BOOL "" FORCE)
+        # The raster library paints color glyphs (COLR v0 and v1). Its optional libpng would only decode the
+        # PNG glyphs of CBDT and sbix fonts, which Carbon decodes itself, so it is not looked for: the build does
+        # not depend on what happens to be installed.
+        set(HB_BUILD_RASTER ON CACHE BOOL "" FORCE)
+        set(CMAKE_DISABLE_FIND_PACKAGE_PNG ON)
         set(HB_BUILD_VECTOR OFF CACHE BOOL "" FORCE)
         set(HB_BUILD_GPU OFF CACHE BOOL "" FORCE)
         set(HB_BUILD_GPU_DEMO OFF CACHE STRING "" FORCE)
@@ -113,6 +117,23 @@ if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME})
     endif()
 endif()
 carbon_require_target(HARFBUZZ)
+
+# HarfBuzz's raster library (HarfBuzz 13 and later) paints COLR color glyphs. It comes with the bundled HarfBuzz.
+# A HarfBuzz found on the system may or may not have it; without it, COLR glyphs are drawn in the text color
+# from their outlines. CBDT and sbix color glyphs do not need it.
+set(CARBON_DEPS_HARFBUZZ_RASTER_NAME "harfbuzz-raster" CACHE STRING
+    "CMake target of HarfBuzz's raster library, which Carbon uses to paint COLR color glyphs")
+if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME} AND NOT CARBON_DEPS_HARFBUZZ_BUILD
+   AND TARGET harfbuzz::harfbuzz-raster)
+    add_library(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} INTERFACE IMPORTED GLOBAL)
+    target_link_libraries(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} INTERFACE harfbuzz::harfbuzz-raster)
+    carbon_add_package_dependency(
+        "if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})\n    add_library(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} INTERFACE IMPORTED)\n    target_link_libraries(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} INTERFACE harfbuzz::harfbuzz-raster)\nendif()")
+endif()
+if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
+    message(STATUS "Carbon: HarfBuzz's raster library '${CARBON_DEPS_HARFBUZZ_RASTER_NAME}' was not found; "
+                   "COLR color glyphs will be drawn without their colors")
+endif()
 
 # ---- GoogleTest (tests only) ------------------------------------------------------------------
 if(CARBON_BUILD_TESTS)
@@ -191,23 +212,23 @@ if(CARBON_BUILD_EXAMPLES OR
     carbon_require_target(GLFW)
 endif()
 
-# ---- stb (examples write screenshots, tests write the images of failed comparisons) -----------
-if(CARBON_BUILD_EXAMPLES OR CARBON_BUILD_TESTS)
-    # stb is header-only, so "building" it means wrapping the submodule in an interface target.
-    carbon_declare_dependency(STB stb)
-    if(NOT TARGET ${CARBON_DEPS_STB_NAME})
-        if(CARBON_DEPS_STB_BUILD)
-            carbon_require_submodule(Stb stb_image_write.h)
-            add_library(${CARBON_DEPS_STB_NAME} INTERFACE)
-            target_include_directories(${CARBON_DEPS_STB_NAME} SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Stb")
-        else()
-            find_path(CARBON_STB_INCLUDE_DIR stb_image_write.h PATH_SUFFIXES stb REQUIRED)
-            add_library(${CARBON_DEPS_STB_NAME} INTERFACE IMPORTED GLOBAL)
-            target_include_directories(${CARBON_DEPS_STB_NAME} SYSTEM INTERFACE "${CARBON_STB_INCLUDE_DIR}")
-        endif()
+# ---- stb ----------------------------------------------------------------------------------------
+# Carbon decodes the PNG glyphs of color fonts with stb_image; the examples write screenshots and the tests the
+# images of failed comparisons with stb_image_write. stb is header-only, so "building" it means wrapping the
+# submodule in an interface target.
+carbon_declare_dependency(STB stb)
+if(NOT TARGET ${CARBON_DEPS_STB_NAME})
+    if(CARBON_DEPS_STB_BUILD)
+        carbon_require_submodule(Stb stb_image.h)
+        add_library(${CARBON_DEPS_STB_NAME} INTERFACE)
+        target_include_directories(${CARBON_DEPS_STB_NAME} SYSTEM INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/Stb")
+    else()
+        find_path(CARBON_STB_INCLUDE_DIR stb_image.h PATH_SUFFIXES stb REQUIRED)
+        add_library(${CARBON_DEPS_STB_NAME} INTERFACE IMPORTED GLOBAL)
+        target_include_directories(${CARBON_DEPS_STB_NAME} SYSTEM INTERFACE "${CARBON_STB_INCLUDE_DIR}")
     endif()
-    carbon_require_target(STB)
 endif()
+carbon_require_target(STB)
 
 # ---- Renderer backends ------------------------------------------------------------------------
 # CARBON_BACKEND_<NAME> compiles a renderer backend into the Carbon library. Left unset, a backend is

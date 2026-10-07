@@ -47,6 +47,7 @@ namespace Carbon
         m_MergedCommands.clear();
         m_DrawData = DrawData();
         m_HasGlyphPrimitive = false;
+        m_HasColorGlyphPrimitive = false;
     }
 
     void DrawList::PushLayer(DrawLayer layer, uint32_t depth)
@@ -246,6 +247,28 @@ namespace Carbon
         const Vec2 uvs[4] = {uv.GetMin(), Vec2(uv.GetRight(), uv.Y), uv.GetMax(), Vec2(uv.X, uv.GetBottom())};
         const Vec2 locals[4] = {};
         AddQuad(positions, locals, uvs, color, m_GlyphPrimitive, TextureID(), true);
+    }
+
+    void DrawList::AddColorGlyph(const Rect& rect, const Rect& uv, Color tint)
+    {
+        if (!IsVisible(rect, tint))
+            return;
+
+        // All color glyphs of a frame share one primitive, as glyphs do.
+        if (!m_HasColorGlyphPrimitive)
+        {
+            DrawPrimitive primitive;
+            primitive.Kind = DrawPrimitiveKind::ColorGlyph;
+            m_ColorGlyphPrimitive = static_cast<uint32_t>(m_Primitives.size());
+            m_Primitives.push_back(primitive);
+            m_HasColorGlyphPrimitive = true;
+        }
+
+        const Vec2 positions[4] = {rect.GetMin(), Vec2(rect.GetRight(), rect.Y), rect.GetMax(),
+                                   Vec2(rect.X, rect.GetBottom())};
+        const Vec2 uvs[4] = {uv.GetMin(), Vec2(uv.GetRight(), uv.Y), uv.GetMax(), Vec2(uv.X, uv.GetBottom())};
+        const Vec2 locals[4] = {};
+        AddQuad(positions, locals, uvs, tint, m_ColorGlyphPrimitive, ColorGlyphAtlasTextureID, true);
     }
 
     DeferredShape DrawList::AddDeferredSquircle(Color color)

@@ -352,10 +352,12 @@ rings are a stroke on the outset shape, so ring corners stay concentric with the
 at most one backend; without one it is headless and still builds draw data.
 
 ```cpp
-inline constexpr uint32_t RendererBackendVersion = 1;       // pinned by backends outside the repository
+inline constexpr uint32_t RendererBackendVersion = 2;       // pinned by backends outside the repository
 
 struct RendererBackendCapabilities { uint32_t MaxTextureSize = 4096; };
-struct GlyphAtlasUpdate { span Pixels; uint32_t Width, Height, Generation, FirstRow, RowCount; bool IsFull; };
+struct GlyphAtlasUpdate { GlyphAtlasFormat Format; span Pixels; uint32_t Width, Height, Generation, FirstRow,
+                          RowCount; bool IsFull; };       // Format: Coverage (R8) or Color (RGBA8, premultiplied)
+inline constexpr TextureID ColorGlyphAtlasTextureID;        // the color glyph atlas's ID in draw commands
 
 class RendererBackend
 {
@@ -405,9 +407,11 @@ The first backend, in `Backends/WebGPU/`; `WebGPUInit`, `WebGPUShutdown`, `WebGP
 - One render pipeline, created for the host's `ColorFormat`, `DepthStencilFormat` and `SampleCount`. Premultiplied
   alpha blending, no depth write, depth test always.
 - Bind group 0: frame uniforms (display size, content scale, sRGB flag) and the primitive storage buffer. Bind
-  group 1: texture + sampler, switched per draw command (glyph atlas `R8Unorm`, or a host texture).
+  group 1: texture + sampler, switched per draw command (glyph atlas `R8Unorm`, color glyph atlas `RGBA8Unorm`,
+  or a host texture).
 - The fragment shader switches on `Kind`: squircle fill, squircle stroke, line/capsule, shadow, glyph (atlas
-  coverage), image (texture × tint, masked by a squircle so images can have smooth corners).
+  coverage), image (texture × tint, masked by a squircle so images can have smooth corners), color glyph
+  (premultiplied texel × vertex color, which is white with the text's opacity).
   Antialiasing is `clamp(0.5 - distance * scale, 0, 1)` in pixels, so edges are crisp at any content scale.
 - Vertex, index and primitive buffers are written with `queue.WriteBuffer`, grow geometrically and are reused.
 - Colors are authored in sRGB. For `…Unorm` targets Carbon writes them as-is (gamma-space blending, which is what
@@ -430,6 +434,11 @@ The first backend, in `Backends/WebGPU/`; `WebGPUInit`, `WebGPUShutdown`, `WebGP
   else Public Sans. `GetTextSpec` returns the pushed or theme font, so every component follows `PushFont`.
 - **Variable weight.** One FreeType face per font file; a weight instance (`wght` axis) per used weight, each with
   its own HarfBuzz font. `FontWeight` is a numeric 100–900 enum.
+- **Color glyphs.** Emoji and other color glyphs come from color fonts the host adds: COLR (versions 0 and 1)
+  painted by HarfBuzz's raster library, CBDT and sbix PNG images decoded by stb_image and scaled from the strike
+  that suits the size. They go into a second atlas of RGBA8 texels (premultiplied, sRGB), which exists only once a
+  color glyph has been drawn, and are drawn in their own colors with the text's opacity, at whole pixels (one
+  sub-pixel bin). A draw command samples it through `ColorGlyphAtlasTextureID`. *Decision 138.*
 - **Glyph atlas.** A single-channel atlas with skyline packing, rasterized without hinting at
   `size × contentScale` pixels. Glyph key: face, weight, glyph index, pixel size, horizontal sub-pixel bin
   (4 bins). Baselines snap to whole pixels. The atlas starts at 512² and grows by doubling (to a 4096² cap);
@@ -470,7 +479,8 @@ In `Backends/Vulkan/`: `VulkanInit`, `VulkanShutdown`, `VulkanRender(commandBuff
 - Per frame in flight: host-visible, persistently mapped vertex, index and primitive buffers and the primitive
   descriptor set. The slot advances once per frame (`EndFrame`); objects that recorded frames may still use are
   retired and destroyed `FramesInFlight` frames later.
-- The glyph atlas is an `R8_UNORM` image. Uploads go through a ring of staging buffers and command buffers with
+- The glyph atlas is an `R8_UNORM` image, the color glyph atlas an `R8G8B8A8_UNORM` one. Uploads go through a
+  ring of staging buffers and command buffers with
   fences, submitted to the host's queue from `UpdateGlyphAtlas`, with barriers against earlier and later
   sampling. A new size gets a new image.
 - `VulkanAllocatorInternal` hands out device memory from 4 MB blocks per memory type with a first-fit free list;
@@ -486,7 +496,7 @@ In `Backends/OpenGL/`: `OpenGLInit`, `OpenGLShutdown`, `OpenGLRender()`, `OpenGL
   resolved through the host's `GetProcAddress`. No GL header, no loader library.
 - One program (GLSL 3.30, or GLSL ES 3.00 for the OpenGL ES backend), one vertex array with Carbon's vertex and
   element buffers, an `RGBA32UI` 2D texture for the primitives (floats as bits, exact; 1024 per row), a sampler
-  object for every texture, and an `R8` atlas texture.
+  object for every texture, an `R8` atlas texture and an `RGBA8` color atlas texture.
   Buffers are orphaned with `glBufferData` every frame, so the driver never waits for the GPU.
 - `OpenGLRender` saves the state it changes, draws into the bound framebuffer, and restores the state. Clip space
   and scissor rectangles are flipped for OpenGL's bottom-left origin; `GL_FRAMEBUFFER_SRGB` follows the sRGB-ness
@@ -509,7 +519,8 @@ In `Backends/DX11/`: `DX11Init`, `DX11Shutdown`, `DX11Render(context)`, `DX11Get
 - `Shaders/Carbon.hlsl` (vs_4_0, ps_4_0), a port of the WGSL, is compiled by `fxc` at build time into bytecode
   headers in the build tree. Primitives live in a dynamic `Buffer<uint4>` (floats as bits, read with `asfloat`),
   vertices and indices in dynamic buffers; all three are mapped with `WRITE_DISCARD` and grow by doubling.
-- The glyph atlas is an `R8_UNORM` texture, updated by row range with `UpdateSubresource`.
+- The glyph atlas is an `R8_UNORM` texture, the color glyph atlas an `R8G8B8A8_UNORM` one, updated by row range
+  with `UpdateSubresource`.
 - `DX11Render` saves the pipeline state it changes and restores it; it records into the init context or a context
   it is given, which may be deferred. Host views are held through `ComPtr` while in use.
 
@@ -521,7 +532,8 @@ In `Backends/DX9/`: `DX9Init`, `DX9Shutdown`, `DX9Render()`, `DX9InvalidateDevic
 - `Shaders/Carbon.hlsl` (vs_3_0, ps_3_0) is compiled by `fxc` like the Direct3D 11 shaders. Primitives are copied
   into the vertices on the CPU (`DX9Vertex`, 56 bytes), because shader model 3.0 has neither integer attributes nor
   buffers a pixel shader can index. The vertex shader adds Direct3D 9's half-pixel offset.
-- Vertex and index buffers (32-bit indices), the `L8` glyph atlas and the state block live in `D3DPOOL_DEFAULT`;
+- Vertex and index buffers (32-bit indices), the `L8` glyph atlas, the `A8R8G8B8` color glyph atlas and the state
+  block live in `D3DPOOL_DEFAULT`;
   `DX9InvalidateDeviceObjects` releases them before a device reset, and they are created again on demand.
 - `DX9Render` captures a `D3DSBT_ALL` state block and applies it afterwards; it skips the frame while the device is
   lost, which leaves the atlas changes pending.
@@ -955,6 +967,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 135 | The minimal integrations share one folder, `Examples/Minimal`, with one source per backend (`<Backend>Minimal.cpp`) and the host triangles' shaders; the executables keep their names and are built into `Examples/Minimal` of the build tree. This refines decision 123 | Every other example has one folder whatever the number of backends; the minimal ones differ only in that each has its own source, which does not need a folder of its own. One folder makes the six integrations easy to compare side by side |
 | 136 | Every example executable is built into `Examples/<Backend>/<Example>` of the build tree (`Examples/WebGPU/Gallery`, `Examples/Vulkan/Minimal`, `Examples/WebGPU/Reflection`), through `OUTPUT_NAME` and `RUNTIME_OUTPUT_DIRECTORY` set per example target in `carbon_configure_example`; the target names stay `<Backend><Example>` (and `ReflectionExample`). The screenshot manifest names examples by that path. This refines decisions 94 and 135 | One folder per backend holds everything that runs on it, and an example has the same name on every backend. Only example targets get an output directory: no global setting changes, so Carbon's libraries and a host project's targets are unaffected |
 | 137 | An input method's composition reaches Carbon as four IO events in the input queue: start, update (UTF-8 pre-edit text, caret and optional clauses as byte offsets), commit and cancel. A commit becomes typed characters; the other events are ordered like them. The text field or text area being edited draws the pre-edit text inline at its caret (a thin underline per clause, a thick one under the active clause), deletes a selection once there is pre-edit text, and ignores editing keys while composing. A click in the control, a focus change and the control losing focus commit the pre-edit text as it stands into the control it belongs to, and `IO::WantsCompositionCancel()` asks the host to cancel the input method's composition; a composition that no control showed in a frame is dropped the same way. `IO::GetCaretRect()` is the caret, or the start of the active clause, for the candidate window. Secure fields show no pre-edit text | Pre-edit text has to be laid out with the text it is inserted into, which only Carbon does, so the host cannot draw it in a window of its own the way Dear ImGui hosts do. Events in the queue keep the guarantee that no input is lost or reordered at low frame rates, and their text lives in a buffer next to the queue that keeps its capacity, so composing does not allocate in steady state. Only Carbon knows where an interrupted composition belongs: when the focus moves, the new control resets the shared editor in the same frame, so the old control's caret is handed over with the text; asking the input method to complete the composition would deliver the text a frame later to whichever control is focused then. The examples' host does IMM32 itself through the window procedure, because GLFW 3.5 has no input method API, and adds the system's CJK fonts as fallbacks |
+| 138 | Color glyphs are rasterized by Carbon from the fonts the host adds: COLR versions 0 and 1 by HarfBuzz's raster library (`hb-raster`, HarfBuzz 13 and later; bundled, built without libpng), the PNG images of CBDT and sbix by stb_image (PNG only, compiled into one source with internal linkage) from the strike HarfBuzz picks for the size, scaled by area averaging. They go into a second atlas of premultiplied sRGB RGBA8 texels, created with the first color glyph, which the renderer contract (version 2) passes to backends as `GlyphAtlasFormat::Color` and draw commands sample through the reserved `ColorGlyphAtlasTextureID` (all bits set). `DrawPrimitiveKind::ColorGlyph` draws the texel times the vertex color, which the text system sets to white with the text's opacity. Color glyphs are rasterized once per size, at whole pixels, and a font of bitmaps only (Noto Color Emoji's CBDT version) is accepted | FreeType renders COLR version 0 but has no renderer for version 1's paint graphs, which Segoe UI Emoji and the newer Noto use for gradients; HarfBuzz paints both and ships with the HarfBuzz Carbon already builds. FreeType decodes CBDT only with libpng, and HarfBuzz's painter only with it too; stb_image needs nothing and is already a submodule. One RGBA atlas for all glyphs would quadruple the atlas's memory and uploads for text that has no emoji; a second, lazily created atlas costs such text nothing, and the extra draw command an emoji causes is rare. A reserved texture ID keeps the command model (one texture per command) that every backend already implements. Emoji are pictures: sub-pixel positions would only multiply their atlas space by four |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

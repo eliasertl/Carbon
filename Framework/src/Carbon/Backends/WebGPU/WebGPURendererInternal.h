@@ -37,6 +37,15 @@ namespace Carbon::Internal
             wgpu::BindGroup BindGroup;
         };
 
+        /// One of the glyph atlases: R8Unorm for coverage, RGBA8Unorm for color glyphs.
+        struct AtlasTexture
+        {
+            wgpu::Texture Texture;
+            wgpu::BindGroup BindGroup;
+            uint32_t Width = 0;
+            uint32_t Height = 0;
+        };
+
         void CreatePipeline();
         bool EnsureBuffer(wgpu::Buffer& buffer, uint64_t& capacity, uint64_t requiredSize, wgpu::BufferUsage usage,
                           const char* label);
@@ -66,10 +75,8 @@ namespace Carbon::Internal
         uint64_t m_PrimitiveCapacity = 0;
         wgpu::BindGroup m_FrameBindGroup;
 
-        wgpu::Texture m_AtlasTexture;
-        wgpu::BindGroup m_AtlasBindGroup;
-        uint32_t m_AtlasWidth = 0;
-        uint32_t m_AtlasHeight = 0;
+        AtlasTexture m_Atlas;
+        AtlasTexture m_ColorAtlas;
 
         wgpu::RenderPassEncoder m_Pass;
         std::unordered_map<uint64_t, HostTexture> m_HostTextures;

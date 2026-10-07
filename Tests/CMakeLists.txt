@@ -20,6 +20,7 @@ add_executable(CarbonTests
     src/Layout/ScrollViewTests.cpp
     src/Main.cpp
     src/Overlay/OverlayTests.cpp
+    src/Renderer/BackendColorGlyphTests.cpp
     src/Renderer/BackendCompareTests.cpp
     src/Renderer/BackendSmokeTests.cpp
     src/Renderer/RendererBackendTests.cpp
@@ -37,11 +38,14 @@ add_executable(CarbonTests
     src/Support/ImageCompare.cpp
     src/Support/ImageCompare.h
     src/Support/OpenGLHarness.cpp
+    src/Support/TestFonts.cpp
+    src/Support/TestFonts.h
     src/Support/TestScene.cpp
     src/Support/TestScene.h
     src/Support/VulkanHarness.cpp
     src/Support/WebGPUHarness.cpp
     src/Support/WidgetTest.h
+    src/Text/ColorGlyphTests.cpp
     src/Text/GlyphAtlasTests.cpp
     src/Text/TextTests.cpp
     src/Widgets/TextAreaTests.cpp
@@ -67,6 +71,10 @@ if(CARBON_BACKEND_DX11)
 endif()
 if(CARBON_BACKEND_DX9)
     target_link_libraries(CarbonTests PRIVATE d3d9)
+endif()
+# COLR glyphs are painted only with HarfBuzz's raster library; the tests of them skip without it.
+if(TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
+    target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_COLOR_PAINT=1)
 endif()
 # Tests that compare images write the images of a failure below <build>/Tests.
 target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_OUTPUT_DIR=\"${CMAKE_CURRENT_BINARY_DIR}\"")

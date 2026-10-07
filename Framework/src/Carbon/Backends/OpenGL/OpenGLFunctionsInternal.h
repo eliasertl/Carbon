@@ -75,6 +75,8 @@ namespace Carbon::Internal
         inline constexpr GLenum ClampToEdge = 0x812F;
         inline constexpr GLenum Red = 0x1903;
         inline constexpr GLenum R8 = 0x8229;
+        inline constexpr GLenum Rgba = 0x1908;
+        inline constexpr GLenum Rgba8 = 0x8058;
         inline constexpr GLenum Rgba32ui = 0x8D70;
         inline constexpr GLenum RgbaInteger = 0x8D99;
         inline constexpr GLenum Nearest = 0x2600;
