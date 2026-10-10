@@ -377,7 +377,8 @@ namespace Gallery
         EndRow();
 
         BeginRow("Email");
-        TextField("Email", &state.Email, {.Placeholder = "name@example.com", .Width = 240.0f});
+        TextField("Email", &state.Email,
+                  {.Placeholder = "name@example.com", .Width = 240.0f, .Keyboard = KeyboardType::Email});
         EndRow();
 
         BeginRow("Password");

@@ -137,12 +137,12 @@ namespace Gallery
         const PageInfo& page = GetPageInfo(state.CurrentPage);
         if (state.ShowsPage)
         {
-            ShowNavigationDetail("gallery", true, false);
+            ShowNavigationDetail(NavigationID, true, false);
             state.ShowsPage = false;
         }
         // On a phone, the list of pages leads back to where the Gallery was opened from.
         BeginNavigationSplitView(
-            "gallery",
+            NavigationID,
             {.Title = "Gallery", .DetailTitle = page.Title, .RootBackTitle = options.HasBackButton ? "Start" : ""});
 
         BeginSidebar("pages", {.Width = 210.0f});

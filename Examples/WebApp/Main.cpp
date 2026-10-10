@@ -27,8 +27,7 @@ namespace WebApp
         constexpr std::string_view DocsRoot = "/Docs";
         constexpr std::string_view GalleryRoute = "gallery";
         constexpr std::string_view DocsRoute = "docs";
-        // The ID of the Gallery's navigation split view (Gallery.cpp).
-        constexpr std::string_view GalleryNavigationID = "gallery";
+        constexpr std::string_view GalleryNavigationID = Gallery::NavigationID;
 
         enum class Screen : uint8_t
         {

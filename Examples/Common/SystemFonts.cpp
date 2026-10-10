@@ -51,6 +51,11 @@ namespace Example
         found.HasCjk = AddFirstFont("/System/Library/Fonts", {"AppleSDGothicNeo.ttc"}) || found.HasCjk;
         // Apple Color Emoji: sbix images.
         found.HasEmoji = AddFirstFont("/System/Library/Fonts", {"Apple Color Emoji.ttc"});
+#elif defined(__ANDROID__)
+        // Noto Sans CJK covers all three. Noto Color Emoji is COLR version 1 since Android 13, which keeps the
+        // older CBDT images as NotoColorEmojiLegacy.ttf.
+        found.HasCjk = AddFirstFont("/system/fonts", {"NotoSansCJK-Regular.ttc"});
+        found.HasEmoji = AddFirstFont("/system/fonts", {"NotoColorEmoji.ttf", "NotoColorEmojiLegacy.ttf"});
 #elif !defined(__EMSCRIPTEN__)
         // Noto Sans CJK covers all three; distributions put it in different places.
         for (const char* folder : {"/usr/share/fonts/opentype/noto", "/usr/share/fonts/noto-cjk",

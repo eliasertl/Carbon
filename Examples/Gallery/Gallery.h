@@ -8,6 +8,10 @@
 
 namespace Gallery
 {
+    /// The ID of the Gallery's navigation split view: ShowNavigationDetail(NavigationID, false) returns from a page to
+    /// the list of pages on a phone.
+    inline constexpr std::string_view NavigationID = "gallery";
+
     /// Options of BuildGallery. All fields are optional.
     struct GalleryOptions
     {
