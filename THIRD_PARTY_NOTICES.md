@@ -1,9 +1,11 @@
 # Third-party notices
 
 Carbon is licensed under the MIT License (see [LICENSE](LICENSE)). It uses the third-party components below.
-Each one is a git submodule under `ThirdParty/`, pinned to the listed version; the authoritative license text is
-the file named in the last column inside that submodule. `cmake --install` copies this file and the license
-texts of everything that ends up inside the installed libraries to `share/doc/Carbon`.
+Each one, except Dawn and Emscripten's GLFW port, is a git submodule under `ThirdParty/`, pinned to the listed
+version; the authoritative license text is the file named in the last column inside that submodule.
+`cmake --install` copies this file to `share/doc/Carbon` and the license texts of everything that ends up inside
+the installed libraries (Public Sans, JetBrains Mono, Phosphor, FreeType, HarfBuzz, stb) to
+`share/doc/Carbon/Licenses`.
 
 ## Linked into the `Carbon` library
 
@@ -14,11 +16,16 @@ texts of everything that ends up inside the installed libraries to `share/doc/Ca
 | [stb](https://github.com/nothings/stb) (`stb_image.h` 2.30, PNG only, decodes the glyphs of color fonts) | commit `2c980bb` | MIT or public domain (Unlicense) | `ThirdParty/Stb/LICENSE` |
 | [Dawn](https://dawn.googlesource.com/dawn) | provided by the host | BSD 3-Clause | `LICENSE` in the Dawn repository |
 
+HarfBuzz's raster library is built from the HarfBuzz submodule without libpng, and FreeType without its optional
+PNG, zlib, bzip2 and Brotli support, so no further third-party code ends up in the library.
+
 FreeType is dual-licensed (FTL or GPLv2); Carbon uses it under the FreeType License. As that license requires:
 
 > Portions of this software are copyright © The FreeType Project (www.freetype.org). All rights reserved.
 
-Dawn is not bundled. The host application provides it and is responsible for its notices.
+Dawn is not bundled and is used only by the WebGPU backend. The host application provides it (Carbon is
+developed against Dawn commit `9115802`) and is responsible for its notices. The other backends call graphics
+APIs of the system or SDK (Vulkan, OpenGL, OpenGL ES / WebGL 2, Direct3D 11 and 9) and bundle nothing.
 
 ## Embedded in the `Carbon` library (fonts)
 
@@ -49,3 +56,7 @@ notice to be included with copies of the fonts; include `ThirdParty/Phosphor/LIC
 | [stb](https://github.com/nothings/stb) (`stb_image_write.h` 1.16, writes PNG files) | commit `2c980bb` | MIT or public domain (Unlicense) | `ThirdParty/Stb/LICENSE` |
 | [GoogleTest](https://github.com/google/googletest) | 1.18.0 | BSD 3-Clause | `ThirdParty/GoogleTest/LICENSE` |
 | [Google Benchmark](https://github.com/google/benchmark) | 1.9.5 | Apache License 2.0 | `ThirdParty/GoogleBenchmark/LICENSE` |
+| [Emscripten GLFW port](https://github.com/pongasoft/emscripten-glfw) (`contrib.glfw3`, GLFW 3.4 API; web builds only, replaces the GLFW submodule there) | fetched by Emscripten | Apache License 2.0 | the license file in that repository |
+
+The examples add the system's CJK and emoji fonts as fallbacks at run time when they are installed; they are read
+from the system and never bundled.

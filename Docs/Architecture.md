@@ -1,12 +1,15 @@
 # Carbon Architecture
 
-Status: **approved plan** (2026-10-03); implementation follows the milestones in section 15. This document is the
-design contract for Carbon v1. Sections marked *Decision* record choices made where the brief left room.
+Status: **implemented**. Approved as a plan on 2026-10-03; every milestone in section 15 and every feature planned
+for 1.0 is done (2026-10-10). This document is the design contract for Carbon v1. Sections marked *Decision* record
+choices made where the brief left room; the decision log (section 16) records them all.
 
 Carbon is an immediate-mode C++20 UI framework that looks like macOS 11–26 (flat, no translucency) and renders
-through a renderer backend (WebGPU on Dawn, or one the application writes) into a target owned by the host. It ships as three static libraries: `Carbon` (core),
-`CarbonExtensions` (components built only on Carbon's public extension API) and `CarbonReflection` (interface
-generated from an application's enums and structs, built on both).
+through a renderer backend into a target owned by the host: WebGPU (Dawn), Vulkan, OpenGL 3.3, OpenGL ES 3.0 /
+WebGL 2, Direct3D 11 and Direct3D 9 ship with Carbon, and an application can write its own. It also builds for web
+browsers with Emscripten. It ships as three static libraries: `Carbon` (core), `CarbonExtensions` (components
+built only on Carbon's public extension API) and `CarbonReflection` (interface generated from an application's
+enums and structs, built on both).
 
 ## 1. Principles
 
@@ -29,14 +32,16 @@ Framework/src/Carbon/
 ├── Carbon.h              umbrella header for applications
 ├── Extension.h           umbrella header for component authors (extension API)
 ├── Core/                 Platform, Log, Assert, Math (Vec2, Rect, Color, EdgeInsets), ContentScale, UTF8, Hash, ID,
-│                         State (per-ID storage), FunctionRef (non-owning callback), Context
+│                         State (per-ID storage), FunctionRef (non-owning callback), Callbacks, Context,
+│                         ContextDescription, Version
 ├── Input/                IO, Input (queries), Key, MouseButton, InputEvent, Cursor
 ├── Draw/                 DrawList, DrawTypes (vertex, primitive, command, draw data), Squircle (CPU shape function)
-├── Text/                 FontLibrary, Font, TextShaper, GlyphAtlas, TextLayout, Icons (generated)
-├── Layout/               Stack, Spacer, Grid, Size, ScrollView, layout cursor
-├── Animation/            Spring, Easing, AnimationSpec, Animator (per-ID state)
-├── Style/                Theme, StyleColor, StyleVar, style stacks, TextStyle ramp
-├── Interaction/          hit testing, ButtonBehavior, DragBehavior, focus and keyboard navigation
+├── Text/                 Font, TextSpec, TextStyle, Icons (generated into the build tree); Internal/: TextSystem
+│                         (fallback, shaping, line cache), FontFace, GlyphAtlas, PngDecoder (color bitmaps)
+├── Layout/               Layout (item allocation, cursor), Stack (and Spacer), Grid, Size, ScrollView
+├── Animation/            Animation (AnimationSpec, Animate, per-ID state), Spring, Easing
+├── Style/                Theme, StyleColor, StyleVar, Style (style and font stacks)
+├── Interaction/          hit testing, ButtonBehavior, DragBehavior, focus and keyboard navigation, DragDrop
 ├── Overlay/              floating surfaces above the interface: stacking, pointer capture, focus scopes
 ├── Widgets/              Text, Button, Toggle, Slider, TextField, TextArea, Image, Separator, Tooltip,
 │                         ControlSize, ControlFeedback (hover and pressed feedback shared by all controls);
@@ -51,7 +56,8 @@ Framework/src/Carbon/
 │   ├── OpenGLES/         OpenGLESBackend.h: the OpenGL ES 3.0 / WebGL 2 API over the OpenGL renderer
 │   ├── DX11/             DX11Backend.h, DX11RendererInternal, Shaders/ (HLSL, shader model 4.0)
 │   └── DX9/              DX9Backend.h, DX9RendererInternal, Shaders/ (HLSL, shader model 3.0)
-└── Assets/               declarations of the embedded fonts and shaders (bytes generated into the build tree)
+└── Assets/               declarations of the embedded fonts (bytes generated into the build tree; each backend
+                          declares its own embedded or compiled shaders)
 ```
 
 Dependency direction (each layer uses only the ones above it):
@@ -66,28 +72,30 @@ only Backends/ depends on a graphics API.
 `Extensions/src/Carbon/Extensions/` holds one header and source per extension component (Sidebar, TabView,
 SegmentedControl, Chart, Popover, Menu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox, TokenField,
 RadioGroup, DatePicker, DatePickerCalendar, Stepper, NumberField, ScrubField, ProgressIndicator, SearchField, List,
-Table, OutlineView, ColumnView, PathControl, SplitView, Alert, Sheet, ColorWell, Notification) and, in `Internal/`,
-what several of them share: `NumberEditing` (NumberField, ScrubField), `SelectionList` (Sidebar, List, Table,
-OutlineView, ColumnView), `ColumnLayout` (Table, OutlineView),
-`MenuInternal` (Menu, MenuBar), `RowClipping` (the arithmetic of rows of one height, for lists that add only
-their visible rows) and `BuildState` (a component's scratch state between its Begin and End calls).
+Table, OutlineView, ColumnView, PathControl, SplitView, Alert, Sheet, ColorWell, Notification), the shared types
+`DateTime` and `RowRange`, the umbrella `Extensions.h` and, in `Internal/`, what several of them share:
+`NumberEditing` (NumberField, ScrubField), `SelectionList` (Sidebar, List, Table, OutlineView, ColumnView),
+`ColumnLayout` (Table, OutlineView), `MenuInternal` (Menu, MenuBar), `RowClipping` (the arithmetic of rows of one
+height, for lists that add only their visible rows), `WidestItem` (the cached width of a control's longest item)
+and `BuildState` (a component's scratch state between its Begin and End calls).
 
 `Reflection/src/Carbon/Reflection/` is the reflection library: `Enum.h` and `Struct.h` (queries), `Macros.h`
 (`CB_REFLECT_ENUM`, `CB_REFLECT_STRUCT`), the option structs and the umbrella `Reflection.h`. `Detail/` holds what
 the public templates are made of: `Signature.h` (every compiler-specific trick), `EnumModel.h`, `StructModel.h`,
-`FieldTie.h` (structured bindings for up to 64 fields), `Description.h` (what the macros expand to) and
-`DisplayName.h` (labels). `Reflection/src` may include public Carbon and CarbonExtensions headers only.
+`FieldTie.h` (structured bindings for up to 64 fields), `Description.h` (what the macros expand to),
+`DisplayName.h` (labels) and `ReflectWidgets.h` (the non-template half of `Reflect`). `Reflection/src` may include
+public Carbon and CarbonExtensions headers only.
 
 **Public vs. internal headers.** Public headers are listed explicitly in `Framework/CMakeLists.txt` (a
 `FILE_SET HEADERS`); only they are installed. Internal headers end in `Internal.h` or live in a `Internal/`
 subfolder and use `namespace Carbon::Internal`. Three checks keep the boundary honest:
 
-- a CMake script (`Framework/CMake/CheckPublicIncludes.cmake`), run by CTest and CI as the
+- a CMake script (`Framework/CMake/CheckPublicIncludes.cmake`), run by CTest as the four
   `PublicApiBoundary.*` tests, fails if `Extensions/` or `Examples/CustomComponent` include a non-public
   header, if `Reflection/` includes anything but public Carbon and CarbonExtensions headers, or if a public
   header includes an internal one;
-- CI builds `CarbonExtensions`, `CarbonReflection` and `Examples/CustomComponent` against the *installed*
-  package, where internal headers do not exist;
+- `Tests/Package` (run by CI) builds `CarbonExtensions`, `CarbonReflection` and `Examples/CustomComponent` against
+  the *installed* package, where internal headers do not exist;
 - a CMake script (`Framework/CMake/CheckBackendIsolation.cmake`), run as the `BackendIsolation` test, fails if a
   file outside `Framework/src/Carbon/Backends/` (core, `Extensions/`, `Reflection/`) includes a graphics API's
   header or names its types or functions.
@@ -119,6 +127,7 @@ io.AddMouseWheelEvent(0.0f, -1.0f);
 io.AddKeyEvent(Carbon::Key::Tab, true);
 io.AddInputCharactersUTF8(text);
 io.AddCompositionUpdateEvent(preEdit, caret);   // input methods: also start, commit, cancel
+io.AddFileDropEvent(x, y, paths);               // files from the system: also drag and leave
 io.AddFocusEvent(true);
 
 Carbon::NewFrame();
@@ -141,21 +150,23 @@ Carbon::WebGPURender(pass);                                     // wgpu::RenderP
 Other application-level entry points:
 
 ```cpp
-void DestroyContext(Context* context);
+void DestroyContext(Context* context = nullptr);   // nullptr: the current context
 void SetCurrentContext(Context* context);
 Context* GetCurrentContext();
 
-void SetTheme(const Theme& theme);              // animates from the current theme
+void SetTheme(const Theme& theme, bool animated = true);   // animates from the current theme
 void SetReduceMotion(bool enabled);
 bool IsAnimating();                             // true while anything moves; lets event-driven hosts idle
 float GetNextFrameDelay();                      // seconds until the next frame is due: 0, a caret's blink, or infinity
 
 Font* AddFontFromMemory(std::span<const uint8_t> data, const FontDescription& description = {});
 Font* AddFontFromFile(const std::filesystem::path& path, const FontDescription& description = {});
+Font* GetDefaultFont();   Font* GetMonospacedFont();
 
-void PushID(std::string_view id);  void PushID(int64_t id);  void PopID();
+void PushID(std::string_view id);  void PushID(int64_t id);  void PushID(ID id);  void PopID();
 void PushStyleColor(StyleColor color, Color value);  void PopStyleColor(int count = 1);
 void PushStyleVar(StyleVar var, float value);        void PopStyleVar(int count = 1);
+void PushFont(Font* font);                           void PopFont(int count = 1);
 void PushDisabled(bool disabled = true);             void PopDisabled();
 
 // IO outputs the host reads after NewFrame
@@ -203,7 +214,7 @@ bool TextField(std::string_view label, std::span<char> buffer, const TextFieldOp
 bool TextField(std::string_view label, std::string_view text, FunctionRef<void(std::string_view)> setText,
                const TextFieldOptions& options = {});
 bool TextArea(std::string_view label, std::string* text, const TextAreaOptions& options = {});   // and the same
-                                                // span and callback forms as TextField
+                                                // span and callback forms as TextField; std::string& is deleted
 void Image(TextureID texture, Vec2 size, const ImageOptions& options = {});   // TextureID from a backend
 void Icon(std::string_view icon, const IconOptions& options = {});
 void Separator(const SeparatorOptions& options = {});
@@ -216,10 +227,11 @@ hashed with the ID stack; `"Label##suffix"` disambiguates, `"###id"` fixes the I
 ### Layout
 
 ```cpp
-void BeginVStack(const VStackOptions& options = {});   void EndVStack();
-void BeginHStack(const HStackOptions& options = {});   void EndHStack();
-void Spacer(const SpacerOptions& options = {});        // flexible; .MinLength, .Weight
+void BeginVStack(const VStackOptions& options = {}, source_location = current());   void EndVStack();
+void BeginHStack(const HStackOptions& options = {}, source_location = current());   void EndHStack();
+void Spacer(const SpacerOptions& options = {});        // flexible; .MinLength, .Weight, or a fixed .Length
 void BeginScrollView(std::string_view id, const ScrollViewOptions& options = {});  void EndScrollView();
+void BeginGrid(const GridOptions& options = {}, ...);  void BeginGridRow(...);  void SetNextGridCell(...);
 
 struct Size { static Size Fit(); static Size Fixed(float points); static Size Fill(float weight = 1.0f); };
 
@@ -235,7 +247,8 @@ struct VStackOptions
     std::optional<float> CornerRadius;
     std::string_view ID;                                  // optional stable identity
 };
-// HStackOptions mirrors this with VerticalAlignment Alignment (Top | Center | Bottom) and Alignment Justify.
+// HStackOptions mirrors this with VerticalAlignment Alignment (Top | Center | Bottom, default Center) and
+// Alignment Justify (default Leading).
 
 Vec2 GetCursorPos();  void SetCursorPos(Vec2 position);   // escape hatch for absolute placement
 ```
@@ -255,7 +268,7 @@ EndFrame()                   close root layout, store measured sizes, resolve Ta
                              (RenderDrawData), uploads its buffers and records the draws
 ```
 
-- **Single current context** (`g_Context`), as in Dear ImGui. All free functions operate on it.
+- **Single current context** (`g_CurrentContext`), as in Dear ImGui. All free functions operate on it.
 - **Input queue.** `Add*Event` appends to a queue; `NewFrame` applies it in order. An event that would hide an
   earlier change stays queued for the next frame: a second change of the same button or key, a mouse move after a
   button change (so presses keep their position), and editing keys versus typed characters (so `a`, Backspace,
@@ -273,7 +286,9 @@ EndFrame()                   close root layout, store measured sizes, resolve Ta
 
 ```cpp
 struct DrawVertex { Vec2 Position; Vec2 Local; Vec2 UV; uint32_t Color; uint32_t Primitive; };   // 32 bytes
-struct DrawPrimitive { Vec2 HalfSize; float Radius; float Smoothing; float StrokeWidth; float Softness; DrawPrimitiveKind Kind; uint32_t Reserved; };
+struct DrawPrimitive { Vec2 HalfSize; float Radius; float Smoothing; float StrokeWidth; float Softness;
+                       DrawPrimitiveKind Kind; uint32_t Reserved; };   // 32 bytes
+// DrawPrimitiveKind: Squircle, SquircleStroke, Shadow, Glyph, Image, ColorGlyph
 struct DrawCommand { Rect ClipRect; TextureID Texture; uint32_t IndexOffset; uint32_t IndexCount; };
 struct DrawData { span Vertices; span Indices; span Primitives; span Commands; Vec2 DisplaySize; float ContentScale; };
 
@@ -283,32 +298,37 @@ const DrawData& GetDrawData();           // merged output, valid from EndFrame u
 class DrawList
 {
 public:
-    void PushLayer(DrawLayer layer);     // Background, Content (default), Overlay, Tooltip
+    void PushLayer(DrawLayer layer, uint32_t depth = 0);   // Background, Content (default), Overlay, Tooltip
     void PopLayer();
     void PushClipRect(const Rect& rect, bool intersectWithCurrent = true);
     void PopClipRect();
-    void PushOpacity(float opacity);     // multiplies the alpha of following shapes; nests
+    void PushOpacity(float opacity, bool inherit = true);  // multiplies the alpha of following shapes; nests
     void PopOpacity();
 
     void AddRect(const Rect& rect, Color color);
-    void AddSquircle(const Rect& rect, Color color, float radius, float smoothing = DefaultSmoothing);
-    void AddSquircleStroke(const Rect& rect, Color color, float radius, float width, float smoothing = DefaultSmoothing);
-    void AddFocusRing(const Rect& rect, Color color, float radius, float width, float offset, float smoothing = DefaultSmoothing);
+    void AddSquircle(const Rect& rect, Color color, float radius, float smoothing = DefaultCornerSmoothing);
+    void AddSquircleStroke(const Rect& rect, Color color, float radius, float width, float smoothing = ...);
+    void AddFocusRing(const Rect& rect, Color color, float radius, float width, float offset, float smoothing = ...);
     void AddCircle(Vec2 center, float radius, Color color);
     void AddCircleStroke(Vec2 center, float radius, Color color, float width);
     void AddLine(Vec2 from, Vec2 to, Color color, float width, bool roundCaps = true);
-    void AddShadow(const Rect& rect, Color color, float radius, float blur, Vec2 offset);
-    void AddImage(TextureID texture, const Rect& rect, const Rect& uv, Color tint, float radius = 0.0f);
-    void AddGlyph(const Rect& rect, const Rect& uv, Color color);    // used by the text layer (M2)
+    void AddShadow(const Rect& rect, Color color, float radius, float blur, Vec2 offset = {}, float smoothing = ...);
+    void AddImage(TextureID texture, const Rect& rect, const Rect& uv = {0, 0, 1, 1}, Color tint = White,
+                  float radius = 0.0f, float smoothing = ...);
+    void AddText(Vec2 position, std::string_view text, const TextSpec& spec, Color color);   // implemented in Text/
+    void AddGlyph(const Rect& rect, const Rect& uv, Color color);              // used by the text layer
+    void AddColorGlyph(const Rect& rect, const Rect& uv, Color tint = White);  // color glyph atlas
+    DeferredShape AddDeferredSquircle(Color color);   void ResolveDeferredSquircle(...);   // stack backgrounds
+    void HideSince(size_t vertexCount);               // first-frame settle (section 7)
 };
 ```
 
 Every shape is one quad (4 vertices, 6 indices) one pixel larger than the shape; `Local` carries the position
 relative to the shape centre and `Primitive` indexes a per-frame primitive array (runs of identical shapes share
-one entry, and all glyphs share one). Lines are rotated pills, circles are squircles without smoothing. The draw
-list is in points; clip rects are in points and converted to pixel scissor rects by the renderer. Shapes entirely
-outside the clip rect, fully transparent or empty are dropped. Vertex colors are straight-alpha sRGB; the shader
-premultiplies.
+one entry, and all glyphs share one). Lines are rotated pills (squircles), circles are squircles without
+smoothing. The draw list is in points; clip rects are in points and converted to pixel scissor rects by the
+renderer. Shapes entirely outside the clip rect, fully transparent or empty are dropped. Vertex colors are
+straight-alpha sRGB; the shader premultiplies.
 
 Consecutive quads that share a clip rect and texture merge into one `DrawCommand`. Untextured shapes never
 sample, so they join whatever command is current; shapes and glyphs therefore share the atlas command and a
@@ -321,7 +341,7 @@ front into `DrawData`. That is the whole overlay mechanism on the drawing side.
 
 ### Squircle shape function
 
-`Draw/Squircle.h` holds the pure-CPU function that tests use and the WGSL shader mirrors line for line:
+`Draw/Squircle.h` holds the pure-CPU function that tests use and every backend's shader mirrors line for line:
 
 ```cpp
 float SquircleDistance(Vec2 point, Vec2 halfSize, float radius, float smoothing);  // < 0 inside, in points
@@ -357,7 +377,7 @@ inline constexpr uint32_t RendererBackendVersion = 2;       // pinned by backend
 struct RendererBackendCapabilities { uint32_t MaxTextureSize = 4096; };
 struct GlyphAtlasUpdate { GlyphAtlasFormat Format; span Pixels; uint32_t Width, Height, Generation, FirstRow,
                           RowCount; bool IsFull; };       // Format: Coverage (R8) or Color (RGBA8, premultiplied)
-inline constexpr TextureID ColorGlyphAtlasTextureID;        // the color glyph atlas's ID in draw commands
+inline constexpr TextureID ColorGlyphAtlasTextureID;        // (DrawTypes.h) the color glyph atlas in draw commands
 
 class RendererBackend
 {
@@ -389,8 +409,9 @@ TextureID RegisterHostTexture(uint64_t key);               void ReleaseHostTextu
   `EndFrame`, and the error for rendering without a backend.
 - **Host textures.** `RegisterHostTexture(key)` marks a texture as used in the current frame; `EndFrame` marks
   every texture the frame's commands draw, registered or not, so a texture drawn by its raw handle
-  (`MakeTextureID`) is tracked too and the backend resolves it lazily in `Render`. A texture last used in frame N expires at the start of frame N + 2.
-  The backend hears about it (`ReleaseTexture`) with the next `RenderDrawData` or `FlushGlyphAtlas`, never from
+  (`MakeTextureID`) is tracked too and the backend resolves it lazily in `Render`. A texture last used in frame N
+  expires at the start of frame N + 2. The backend hears about it (`ReleaseTexture`) with the next
+  `RenderDrawData` or `FlushGlyphAtlas`, never from
   `NewFrame`: a backend may only touch the GPU inside calls its own functions make.
 - **Frames in flight.** `EndFrame` tells the backend that new draw data is final; every `Render` until the next
   one receives the same data. A backend that must not overwrite buffers the GPU still reads advances its ring of
@@ -409,8 +430,8 @@ The first backend, in `Backends/WebGPU/`; `WebGPUInit`, `WebGPUShutdown`, `WebGP
 - Bind group 0: frame uniforms (display size, content scale, sRGB flag) and the primitive storage buffer. Bind
   group 1: texture + sampler, switched per draw command (glyph atlas `R8Unorm`, color glyph atlas `RGBA8Unorm`,
   or a host texture).
-- The fragment shader switches on `Kind`: squircle fill, squircle stroke, line/capsule, shadow, glyph (atlas
-  coverage), image (texture × tint, masked by a squircle so images can have smooth corners), color glyph
+- The fragment shader switches on `Kind`: squircle fill (also lines and circles), squircle stroke, shadow, glyph
+  (atlas coverage), image (texture × tint, masked by a squircle so images can have smooth corners), color glyph
   (premultiplied texel × vertex color, which is white with the text's opacity).
   Antialiasing is `clamp(0.5 - distance * scale, 0, 1)` in pixels, so edges are crisp at any content scale.
 - Vertex, index and primitive buffers are written with `queue.WriteBuffer`, grow geometrically and are reused.
@@ -424,49 +445,6 @@ The first backend, in `Backends/WebGPU/`; `WebGPUInit`, `WebGPUShutdown`, `WebGP
   cannot drift from `Squircle.cpp` unnoticed. They skip on machines without an adapter.
 - `WebGPURender(pass)` sets its own viewport, scissor, pipeline and bind groups and does not restore the host's
   state; this is documented in `Docs/Backends.md`.
-
-## 6. Text, fonts and icons
-
-- **Shaping.** HarfBuzz shapes UTF-8 runs (kerning and ligatures on). Runs are split by font fallback: requested
-  font → Public Sans → Phosphor (icons live in the Private Use Area) → fonts added by the host, in order.
-- **Fonts.** Public Sans is the default font, JetBrains Mono the embedded monospaced one (`GetMonospacedFont`).
-  The font of a text is the per-call `TextOptions::Font`, else the innermost `PushFont`, else `Theme::Font`,
-  else Public Sans. `GetTextSpec` returns the pushed or theme font, so every component follows `PushFont`.
-- **Variable weight.** One FreeType face per font file; a weight instance (`wght` axis) per used weight, each with
-  its own HarfBuzz font. `FontWeight` is a numeric 100–900 enum.
-- **Color glyphs.** Emoji and other color glyphs come from color fonts the host adds: COLR (versions 0 and 1)
-  painted by HarfBuzz's raster library, CBDT and sbix PNG images decoded by stb_image and scaled from the strike
-  that suits the size. They go into a second atlas of RGBA8 texels (premultiplied, sRGB), which exists only once a
-  color glyph has been drawn, and are drawn in their own colors with the text's opacity, at whole pixels (one
-  sub-pixel bin). A draw command samples it through `ColorGlyphAtlasTextureID`. *Decision 138.*
-- **Glyph atlas.** A single-channel atlas with skyline packing, rasterized without hinting at
-  `size × contentScale` pixels. Glyph key: face, weight, glyph index, pixel size, horizontal sub-pixel bin
-  (4 bins). Baselines snap to whole pixels. The atlas starts at 512² and grows by doubling (to a 4096² cap);
-  existing glyphs keep their texel coordinates, and glyph quads carry texel UVs that the shader normalizes, so
-  quads emitted before a mid-frame growth stay valid. When the content scale changes or the cap is hit, the atlas
-  is cleared at the start of the next frame and refilled lazily. Only dirty rows are uploaded.
-- **Shaped-line cache.** Shaping happens in font units, so a shaped line is independent of size and content
-  scale. Lines are cached by a hash of (text, font, weight, italic, icon variant) and evicted after about ten
-  seconds without use, so steady-state frames do no shaping and no allocation.
-- **Fallback.** Private Use Area code points use the icon font if it has the glyph; every other character uses
-  the requested face if it has the glyph, then the other registered fonts in order. The monospaced font is never
-  a fallback. A line is split into runs per face and each run is
-  shaped separately. A character and the characters that join it (variation selectors, skin tones, tags, the
-  keycap mark, a zero-width joiner with the character after it, the second regional indicator of a flag) choose
-  their face together, from the first character. Emoji presentation (Unicode's Emoji_Presentation property, VS16,
-  a skin tone, a keycap or a flag) tries faces with color glyphs first, VS15 those without. *Decision 139.*
-- **Text drawing** is `DrawList::AddText`. It is declared on the draw list for convenience but implemented in
-  `Text/`, because text sits above the draw list in the layering.
-- **Type ramp** (`TextStyle`), from the HIG macOS table: Large Title 26/32, Title 1 22/26, Title 2 17/22,
-  Title 3 15/20, Headline 13/16 bold, Body 13/16, Callout 12/15, Subheadline 11/14, Footnote 10/13,
-  Caption 1 10/13, Caption 2 10/13 medium. `TextOptions::Emphasized` selects the HIG's emphasized weight.
-  Public Sans is compared against SF Pro in M2 (x-height and advance widths); any size or weight adjustment is
-  recorded in `Docs/Styling.md`.
-- **Icons.** Phosphor regular, bold and fill fonts are embedded. `Carbon::Icons::House` etc. are
-  `inline constexpr const char*` UTF-8 strings generated at build time from Phosphor's `selection.json` into the
-  build tree, so icons can be drawn with `Icon()` or embedded in any label. The three fonts share their code
-  points. Icon weight follows text weight (semibold and above use the bold font); `TextSpec::Icons` selects a
-  variant explicitly. Icons are drawn at 1.2 × the text size and centered on the capitals of the primary font.
 
 ### Vulkan backend
 
@@ -541,6 +519,54 @@ In `Backends/DX9/`: `DX9Init`, `DX9Shutdown`, `DX9Render()`, `DX9InvalidateDevic
 - `DX9Render` captures a `D3DSBT_ALL` state block and applies it afterwards; it skips the frame while the device is
   lost, which leaves the atlas changes pending.
 
+## 6. Text, fonts and icons
+
+- **Shaping.** HarfBuzz shapes UTF-8 runs (kerning and ligatures on). Runs are split by font fallback (below):
+  Phosphor for icons (they live in the Private Use Area), otherwise the requested font → Public Sans → fonts added
+  by the host, in order.
+- **Fonts.** Public Sans is the default font, JetBrains Mono the embedded monospaced one (`GetMonospacedFont`).
+  The font of a text is the per-call `TextOptions::Font`, else the innermost `PushFont`, else `Theme::Font`,
+  else Public Sans. `GetTextSpec` returns the pushed or theme font, so every component follows `PushFont`.
+- **Variable weight.** One FreeType face per font file; a weight instance (`wght` axis) per used weight, each with
+  its own HarfBuzz font. `FontWeight` is a numeric 100–900 enum.
+- **Color glyphs.** Emoji and other color glyphs come from color fonts the host adds: COLR (versions 0 and 1)
+  painted by HarfBuzz's raster library, CBDT and sbix PNG images decoded by stb_image and scaled from the strike
+  that suits the size. They go into a second atlas of RGBA8 texels (premultiplied, sRGB), which exists only once a
+  color glyph has been drawn, and are drawn in their own colors with the text's opacity, at whole pixels (one
+  sub-pixel bin). A draw command samples it through `ColorGlyphAtlasTextureID`. *Decision 138.*
+- **Glyph atlas.** A single-channel atlas with skyline packing, rasterized without hinting at
+  `size × contentScale` pixels. Glyph key: face, weight, glyph index, pixel size, horizontal sub-pixel bin
+  (4 bins). Baselines snap to whole pixels. The atlas starts at 512² and grows by doubling (to a 4096² cap);
+  existing glyphs keep their texel coordinates, and glyph quads carry texel UVs that the shader normalizes, so
+  quads emitted before a mid-frame growth stay valid. When the content scale changes or the cap is hit, the atlas
+  is cleared at the start of the next frame and refilled lazily. Only dirty rows are uploaded.
+- **Shaped-line cache.** Shaping happens in font units, so a shaped line is independent of size and content
+  scale. Lines are cached by a hash of (text, font, weight, italic, icon variant) and evicted after 600 frames
+  without use (about ten seconds at 60 Hz); beyond 1024 idle lines a new line recycles the least recently used
+  one. Steady-state frames do no shaping and no allocation. Adding a font clears the cache.
+- **Fallback.** Private Use Area code points use the icon font if it has the glyph; every other character uses
+  the requested face if it has the glyph, then the other registered fonts in order. The monospaced font is never
+  a fallback. A line is split into runs per face and each run is shaped separately. A character and the
+  characters that join it (variation selectors, skin tones, tags, the keycap mark, a zero-width joiner with the
+  character after it, the second regional indicator of a flag) choose their face together, from the first
+  character. Emoji presentation (Unicode's Emoji_Presentation property, VS16, a skin tone, a keycap or a flag)
+  tries faces with color glyphs first, VS15 those without. *Decision 139.*
+- **Text drawing** is `DrawList::AddText`. It is declared on the draw list for convenience but implemented in
+  `Text/`, because text sits above the draw list in the layering.
+- **Type ramp** (`TextStyle`), from the HIG macOS table: Large Title 26/32, Title 1 22/26, Title 2 17/22,
+  Title 3 15/20, Headline 13/16 bold, Body 13/16, Callout 12/15, Subheadline 11/14, Footnote 10/13,
+  Caption 1 10/13, Caption 2 10/13 medium. `TextOptions::Emphasized` selects the HIG's emphasized weight.
+  Public Sans is compared against SF Pro in M2 (x-height and advance widths); any size or weight adjustment is
+  recorded in `Docs/Styling.md`.
+- **Icons.** Phosphor regular, bold and fill fonts (Phosphor web 2.1.2) are embedded. `Carbon::Icons::House`
+  etc. are `inline constexpr const char*` UTF-8 strings, 1530 of them (`Carbon::Icons::All` lists them),
+  generated at build time by `Framework/CMake/GenerateIcons.cmake` from Phosphor's `src/regular/style.css` into
+  the build tree, so icons can be drawn with `Icon()` or embedded in any label. The three fonts share their code
+  points. Icon weight follows text weight (semibold and above use the bold font); `TextSpec::Icons` selects a
+  variant explicitly. Icons are drawn at 1.2 × the text size and centered on the capitals of the primary font.
+- **Input methods.** Text being composed by an input method is drawn inline by the text control being edited,
+  with the control's font and fallback (section 10, *Decision 137*).
+
 ## 7. Layout algorithm
 
 Layout is single-pass with one frame of latency for anything that needs a size it cannot know yet.
@@ -556,13 +582,15 @@ Layout is single-pass with one frame of latency for anything that needs a size i
   `Spacer()`s and `Fill` children by weight. With no flexible children, `Justify` offsets the whole content.
 - `End*Stack` stores this frame's measurements for the next frame.
 - **First-frame settle.** A container not seen on the previous frame lays out with stale (zero) measurements.
-  It is drawn, and each placement in it is checked against what it used: alignment or `Fill` across a fitting
-  axis against a cross extent that grows with each item, flexible items and `Justify` along a given length. If
-  none was wrong, it stays visible without a fade; otherwise `DrawList::HideSince` makes what it drew
-  transparent at its end and it fades in over ~120 ms from the next frame. Containers known to need their
-  measurements (overlays, grids, a fitting child aligned off-leading) are hidden from their start, as before.
-  `IsAnimating()` reports true while any container is unsettled, so event-driven hosts render the follow-up
-  frame. *Decision 131.*
+  New `Fit` containers are no longer hidden for a frame as a rule (the "Fit first-frame fix" of 1.0): the
+  container is drawn, and each placement in it is checked against what it used: alignment or `Fill` across a
+  fitting axis against a cross extent that grows with each item, flexible items and `Justify` along a given
+  length. If none was wrong, it stays visible without a fade; otherwise `DrawList::HideSince` makes what it drew
+  transparent at its end and it fades in over 120 ms (`AppearFadeDuration`) from the next frame. Containers
+  known to need their measurements before anything is placed (overlays, grids, grid rows and containers in grid
+  cells, justified content along a given length, a fitting child aligned off-leading across its parent) are
+  hidden for their first frame from their start, as before. `IsAnimating()` reports true while any container is
+  unsettled, so event-driven hosts render the follow-up frame. *Decision 131.*
 - **Stack identity.** A stack is identified by its call site (`std::source_location`), the enclosing container
   and the ID stack, or by `options.ID` when given. Call sites are stable when sibling stacks appear and
   disappear, which call order is not. Several stacks begun from one call site in the same container and ID scope
@@ -581,8 +609,8 @@ Layout is single-pass with one frame of latency for anything that needs a size i
   to the innermost scroll view under the pointer, determined during the previous frame. The overlay indicator
   (a pill) appears while scrolling and when the view first appears, and fades out after about a second. It
   takes an explicit ID and pushes it on the ID stack.
-- **Per-ID state** lives in `Core/State.h`: `GetState<T>(id, lifetime)` returns a zero-initialized, trivially
-  copyable block. `Transient` state is dropped when a frame passes without it being requested (animations,
+- **Per-ID state** lives in `Core/State.h`: `GetState<T>(id, lifetime, created)` returns a zero-initialized,
+  trivially copyable block. `Transient` state is dropped when a frame passes without it being requested (animations,
   measurements); `Persistent` state lives as long as the context (scroll offsets).
 
 ## 8. Animation model
@@ -591,16 +619,18 @@ Layout is single-pass with one frame of latency for anything that needs a size i
 struct AnimationSpec
 {
     static AnimationSpec Spring(float response = 0.3f, float dampingFraction = 1.0f);
-    static AnimationSpec Ease(Easing curve, float duration);      // Linear, EaseIn, EaseOut, EaseInOut, cubic Bézier
+    static AnimationSpec Ease(Easing curve, float duration);      // Linear, EaseIn, EaseOut, EaseInOut
+    static AnimationSpec Fade(float duration = 0.15f);            // an EaseOut with the Appearance trait
     static AnimationSpec None();
+    AnimationSpec AsAppearance() const;
     AnimationTrait Trait = AnimationTrait::Motion;                // Motion | Appearance (see reduce motion)
 };
 
 float Animate(ID id, float target, const AnimationSpec& spec = AnimationSpec::Spring());
 Vec2  Animate(ID id, Vec2 target, const AnimationSpec& spec = AnimationSpec::Spring());
 Rect  Animate(ID id, const Rect& target, const AnimationSpec& spec = AnimationSpec::Spring());
-Color Animate(ID id, Color target, const AnimationSpec& spec = AnimationSpec::Spring());
-void  SetAnimationValue(ID id, float value);                      // jump without animating
+Color Animate(ID id, const Color& target, const AnimationSpec& spec = AnimationSpec::Spring());
+void  SetAnimationValue(ID id, float value);                      // jump without animating; also Vec2, Rect, Color
 ```
 
 - **Springs** use the closed-form solution of the damped harmonic oscillator (under-, critically and over-damped
@@ -609,7 +639,7 @@ void  SetAnimationValue(ID id, float value);                      // jump withou
 - **Interruptible.** Retargeting only replaces the target; value and velocity carry over. This is what makes a
   sidebar highlight glide when the user clicks quickly between rows.
 - **Per-ID state.** The first call for an ID starts at the target (no animation on appear). State not touched for a
-  few frames is dropped.
+  whole frame is dropped (`StateLifetime::Transient`).
 - **Defaults.** Controls use critically damped springs with responses of roughly 0.15–0.35 s; bounce
   (`dampingFraction < 1`) is used only where Apple does, e.g. the switch knob and sheet presentation.
 - **Reduce motion.** `Motion`-trait animations (positions, sizes) jump to their target; `Appearance`-trait
@@ -624,24 +654,29 @@ struct Theme
 {
     static Theme Light();
     static Theme Dark();
-    Color Colors[size_t(StyleColor::Count)];
-    float Vars[size_t(StyleVar::Count)];
-    TextStyleSpec TextStyles[size_t(TextStyle::Count)];
+    std::array<Color, size_t(StyleColor::Count)> Colors;          // GetColor / SetColor
+    std::array<float, size_t(StyleVar::Count)> Vars;              // GetVar / SetVar
+    std::array<TextStyleSpec, size_t(TextStyle::Count)> TextStyles;   // GetTextStyle / SetTextStyle
+    Carbon::Font* Font = nullptr;                                 // nullptr: Public Sans
+    bool IsDark = false;
 };
 ```
 
-- `StyleColor` follows the macOS semantic colors: `Background`, `SecondaryBackground`, `ControlBackground`,
-  `ControlFill`, `Label`, `SecondaryLabel`, `TertiaryLabel`, `QuaternaryLabel`, `PlaceholderText`, `Separator`,
-  `Accent`, `OnAccent`, `Selection`, `UnemphasizedSelection`, `TextSelection`, `Destructive`, `FocusRing`,
-  `OverlayBackground`, `OverlayBorder`, `Scrim`, `Shadow`, `ScrollThumb`, plus the system palette
-  (`Red` … `Gray`) for charts.
-- `StyleVar`: `CornerRadius`, `CornerSmoothing`, `Spacing`, `ControlHeight`, `ControlPadding`, `BorderWidth`,
-  `FocusRingWidth`, `FocusRingOffset`, `DisabledOpacity`, …
+- `StyleColor` follows the macOS semantic colors: `Background`, `SecondaryBackground`, `TertiaryBackground`,
+  `Label`, `SecondaryLabel`, `TertiaryLabel`, `QuaternaryLabel`, `Separator`, `ControlBackground`, `ControlFill`,
+  `ControlBorder`, `Knob`, `Accent`, `OnAccent`, `Selection`, `UnemphasizedSelection`, `TextSelection`,
+  `Destructive`, `FocusRing`, `OverlayBackground`, `OverlayBorder`, `Scrim`, `Shadow`, `ScrollIndicator`, plus the
+  system palette (`Red` … `Gray`) for charts.
+- `StyleVar`: `CornerRadius`, `CornerSmoothing`, `GroupCornerRadius`, `OverlayCornerRadius`, `Spacing`,
+  `ControlHeight`, `ControlPadding`, `BorderWidth`, `FocusRingWidth`, `FocusRingOffset`, `DisabledOpacity`,
+  `HoverAmount`, `PressedAmount`, `ScrollIndicatorWidth`.
 - **Precedence**: per-call option > `PushStyleColor`/`PushStyleVar` stack > theme. One function implements it:
   `Resolve(std::optional<T> perCall, StyleColor|StyleVar)`. `EndFrame` asserts that every stack is balanced.
-- **Dark**: `Background` #000000, `Label` #FFFFFF, grays modelled on Apple's dark label/fill colors, accent
-  #0A84FF. **Light**: `Background` #FFFFFF with #F5F5F7 grouped surfaces, `Label` #000000, accent #007AFF.
-  Theme colors are opaque; text contrast meets the HIG's 4.5:1 minimum.
+- **Dark**: `Background` #000000 with #1C1C1E grouped surfaces, `Label` #FFFFFF, grays modelled on Apple's dark
+  label/fill colors, accent #0A84FF. **Light**: `Background` #FFFFFF with #F2F2F7 grouped surfaces, `Label`
+  #000000, accent #007AFF. Surfaces and labels are opaque; fills (`ControlFill`, decision 27), the focus ring, the
+  overlay border, scrim, shadow and scroll indicator are translucent. Primary and secondary labels meet the HIG's
+  4.5:1 contrast minimum.
 - **Metrics** start from macOS regular control size (control height 24 pt, corner radius 6 pt, smoothing 0.6,
   focus ring 3 pt, 13 pt Body text) with `ControlSize::Small/Regular/Large`; values are tuned against Gallery
   screenshots in M4 and tabulated in `Docs/Styling.md`.
@@ -690,8 +725,9 @@ the `Overlay`/`Tooltip` layers and positioned against an anchor rect, flipped an
 
 ```cpp
 void OpenOverlay(ID id);   void CloseOverlay(ID id);   void CloseCurrentOverlay();   bool IsOverlayOpen(ID id);
-bool BeginOverlay(ID id, const OverlayOptions& options);   // .Anchor, .Placement, .Alignment, .IsModal, .HasScrim,
-void EndOverlay();                                         // .DismissOnOutsideClick, .DismissOnEscape, .ShowsArrow
+bool IsAnyOverlayOpen();
+bool BeginOverlay(ID id, const OverlayOptions& options = {});   // .Anchor, .Placement, .Alignment, .Gap,
+void EndOverlay();     // .IsModal, .HasScrim, .DismissOnOutsideClick, .DismissOnEscape, .ShowsArrow, .Padding, ...
 ```
 
 Open overlays form a stack. Each one draws in its own sub-layer of `DrawLayer::Overlay` (its depth in the
@@ -716,8 +752,10 @@ documented.
 
 ```cpp
 // Identity and per-ID state
-ID GetID(std::string_view label);   ID HashID(std::string_view label, ID seed);   void PushID(...);   void PopID();
-template <typename T> T* GetState(ID id, StateLifetime lifetime = Transient);   // zero-initialized, trivially copyable
+ID GetID(std::string_view label);   ID HashID(std::string_view label, ID seed = {});   void PushID(...);
+void PopID();
+template <typename T> T* GetState(ID id, StateLifetime lifetime = Transient, bool* created = nullptr);
+                                                // zero-initialized, trivially copyable
 
 // Layout
 Rect AllocateItem(Vec2 size, const ItemOptions& options = {});   // reserves space in the current container
@@ -729,6 +767,7 @@ Interaction ButtonBehavior(ID id, const Rect& rect, const ButtonBehaviorOptions&
 // Interaction { Hovered, Pressed, Clicked, DoubleClicked, Focused, FocusVisible }
 DragInteraction DragBehavior(ID id, const Rect& rect, const DragBehaviorOptions& options = {});
 bool IsRectHovered(const Rect& rect);   void SetLastItem(ID id, const Rect& rect, const Interaction& interaction);
+bool IsItemHovered();   bool IsItemSubmitted();   void SetItemSubmitted();
 void PushDisabled(bool disabled = true);   void PopDisabled();   bool IsDisabled();   void SetCursor(Cursor cursor);
 bool IsKeyPressed(Key key, bool repeat = true);   Vec2 GetMousePos();   // ... Input.h
 
@@ -746,7 +785,8 @@ void DrawFocusRing(ID id, const Rect& rect, float cornerRadius, bool alwaysWhenF
 
 // Drawing and text
 DrawList& GetDrawList();                        // PushLayer / PopLayer select the layer
-Vec2 MeasureText(std::string_view text, const TextSpec& spec);   TextSpec GetTextSpec(TextStyle style);
+Vec2 MeasureText(std::string_view text, const TextSpec& spec);
+TextSpec GetTextSpec(TextStyle style, bool emphasized = false);
 void DrawLabel(DrawList&, const Rect&, float x, std::string_view text, const TextSpec&, Color);
 void DrawIcon(DrawList&, Vec2 center, std::string_view icon, float size, Color, IconVariant);
 
@@ -765,8 +805,9 @@ void RequestAnimationFrame();   void RequestFrameAfter(float seconds);
 ```
 
 There is no separate "internal" header for component authors: the list above is what `CarbonExtensions` itself
-is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Extensions/` and of
-`Examples/CustomComponent` and fail on any include of a Carbon header that is not in the list of public headers.
+is built from. Two CTest cases (`PublicApiBoundary.Extensions.src` and `PublicApiBoundary.Examples.CustomComponent`)
+scan the sources of `Extensions/` and of `Examples/CustomComponent` and fail on any include of a Carbon header that
+is not in the list of public headers.
 
 `Examples/CustomComponent` builds a star-rating control with exactly this API, and
 [CustomComponents](CustomComponents.md) walks through it.
@@ -780,31 +821,40 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
   execution continues and Carbon recovers; without it, debug builds break into the debugger (`__debugbreak` on
   MSVC, `__builtin_trap` on GCC/Clang) and release builds continue after logging.
 - `CB_ASSERT` has the same form but checks internal invariants and compiles away outside debug builds unless
-  `CARBON_FORCE_ASSERTS` is on.
+  `CARBON_FORCE_ASSERTS` is on (it defines `CB_FORCE_ASSERTS`).
 
 ## 14. Build, packaging and repository
 
-- Root `CMakeLists.txt`: options and `add_subdirectory` only. Targets `Carbon` (`Carbon::Carbon`),
+- Root `CMakeLists.txt`: `project()`, options and `add_subdirectory` only (plus `enable_testing()` for the tests).
+  Targets `Carbon` (`Carbon::Carbon`),
   `CarbonExtensions` (`Carbon::Extensions`) and `CarbonReflection` (`Carbon::Reflection`, built when
   `CARBON_BUILD_REFLECTION` and `CARBON_BUILD_EXTENSIONS` are on), all static.
-- `CARBON_DEPS_<NAME>_BUILD` / `CARBON_DEPS_<NAME>_NAME` for FreeType, HarfBuzz, GoogleTest, GLFW and stb. Dawn
-  is found only for the WebGPU backend (`find_package(Dawn CONFIG)` unless `CARBON_DEPS_DAWN_NAME` already
-  exists). `CARBON_BACKEND_<NAME>` selects the backends compiled into `Carbon`; each exports
-  `CARBON_HAS_BACKEND_<NAME>` and makes its graphics library a public dependency.
-- Fonts and shaders are converted to `.cpp` byte arrays at build time by `Framework/CMake/EmbedAsset.cmake`
-  (pure CMake, no Python), written to the build tree and never committed. `Icons.h` is generated the same way.
-- Submodules pinned to release tags: FreeType, HarfBuzz, GoogleTest (v1.18.0), GLFW (3.5.1),
-  Public Sans (v2.001), JetBrains Mono (v2.304), Phosphor web (v2.1.2); stb has no tags and is pinned to a
-  commit.
+- `CARBON_DEPS_<NAME>_BUILD` / `CARBON_DEPS_<NAME>_NAME` for FreeType, HarfBuzz, GoogleTest, Google Benchmark,
+  GLFW and stb. Dawn is found only for the WebGPU backend (`find_package(Dawn CONFIG)` unless the target named by
+  `CARBON_DEPS_DAWN_NAME`, `dawn::webgpu_dawn` by default, already exists). `CARBON_BACKEND_<NAME>` (`WEBGPU`,
+  `VULKAN`, `OPENGL`, `OPENGLES`, `DX11`, `DX9`) selects the backends compiled into `Carbon`; each defines
+  `CARBON_HAS_BACKEND_<NAME>` publicly and makes its graphics library a public dependency.
+- Fonts, the WGSL shader and the OpenGL shaders are converted to `.cpp` byte arrays at build time by
+  `Framework/CMake/EmbedAsset.cmake` (pure CMake, no Python), written to the build tree and never committed.
+  `Icons.h` is generated into the build tree by `Framework/CMake/GenerateIcons.cmake`. The Vulkan shaders are
+  compiled by `glslc` and the Direct3D shaders by `fxc` into the build tree.
+- Submodules pinned to release tags: FreeType (2.14.3), HarfBuzz (14.5.1), GoogleTest (v1.18.0), GLFW (3.5.1),
+  Google Benchmark (v1.9.5), Public Sans (v2.001), JetBrains Mono (v2.304), Phosphor web (v2.1.2); stb has no
+  tags and is pinned to a commit. `THIRD_PARTY_NOTICES.md` lists their licenses; `cmake --install` copies it and
+  the licenses of what is inside the libraries to `share/doc/Carbon`.
 - **Dawn**: developed against commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b` (2026-09-03). That install has
   no `webgpu_glfw` helper, so the examples create their surface per platform (Win32, X11, Wayland) in
   `Examples/Common/Devices/WebGPUSurface.cpp`.
 - Examples accept `--screenshot <file.png>`, `--theme light|dark`, `--scale <factor>` and
-  `--size <width>x<height>`; screenshot mode renders one settled frame to an offscreen texture and never opens a
-  window. For screenshots of states that need input there are `--page <name>` and `--show <name>` (Gallery) and
-  `--pointer`, `--click` and `--right-click <x>x<y>`, which script the pointer.
-- CI: GitHub Actions on Windows (MSVC) and Linux (GCC, Clang), and an Emscripten build whose tests run in Node;
-  Dawn is built once per pinned commit and cached.
+  `--size <width>x<height>`; screenshot mode renders a fixed number of frames offscreen, so that animations and
+  first-frame layout settle, saves the last one and never opens a window. For screenshots of states that need
+  input there are `--page <name>` and `--show <name>` (Gallery), `--pointer`, `--click`, `--right-click` and
+  `--drag <x>x<y>`, which script the pointer, `--file-drag` / `--file-drop <x>x<y>`, `--compose <text>` (an input
+  method composition), and `--crop`, `--section` and `--extend`, which choose the saved area.
+- CI: a GitHub Actions workflow (`.github/workflows/CI.yml`) for Windows (MSVC) and Linux (GCC, Clang), an
+  Emscripten build whose tests run in Node, clang-format, the package check and documentation screenshots; Dawn
+  is built once per pinned commit and cached. The workflow is paused: it runs only when started by hand, and the
+  documentation images are rendered locally with `Scripts/Screenshots.py` (decision 149).
 - Benchmarks: `Benchmarks/` builds `CarbonBenchmarks` on Google Benchmark (v1.9.5, a submodule) when
   `CARBON_BUILD_BENCHMARKS` is on. [Optimizations](Optimizations.md) holds what they measure, how to run them
   and the numbers of every round of optimization.
@@ -812,6 +862,9 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
   port.
 
 ## 15. Milestones
+
+Status (2026-10-10): **every milestone below is done**, and so is every feature planned for 1.0 (the second
+table). Checks that name CI refer to the CI workflow, which now runs only when started by hand (decision 149).
 
 | Milestone | Content | Check |
 | --- | --- | --- |
@@ -844,6 +897,21 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | M26 Reordering lists and outlines | List rows and OutlineView nodes move by drag and drop, with insertion and drop-on indicators and auto-expansion | Reorder logic tests; Gallery |
 | M27 Host file drops | IO events for files dragged in from the system, `FilesPayloadType`, GLFW forwarding in `Examples/Common`, `Docs/DragAndDrop.md` | Input tests; Gallery |
 
+Features planned for 1.0, all done:
+
+| Feature | Where | Decisions |
+| --- | --- | --- |
+| `TextField` with a caller-owned buffer (`std::span<char>`) or a callback (`FunctionRef`) | `Widgets/TextField.h`, `Core/FunctionRef.h` | 129 |
+| Warning for containers that share a call site (`source_location`) in one scope | `Layout/`, `GridRowOptions::ID` | 130 |
+| Fit first-frame fix: new containers are drawn in their first frame unless a placement was wrong | `Layout/Layout.cpp`, `DrawList::HideSince` | 131 |
+| Numeric input | `NumberField`, `ScrubField`, `NumberFormat` | 132 |
+| Slider extensions: `double` and `int`, vertical, logarithmic | `Widgets/Slider.h` | 133 |
+| Multi-line text | `TextArea` | 134 |
+| Input method composition | `IO` composition events, `TextField`, `TextArea` | 137 |
+| Color emoji: COLR v0/v1, CBDT, sbix | `Text/`, color glyph atlas, `RendererBackendVersion` 2 | 138, 139 |
+| Table upgrades: any number of columns, resizing, sideways scrolling, sorting, reordering (M22–M24) | `Table` | 140–144 |
+| Drag and drop, reordering lists and outlines, host file drops (M25–M27) | `Interaction/DragDrop.h`, `List`, `OutlineView`, `IO` | 145–148 |
+
 ## 16. Decision log
 
 | # | Decision | Reason |
@@ -851,7 +919,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 1 | Per-call structs are `<Widget>Options` | `TextStyle` is the type-ramp enum in the brief's own example |
 | 2 | Squircle = superellipse corner patch, apex-matched to the circular arc | Analytic in the fragment shader, exact circle at smoothing 0, zero curvature at the joins |
 | 3 | Stacks are identified by their call site and do not push IDs | Widget state must survive layout changes; call order would make a stack "new" whenever a sibling before it appears |
-| 4 | `ContextDescription` carries `DepthStencilFormat` and `SampleCount` | The pipeline must match the host's pass |
+| 4 | `ContextDescription` carries `DepthStencilFormat` and `SampleCount` | The pipeline must match the host's pass Replaced by decision 105: the formats moved to each backend's init info. |
 | 5 | Draw list stores an opaque `TextureID`; `wgpu::` types appear only in `ContextDescription`, `Render` and the `Image` overload | Keeps everything above `Renderer/` GPU-free. Replaced by decision 105 |
 | 6 | Gamma-space blending on `Unorm` targets, linearized on `UnormSrgb` | Matches the look of macOS UI on the common surface formats |
 | 7 | Carbon behaves as if Full Keyboard Access is on; focus ring only after keyboard focus (always for text fields) | The brief requires full keyboard operability; ring behaviour follows macOS |
@@ -921,8 +989,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 71 | `TextField` gained `IsBezeled`, `AcceptsInput` and `GetTextFieldSelection` | A token field needs a borderless field after its tokens, must take Backspace, Delete and the arrows while tokens are selected, and must know when the caret is at the start of the text. The editor itself stays internal; this follows `TrailingInset` (decision 53) |
 | 72 | The text a token field is still editing lives in its per-ID state as a fixed 512-byte buffer, bridged to the `TextField` by one reused scratch string; it becomes a token at a delimiter, at Return and when the field loses focus | Per-ID state must be trivially copyable, and the application's list holds only finished tokens. Copying in and out of a reserved string costs no allocation, and each field keeps its own text. `NSTokenField` also tokenizes when editing ends |
 | 73 | Token fields tokenize at a comma (configurable) and at Return; there are no suggestions. Typing while tokens are selected replaces them, and a right click on a token opens a menu the application builds with `BeginTokenFieldMenu` | The HIG names the comma as the default and Return as a common addition, calls suggestions optional, and recommends a context menu on tokens. Replacing the selection is how Mail behaves |
-| 74 | Documentation screenshots are listed in `Docs/Images/Screenshots.txt`, rendered by `Scripts/Screenshots.py`, and committed by CI after every push to `main` when they look different; the Gallery can crop to its sections (`--section`) and shows a fixed day as today in screenshots | Images that are rendered from a list cannot fall behind the code. Cropping to a section's box follows layout changes, where fixed pixel areas would not. WARP in CI renders within a level or two of a GPU, so a small tolerance keeps unchanged images from being committed again |
-
+| 74 | Documentation screenshots are listed in `Docs/Images/Screenshots.txt`, rendered by `Scripts/Screenshots.py`, and committed by CI after every push to `main` when they look different; the Gallery can crop to its sections (`--section`) and shows a fixed day as today in screenshots | Images that are rendered from a list cannot fall behind the code. Cropping to a section's box follows layout changes, where fixed pixel areas would not. WARP in CI renders within a level or two of a GPU, so a small tolerance keeps unchanged images from being committed again Since decision 149 CI is paused and the images are rendered locally with the same script. |
 | 75 | JetBrains Mono is embedded as Carbon's monospaced font and is not a fallback for other fonts | Code needs a monospaced face without a file; as a fallback it would change how missing characters of proportional text look |
 | 76 | Private Use Area characters take the icon font before the requested font | JetBrains Mono has powerline glyphs at four of Phosphor's code points; `Carbon::Icons` must draw the same icon in every font |
 | 77 | `PushFont` is part of the style stack, and `GetTextSpec` returns the pushed font | Every core and extension component builds its text from `GetTextSpec`, so all of them follow a pushed font without changes |
@@ -961,17 +1028,17 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 110 | Vulkan rotates its per-frame buffers once per frame (signalled by `EndFrame`) and destroys replaced objects `FramesInFlight` frames later, assuming the usual contract that the host waited for frame N − `FramesInFlight` before recording frame N; `VulkanReleaseTexture` was added for views destroyed sooner | Counting `Render` calls would break hosts that draw a frame twice. The contract is the one every Vulkan renderer uses. Vulkan may reuse a destroyed view's handle at once, which a cache keyed by handles cannot tell apart otherwise |
 | 111 | The renderer tests run the Vulkan backend twice, with a render pass (`VulkanRenderPass`) and with dynamic rendering (`Vulkan`), with the Khronos validation layer when installed. The Windows CI job installs the Vulkan SDK and runtime but has no Vulkan driver, so the Vulkan tests skip there; Linux runs them on lavapipe | Both pipeline modes are public API. A test executable that cannot load `vulkan-1.dll` would not start at all |
 | 112 | The OpenGL backend resolves its functions through the host's `GetProcAddress` into a private table and ships no loader; it declares the GL types and constants it needs itself | Carbon is a static library: sharing a loader's global function pointers works only if host and Carbon link the very same loader, and a GL header in a backend header would clash with the host's loader |
-| 113 | The OpenGL backend stores primitives in an `RGBA32UI` texture buffer and reads floats with `uintBitsToFloat` | A float texture would carry the integer `Kind` as a denormal, which drivers may flush to zero; integer texels return every bit |
+| 113 | The OpenGL backend stores primitives in an `RGBA32UI` texture buffer and reads floats with `uintBitsToFloat` | A float texture would carry the integer `Kind` as a denormal, which drivers may flush to zero; integer texels return every bit Refined by decision 119: a 2D `RGBA32UI` texture, since OpenGL ES has no texture buffers. |
 | 114 | `OpenGLRender` saves and restores every piece of state it changes, and draws into whatever framebuffer is bound; `OpenGLInitInfo` has only the `GetProcAddress` function and a color format, whose sRGB-ness decides `GL_FRAMEBUFFER_SRGB` | OpenGL hosts share one global state machine with Carbon; a library that leaves state behind breaks the host in ways that are hard to trace. The format of the default framebuffer cannot be queried reliably across platforms |
 | 115 | The OpenGL tests create their context in a hidden GLFW window and render into a framebuffer object; the harness changes host state before every `OpenGLRender` and fails when it is not restored. CI runs them on Linux under Xvfb with llvmpipe | One harness covers rendering, debug output and state restoration. GitHub's Windows runners have no OpenGL 3.3 driver, so the tests skip there |
-| 116 | `VulkanMinimalIntegration` and `OpenGLMinimalIntegration` have no documentation screenshots in `Docs/Images/Screenshots.txt`; CI uploads their screenshots as artifacts from Linux | The documentation images are rendered by the Windows CI job, which has no Vulkan or OpenGL 3.3 device. Their output matches the WebGPU example's, whose image the README shows |
+| 116 | `VulkanMinimalIntegration` and `OpenGLMinimalIntegration` have no documentation screenshots in `Docs/Images/Screenshots.txt`; CI uploads their screenshots as artifacts from Linux | The documentation images are rendered by the Windows CI job, which has no Vulkan or OpenGL 3.3 device. Their output matches the WebGPU example's, whose image the README shows CI is paused since decision 149; the list is unchanged. |
 | 117 | `Tests/Package` installs a renderer backend of its own, written against the installed `RendererBackend.h` only, and checks that Carbon hands it the atlas and the frames | It proves the claim that a backend can be written outside the repository, with the same mechanism as the custom-component check |
-| 118 | Besides the typed `<Name>GetTextureID` functions, a host may draw a raw native handle turned into a `TextureID` with `MakeTextureID` (pointer or integer), without registering it, like Dear ImGui's `ImTextureID`. Core tracks every texture a frame draws; backends resolve an unseen ID in `Render` with default settings (Vulkan: shader-read-only layout; WebGPU: the reference is taken then) and release it after a frame unused. Registration and raw handles give the same ID. `RendererBackendVersion` stays 1 | It is the shortest path from a texture to the screen and the one ImGui users expect. Unlike ImGui, Carbon still creates and frees Vulkan descriptor sets and WebGPU bind groups itself, so the raw path adds no bookkeeping for the host. A backend written for version 1 stays correct: it skips IDs it does not know, which is what it did before |
+| 118 | Besides the typed `<Name>GetTextureID` functions, a host may draw a raw native handle turned into a `TextureID` with `MakeTextureID` (pointer or integer), without registering it, like Dear ImGui's `ImTextureID`. Core tracks every texture a frame draws; backends resolve an unseen ID in `Render` with default settings (Vulkan: shader-read-only layout; WebGPU: the reference is taken then) and release it after a frame unused. Registration and raw handles give the same ID. `RendererBackendVersion` stays 1 | It is the shortest path from a texture to the screen and the one ImGui users expect. Unlike ImGui, Carbon still creates and frees Vulkan descriptor sets and WebGPU bind groups itself, so the raw path adds no bookkeeping for the host. A backend written for version 1 stays correct: it skips IDs it does not know, which is what it did before `RendererBackendVersion` became 2 with decision 138. |
 | 119 | OpenGL ES 3.0 (and WebGL 2) is a backend of its own (`OpenGLES*` API, `CARBON_BACKEND_OPENGLES`) that shares the OpenGL backend's renderer and shaders in an ES mode. Both now store primitives in an `RGBA32UI` 2D texture instead of a texture buffer, and the shaders get their `#version` line from the renderer | A host on Android or in a browser should not need desktop names, and one renderer keeps the two from drifting apart. OpenGL ES 3.0 and WebGL 2 have no texture buffers, and 2048 texels is the widest texture OpenGL ES 3.0 guarantees, so 1024 primitives per row |
 | 120 | Web browsers are a build target (Emscripten), not a backend: they render through WebGL 2 with the OpenGL ES backend, the examples use Emscripten's GLFW 3.4 port instead of the submodule, and the tests run in Node without the GPU tests. WebGPU in the browser (Dawn's emdawnwebgpu) is left for later | WebGL 2 is OpenGL ES 3.0, so no new renderer is needed and every browser that runs WebGL 2 works. The GLFW port maps the canvas to a window with Hi-DPI support; the submodule cannot be built for the web. Node has no canvas to create a context on |
 | 121 | Direct3D 11 is a backend for feature level 10.0 and later, with shaders compiled by `fxc` at build time (shader model 4.0) and a public header that only forward-declares the D3D interfaces. Primitives go into a `Buffer<uint4>`. `DX11Render` takes an optional context so that deferred contexts work. The option defaults to `ON` on Windows when `fxc` is found; CI requires it on Windows, where WARP runs its tests | `fxc` ships with every Windows SDK, so the build needs nothing else; DXC does not compile shader model 4. Feature level 10.0 covers every Direct3D 11 device, and typed buffers exist there while structured buffers need 11.0. A host's `windows.h` settings (`NOMINMAX`, `WIN32_LEAN_AND_MEAN`) are not overridden by a Carbon header. Unlike OpenGL, WARP gives the Windows runners a real device |
 | 122 | Direct3D 9 is a backend for shader model 3.0 with 32-bit indices. Primitives are copied into the vertices on the CPU; everything Carbon creates in `D3DPOOL_DEFAULT` is released by `DX9InvalidateDeviceObjects`, which the host calls before `Reset`, and created again on demand; state is saved with one `D3DSBT_ALL` state block that is captured again every frame | Shader model 3.0 has no integer vertex attributes and no buffer a pixel shader can index; a float texture of primitives would need a second sampler and loses the integer kind's exactness. The managed pool does not exist on Direct3D 9Ex, so the default pool with explicit invalidation (as Dear ImGui does) works on both device kinds. A state block covers the fixed-function state a Direct3D 9 host may rely on, which a hand-written list would miss; creating it once avoids a driver allocation per frame. Shader model 2.0 hardware is left out: its instruction limit cannot hold the squircle function |
-| 123 | Every example is built once per backend, as `<Backend><Example>` (`WebGPUGallery` ... `DX9CustomTitleBar`; the minimal integrations are `<Backend>Minimal`, renamed from `<Backend>MinimalIntegration`). The examples other than the minimal ones are written once against `Example::App` and `Example::Host`, which drive an `Example::GraphicsDevice`; `Examples/Common/Devices` has one device per backend, and each `CarbonExample<Backend>` library links one. Host textures go through `MakeTextureID` of the native handle. In a browser only the OpenGL ES builds exist, without CustomTitleBar. Reflection is built once, on the first backend. This replaces the WebGPU-only host of decision 107 | Each backend is exercised by the full Gallery, not only by a small integration, and a user can run the same interface on any backend side by side. A build-time choice keeps every executable as small and as plain as a real application, which links one graphics API; a `--backend` switch would put all APIs into every binary. The documentation images keep coming from the WebGPU builds |
+| 123 | Every example is built once per backend, as `<Backend><Example>` (`WebGPUGallery` ... `DX9CustomTitleBar`; the minimal integrations are `<Backend>Minimal`, renamed from `<Backend>MinimalIntegration`). The examples other than the minimal ones are written once against `Example::App` and `Example::Host`, which drive an `Example::GraphicsDevice`; `Examples/Common/Devices` has one device per backend, and each `CarbonExample<Backend>` library links one. Host textures go through `MakeTextureID` of the native handle. In a browser only the OpenGL ES builds exist, without CustomTitleBar. Reflection is built once, on the first backend. This replaces the WebGPU-only host of decision 107 | Each backend is exercised by the full Gallery, not only by a small integration, and a user can run the same interface on any backend side by side. A build-time choice keeps every executable as small and as plain as a real application, which links one graphics API; a `--backend` switch would put all APIs into every binary. The documentation images keep coming from the WebGPU builds Refined by decisions 135 and 136. |
 | 124 | Performance is measured by `CarbonBenchmarks` (Google Benchmark, headless contexts, steady-state frames) and `Scripts/BuildMetrics.py`, and recorded per version in `Docs/Optimizations.md`. An optimization is kept only if its metric improves by 10 % or allocations drop to zero, the tests pass and the documentation images do not change. The renderer tests' harnesses time the backend's render call for the benchmarks. CI builds the benchmarks and does not run them | Optimizing on evidence needs a repeatable measurement and a rule for what stays; the survey's hot spots were hypotheses until the baseline confirmed them. Shared CI runners are too noisy for timings |
 | 125 | Rows of Sidebar, List, Table, OutlineView and ColumnView that are scrolled out of view take their space and keep their part in the selection and the keyboard, but are not hit-tested, hashed, shaped or drawn; an item out of view reports no interaction and, in List and ColumnView, has no item ID. `ClipTableRows`, `ClipListItems` and `ClipColumnViewItems` (returning a `RowRange`) let an application submit only the rows in view: the component reserves the space of the others in one piece before and one after. The range also holds the row the keyboard is moving to, and the selection is passed as an index so that it is known while its row is not submitted. OutlineView has no such function | A frame was linear in the number of rows (1.1 µs each): 112 ms for 100,000. Skipping the work of invisible rows brings the plain loop to 7 ms without any change in applications; only the application can skip the loop itself, which the ranges allow (59 µs for any number of rows). A contiguous range needs no iterator protocol: the rows between the view and a keyboard target are cheap. An outline's rows depend on which items are expanded, which only the application's traversal knows |
 | 126 | `GetNextFrameDelay()` tells a host that renders on demand how long it may sleep, and `RequestFrameAfter(seconds)` is how a component schedules a frame without animating until then. The caret of a focused text field and the hold time of a scroll indicator use it and no longer set `IsAnimating()`. No shim: a host that looks only at `IsAnimating()` sees a caret that stops blinking. An animation that starts in a frame after one in which nothing moved advances by at most 1/30 s in that frame | A focused text field kept an idle host rendering 60 frames per second for a caret that changes twice a second, and one notch of the wheel cost 75 frames. `IsAnimating()` can only say "now"; the next change is usually known in advance. Measured: 60 to 2 frames per second, 75 to 33 frames per notch. The frame after a sleep has the length of the sleep as its delta time, which would finish an animation that starts in it before it is seen |
@@ -997,6 +1064,8 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 146 | List and OutlineView reorder through the shared selection list: a row is a drag source with a list-private payload (list ID, row index, key), so rows move only within their list. A List keeps the dragged row in place, faded, and the rows from the insertion slot on make room on a spring (a per-row draw offset; layout and hit testing keep the real place); after the drop every row slides from where it was drawn, recorded per row ID. `EndList` returns `ListMove` (indices) and `ApplyListMove` rotates the application's container. OutlineView reports `OutlineMove` by application keys (`OutlineItemOptions::Key`) with Before/After/Into zones (quarters for items with children, halves for leaves; the lower edge of an expanded item means its first child), excludes the dragged item's own subtree, and expands a collapsed item after a 0.7-second rest. | Carbon owns neither the list's data nor the tree; indices suit flat lists, keys suit trees, and Finder's zones are what macOS users expect |
 | 147 | Files from the system enter through `IO` as three events (drag at a position, leave, drop), with the paths stored next to the event queue like composition text. They become a drag of `FilesPayloadType` with no source, which moves the pointer with it. A drop is delivered in the frame after the one that applies it, once the target under it has been found, and keeps the host rendering until then. Hosts that only see the drop (GLFW, in `Examples/Common`) send just the drop; hosts that see the drag over the window send the moves too, and targets highlight. | One drag model for internal and external drags; works with the least capable windowing layer while letting better ones show the macOS highlight |
 | 148 | The examples forward file drags per platform in `Examples/Common/FileDrop.cpp`: an OLE drop target on Windows (drag with paths, then drop), the canvas's drag events in a browser (the GLFW port has no drop callback; dropped files are copied into the in-memory file system under `/dropped` so that the reported paths can be read), and GLFW's drop callback elsewhere. The drop highlight fades in and out (0.15 s) while the drag goes on and vanishes at the drop. | A browser has no paths and GLFW reports no drag; hovering feedback needs the platform's own drag events |
+| 149 | 2026-10-10: CI is paused. `.github/workflows/CI.yml` keeps every job but runs only on manual dispatch (Actions > CI > Run workflow); the push and pull-request triggers are commented out. Documentation images are rendered locally with `Scripts/Screenshots.py` and committed by hand, and the milestone routine (both configurations without warnings, all tests, clang-format) runs locally. What decisions 46, 74, 111, 115, 121, 124 and 128 say CI does happens only on such a run | GitHub Actions usage costs. Restoring the two triggers turns CI back on unchanged |
+| 150 | Plan details the implementation changed, recorded after the fact: the text module is one internal `TextSystem` (fallback, shaping, the shaped-line cache) with `FontFace`, `GlyphAtlas` and `PngDecoder` in `Text/Internal/`, and public `Font`, `TextSpec` and `TextStyle`, instead of the planned `FontLibrary`, `TextShaper` and `TextLayout`; `Easing` has no cubic Bézier curve; the planned `PlaceholderText` and `ScrollThumb` style colors are `TertiaryLabel` and `ScrollIndicator`, and `TertiaryBackground`, `ControlBorder` and `Knob` were added; shaped lines are evicted by frame count (600 frames) rather than by time | Sections 2, 6, 8 and 9 now describe the code; nothing in the public contract depends on the planned names |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,
