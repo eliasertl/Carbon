@@ -14,6 +14,9 @@ namespace WebApp
     /// The documentation reader: a sidebar with every document, grouped by folder, and the current document drawn
     /// by MarkdownView. Links to other documents open them, links to headings scroll there, and everything else
     /// opens in a new browser tab.
+    /// The ID of the reader's navigation split view.
+    inline constexpr std::string_view DocsNavigationID = "docs";
+
     class DocsReader
     {
     public:
@@ -35,6 +38,12 @@ namespace WebApp
         /// Builds the reader for one frame, filling the display. `isDark` is the appearance, which the header's
         /// toggle changes. Returns true when the back button was clicked.
         bool Build(bool& isDark);
+
+        /// On a phone the reader is a navigation stack: the list of documents, from which a document slides in.
+        /// Whether the document is shown rather than the list; ShowDocument switches without sliding (an
+        /// address). In regular width both are always shown.
+        bool IsDocumentShown() const;
+        void ShowDocument(bool isShown);
 
     private:
         void FollowLink(std::string_view target);

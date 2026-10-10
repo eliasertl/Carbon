@@ -14,6 +14,8 @@ namespace WebApp
     void PushRoute(std::string_view route);
     /// True once after the user went back or forward in the browser's history; GetRoute then has the new route.
     bool TakeRouteChange();
+    /// Goes back one entry in the browser's history, as the browser's Back button does.
+    void GoBack();
 
     /// Sets the title of the browser tab.
     void SetPageTitle(std::string_view title);

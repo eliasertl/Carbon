@@ -140,7 +140,10 @@ namespace Gallery
             ShowNavigationDetail("gallery", true, false);
             state.ShowsPage = false;
         }
-        BeginNavigationSplitView("gallery", {.Title = "Gallery", .DetailTitle = page.Title});
+        // On a phone, the list of pages leads back to where the Gallery was opened from.
+        BeginNavigationSplitView(
+            "gallery",
+            {.Title = "Gallery", .DetailTitle = page.Title, .RootBackTitle = options.HasBackButton ? "Start" : ""});
 
         BeginSidebar("pages", {.Width = 210.0f});
         SidebarHeader("Carbon");
@@ -184,7 +187,7 @@ namespace Gallery
             SetScrollOffset(page.Key, Vec2(0.0f, GetScrollOffset(page.Key).Y + captured.Y - top));
         }
 
-        EndNavigationSplitView();
+        isBackClicked = EndNavigationSplitView() || isBackClicked;
 
         // Notifications float above everything, wherever they were posted from.
         ShowGalleryNotifications(state);

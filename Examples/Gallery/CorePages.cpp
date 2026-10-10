@@ -438,23 +438,27 @@ namespace Gallery
 
     void ImagesPage(GalleryState& state)
     {
-        BeginSection("Images and separators",
-                     "Image shows any texture view of the host, optionally with squircle "
-                     "corners. Separators adapt to the direction of their stack.");
+        BeginSection(
+            "Images and separators",
+            "Image shows any texture view of the host, optionally with squircle "
+            "corners; on a touchscreen two fingers zoom it. Separators adapt to the direction of their stack.");
         const bool isCompact = IsCompactWidth();
         BeginHStack({.Spacing = 16.0f,
                      .Alignment = VerticalAlignment::Center,
                      .Width = isCompact ? Size::Fill() : Size::Fit(),
                      .Wraps = isCompact});
-        Image(state.Artwork, Vec2(72.0f, 72.0f));
-        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f});
-        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 36.0f});
+        // Two fingers zoom each image on a touchscreen; they share one texture, so each has an ID of its own.
+        Image(state.Artwork, Vec2(72.0f, 72.0f), {.Zoomable = true, .ID = "square"});
+        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f, .Zoomable = true, .ID = "rounded"});
+        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 36.0f, .Zoomable = true, .ID = "round"});
         if (!isCompact)
             Separator();
-        Image(state.Artwork, Vec2(128.0f, 72.0f), {.CornerRadius = 10.0f, .UV = Rect(0.0f, 0.25f, 1.0f, 0.5f)});
+        Image(state.Artwork, Vec2(128.0f, 72.0f),
+              {.CornerRadius = 10.0f, .UV = Rect(0.0f, 0.25f, 1.0f, 0.5f), .Zoomable = true, .ID = "wide"});
         if (!isCompact)
             Separator();
-        Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f, .Tint = GetStyleColor(StyleColor::Accent)});
+        Image(state.Artwork, Vec2(72.0f, 72.0f),
+              {.CornerRadius = 16.0f, .Tint = GetStyleColor(StyleColor::Accent), .Zoomable = true, .ID = "tinted"});
         EndHStack();
         EndSection();
     }

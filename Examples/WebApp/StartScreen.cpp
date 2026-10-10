@@ -1,5 +1,6 @@
 #include "StartScreen.h"
 
+#include <algorithm>
 #include <format>
 #include <string>
 
@@ -36,10 +37,10 @@ namespace WebApp
 
         // A large button: an icon badge, a title and a description, lifting a little while hovered. Activates
         // with a click, or Space and Enter after Tab.
-        bool Card(std::string_view label, std::string_view icon, std::string_view description, Color tint)
+        bool Card(std::string_view label, std::string_view icon, std::string_view description, Color tint, float width)
         {
             const ID id = GetID(label);
-            const Rect rect = AllocateItem(Vec2(CardWidth, CardHeight));
+            const Rect rect = AllocateItem(Vec2(width, CardHeight));
             const Interaction interaction = ButtonBehavior(id, rect);
             const ControlFeedback feedback = AnimateFeedback(id, interaction.Hovered, interaction.Pressed);
             const float lift = Animate(HashID("lift", id), interaction.Hovered && !interaction.Pressed ? 1.0f : 0.0f,
@@ -66,7 +67,7 @@ namespace WebApp
             drawList.AddText(Vec2(card.X + CardPadding, badge.GetBottom() + 16.0f), GetDisplayLabel(label), title,
                              GetStyleColor(StyleColor::Label));
             TextSpec body = GetTextSpec(TextStyle::Body);
-            body.MaxWidth = CardWidth - CardPadding * 2.0f;
+            body.MaxWidth = width - CardPadding * 2.0f;
             body.Wraps = true;
             drawList.AddText(
                 Vec2(card.X + CardPadding, badge.GetBottom() + 16.0f + GetFontMetrics(title).LineHeight + 4.0f),
@@ -91,26 +92,45 @@ namespace WebApp
             SetTheme(isDark ? Theme::Dark() : Theme::Light());
         EndHStack();
 
+        // On a phone the texts wrap and the cards stand one above the other, as wide as the display allows.
+        const bool isCompact = IsCompactWidth();
+        const float cardWidth = isCompact ? std::min(CardWidth + 60.0f, GetContentRect().Width - 32.0f) : CardWidth;
+        const TextOptions centered = {
+            .Width = isCompact ? Size::Fill() : Size::Fit(), .Wraps = isCompact, .Alignment = TextAlignment::Center};
         Spacer();
         Logo();
         Spacer({.Length = 22.0f});
         Text("Carbon", {.Style = TextStyle::LargeTitle, .Emphasized = true});
         Spacer({.Length = 8.0f});
-        Text("An immediate-mode C++20 UI framework with a macOS look", {.Style = TextStyle::Title3, .Secondary = true});
-        Spacer({.Length = 4.0f});
-        Text("Everything on this page is drawn by Carbon, compiled to WebAssembly and rendered with WebGL 2.",
-             {.Secondary = true});
-        Spacer({.Length = 40.0f});
+        BeginVStack({.Spacing = 4.0f,
+                     .Padding = EdgeInsets(isCompact ? 24.0f : 0.0f, 0.0f),
+                     .Alignment = Alignment::Center,
+                     .Width = isCompact ? Size::Fill() : Size::Fit()});
+        TextOptions subtitle = centered;
+        subtitle.Style = TextStyle::Title3;
+        subtitle.Secondary = true;
+        Text("An immediate-mode C++20 UI framework with a macOS look", subtitle);
+        TextOptions note = centered;
+        note.Secondary = true;
+        Text("Everything on this page is drawn by Carbon, compiled to WebAssembly and rendered with WebGL 2.", note);
+        EndVStack();
+        Spacer({.Length = isCompact ? 28.0f : 40.0f});
 
-        BeginHStack({.Spacing = 20.0f});
+        if (isCompact)
+            BeginVStack({.Spacing = 16.0f, .Alignment = Alignment::Center});
+        else
+            BeginHStack({.Spacing = 20.0f});
         if (Card("Gallery", Icons::SquaresFour, "Every component, live and interactive, in both appearances.",
-                 GetStyleColor(StyleColor::Accent)))
+                 GetStyleColor(StyleColor::Accent), cardWidth))
             choice = StartChoice::Gallery;
         if (Card("Documentation", Icons::BookOpenText,
                  "The guides and a page for every component, read from the repository's Docs folder.",
-                 GetStyleColor(StyleColor::Orange)))
+                 GetStyleColor(StyleColor::Orange), cardWidth))
             choice = StartChoice::Docs;
-        EndHStack();
+        if (isCompact)
+            EndVStack();
+        else
+            EndHStack();
 
         Spacer();
         BeginHStack({.Spacing = 12.0f, .Padding = EdgeInsets(24.0f, 18.0f)});

@@ -52,6 +52,11 @@ namespace WebApp
                }) != 0;
     }
 
+    void GoBack()
+    {
+        EM_ASM({ window.history.back(); });
+    }
+
     void SetPageTitle(std::string_view title)
     {
         const std::string text(title);

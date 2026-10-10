@@ -145,16 +145,24 @@ namespace WebApp
                 drawList.AddRect(bounds, color);
         }
 
-        for (const Picture& picture : m_Pictures)
+        // Pictures can be pinched to zoom them on a touchscreen; they stay inside their place in the text.
+        const ID pictures = GetID("##pictures");
+        for (size_t i = 0; i < m_Pictures.size(); i++)
         {
+            const Picture& picture = m_Pictures[i];
             const Rect bounds(origin + picture.Bounds.GetMin(), picture.Bounds.GetSize());
             if (!bounds.Intersects(clip))
                 continue;
             const TextureID texture = images.GetTexture(picture.Path);
-            if (texture.Value != 0)
-                drawList.AddImage(texture, bounds);
-            else
+            if (texture.Value == 0)
+            {
                 drawList.AddSquircle(bounds, Resolve(Ink::Fill), CodeRadius, smoothing);
+                continue;
+            }
+            const Zoom zoom = ZoomBehavior(HashID(static_cast<int64_t>(i), pictures), bounds, {.MaxScale = 4.0f});
+            drawList.PushClipRect(bounds);
+            drawList.AddImage(texture, zoom.GetZoomedRect(bounds));
+            drawList.PopClipRect();
         }
 
         // Links: every visible piece of one is a button; hovering any piece underlines all of them.

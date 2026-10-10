@@ -66,8 +66,10 @@ namespace WebApp
         }
         bool isBackClicked = false;
 
-        BeginHStack(
-            {.Spacing = 0.0f, .Alignment = VerticalAlignment::Top, .Width = Size::Fill(), .Height = Size::Fill()});
+        // The list of documents beside the document; on a phone, a list from which the document slides in.
+        const bool isCompact = IsCompactWidth();
+        BeginNavigationSplitView(
+            DocsNavigationID, {.Title = "Documentation", .DetailTitle = GetCurrentTitle(), .RootBackTitle = "Start"});
 
         // The sidebar: top-level documents are the guides, each folder a group of its own.
         BeginSidebar("documents", {.Width = 250.0f});
@@ -89,11 +91,15 @@ namespace WebApp
         }
         EndSidebar();
 
-        BeginVStack({.Spacing = 0.0f, .Width = Size::Fill(), .Height = Size::Fill()});
-        BeginHStack({.Spacing = 16.0f, .Padding = EdgeInsets(24.0f, 14.0f), .Width = Size::Fill()});
-        isBackClicked = Button("##back", {.Role = ButtonRole::Plain, .Icon = Icons::CaretLeft});
-        Tooltip("Back to the start");
-        Text("Documentation", {.Style = TextStyle::Title2, .Emphasized = true});
+        NavigationSplitViewDetail();
+        BeginHStack({.Spacing = 16.0f, .Padding = EdgeInsets(isCompact ? 16.0f : 24.0f, 14.0f), .Width = Size::Fill()});
+        // On a phone the navigation bars show the titles and lead back.
+        if (!isCompact)
+        {
+            isBackClicked = Button("##back", {.Role = ButtonRole::Plain, .Icon = Icons::CaretLeft});
+            Tooltip("Back to the start");
+            Text("Documentation", {.Style = TextStyle::Title2, .Emphasized = true});
+        }
         Spacer();
         if (Button("View Source",
                    {.Role = ButtonRole::Plain, .ControlSize = ControlSize::Small, .Icon = Icons::ArrowSquareOut}))
@@ -107,7 +113,7 @@ namespace WebApp
         // Each document has its own scroll view, so each one remembers how far it was scrolled.
         int clickedLink = -1;
         const Document& document = m_Library.GetDocument(m_CurrentPath);
-        BeginScrollView(m_CurrentPath, {.Padding = EdgeInsets(40.0f, 32.0f)});
+        BeginScrollView(m_CurrentPath, {.Padding = isCompact ? EdgeInsets(16.0f, 20.0f) : EdgeInsets(40.0f, 32.0f)});
         clickedLink = m_View.Show(document, m_CurrentPath, m_Images);
         EndScrollView();
         if (m_IsScrollPending)
@@ -123,12 +129,21 @@ namespace WebApp
             m_IsScrollPending = false;
         }
 
-        EndVStack();
-        EndHStack();
+        isBackClicked = EndNavigationSplitView() || isBackClicked;
 
         if (clickedLink >= 0 && static_cast<size_t>(clickedLink) < document.Links.size())
             FollowLink(document.Links[static_cast<size_t>(clickedLink)]);
         return isBackClicked;
+    }
+
+    bool DocsReader::IsDocumentShown() const
+    {
+        return !IsCompactWidth() || IsNavigationDetailShown(DocsNavigationID);
+    }
+
+    void DocsReader::ShowDocument(bool isShown)
+    {
+        ShowNavigationDetail(DocsNavigationID, isShown, false);
     }
 
     void DocsReader::FollowLink(std::string_view target)
