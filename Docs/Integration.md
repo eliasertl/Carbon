@@ -221,8 +221,18 @@ The drop is delivered in the frame after the one that applies the event, when th
 `IsAnimating()` stays true until then, so a host that renders on demand renders that frame. Hosts that learn about
 the drag while it is still over the window (`IDropTarget::DragOver` on Windows, `draggingUpdated:` in Cocoa,
 `drag-motion` in GTK) also call `io.AddFileDragEvent(x, y, paths)` as it moves and `io.AddFileDragLeaveEvent()`
-when it leaves: targets for files then highlight before the drop, as in macOS. The examples forward GLFW's drop
-in `Examples/Common/GlfwInput.cpp`.
+when it leaves: targets for files then highlight before the drop, as in macOS.
+
+The examples do this in `Examples/Common/FileDrop.cpp`:
+
+- **Windows**: an OLE `IDropTarget` registered on the window (`RegisterDragDrop`, after `OleInitialize`). It
+  reads the paths (`CF_HDROP`) when the drag enters, forwards every `DragOver` as a drag event with them, and the
+  drop. Registering it takes precedence over GLFW's `WM_DROPFILES` handling.
+- **Browsers** (Emscripten): the GLFW port has no drop callback, so the page listens to the canvas's `dragover`,
+  `dragleave` and `drop` events. A page sees no paths and, until the drop, not even the names; it gets the files'
+  contents. The drag is forwarded with no paths, and the dropped files are written to Emscripten's in-memory file
+  system under `/dropped` before their paths are reported, so the application reads them like any file.
+- **Elsewhere**: GLFW's drop callback, which reports the drop alone.
 
 ## Input methods
 

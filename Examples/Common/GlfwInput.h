@@ -16,8 +16,9 @@ namespace Example
     /// current context's IO.
     void CursorToPoints(GLFWwindow* window, double cursorX, double cursorY, float& x, float& y);
 
-    /// Installs GLFW callbacks on a window that forward mouse, keyboard, text, focus and file drop events to the
-    /// current Carbon context. Does nothing for a null window (screenshot mode).
+    /// Installs GLFW callbacks on a window that forward mouse, keyboard, text and focus events to the current
+    /// Carbon context. Files dropped from the system are forwarded by InstallFileDrop. Does nothing for a null window
+    /// (screenshot mode).
     void InstallInputCallbacks(GLFWwindow* window);
 
     /// Fills in the clipboard and cursor callbacks of a context description using a GLFW window. For a null

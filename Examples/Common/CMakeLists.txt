@@ -12,6 +12,8 @@ add_library(CarbonExampleBase STATIC
     ExampleArguments.h
     ExampleHost.cpp
     ExampleHost.h
+    FileDrop.cpp
+    FileDrop.h
     GlfwInput.cpp
     GlfwInput.h
     GraphicsDevice.h
@@ -27,9 +29,10 @@ target_link_libraries(CarbonExampleBase
     PUBLIC Carbon::Carbon ${CARBON_DEPS_GLFW_NAME}
     PRIVATE ${CARBON_DEPS_STB_NAME}
 )
-# The input method of Windows (IMM32) composes Japanese, Chinese and Korean text in Carbon's text fields.
+# The input method of Windows (IMM32) composes Japanese, Chinese and Korean text in Carbon's text fields; OLE and the
+# shell report files dragged onto the window.
 if(WIN32)
-    target_link_libraries(CarbonExampleBase PRIVATE imm32)
+    target_link_libraries(CarbonExampleBase PRIVATE imm32 ole32 shell32)
 endif()
 carbon_configure_target(CarbonExampleBase)
 

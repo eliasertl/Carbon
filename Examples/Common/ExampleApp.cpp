@@ -11,6 +11,7 @@
 #include <emscripten/emscripten.h>
 #endif
 
+#include "FileDrop.h"
 #include "GlfwInput.h"
 #include "InputMethod.h"
 
@@ -96,6 +97,7 @@ namespace Example
         m_Context = Carbon::CreateContext(description);
         InstallInputCallbacks(m_Host.GetWindow());
         InstallInputMethod(m_Host.GetWindow());
+        InstallFileDrop(m_Host.GetWindow());
         m_SystemFonts = AddSystemFallbackFonts();
 
         // Carbon renders through the backend of the device this executable was built for.
@@ -106,6 +108,7 @@ namespace Example
 
     App::~App()
     {
+        RemoveFileDrop(m_Host.GetWindow());
         if (m_Context != nullptr)
         {
             if (m_IsBackendReady)
