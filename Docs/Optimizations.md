@@ -511,6 +511,32 @@ indices, primitives, draw commands, atlas bytes) is the same before and after, a
 the noise of the machine in both directions. Building HarfBuzz's raster library adds 4 objects and about 13 CPU
 seconds to a clean Release build, and the PNG decoder about 4.
 
+### Phones and tablets: what touch support costs a desktop frame
+
+Not an optimization but a check: touch input, gestures, adaptive layouts, safe areas, text size and the on-screen
+keyboard (M29 to M34) must cost a desktop interface next to nothing. The benchmarks of `105fb74` (before them) and
+of `425b495` (after them), same machine on mains power, back to back, median of 3:
+
+| Metric | Case | Before | After | Change |
+| --- | --- | --- | --- | --- |
+| Frame time (median) | Gallery, buttons page | 22.8 µs | 23.4 µs | +3% |
+| Frame time (median) | Gallery, text fields page | 38.6 µs | 39.4 µs | +2% |
+| Frame time (median) | Gallery, selection page | 57.2 µs | 58.7 µs | +3% |
+| Frame time (median) | Gallery, lists page | 47.4 µs | 48.0 µs | +1% |
+| Frame time (median) | Idle, focused text field | 31.1 µs | 32.5 µs | +5% |
+| Frame time (median) | Idle, static interface | 1.20 µs | 1.29 µs | +7% |
+| Frame time (median) | 1,000 stacks in a loop | 95.3 µs | 96.2 µs | +1% |
+| Frame time (median) | Table, 1,000 rows | 104 µs | 98.1 µs | −6% |
+
+Allocations per frame are unchanged in every benchmark (still zero where they were zero), and so are vertices,
+indices, primitives, draw commands and atlas bytes; the two that differ (an open combo box, glyph atlas with
+changing sizes) differ as much between two runs of the same commit, because what they draw depends on timing. The
+Gallery's frames are 1 to 5 % slower: each frame now updates touch mode and the size class, gesture state and the
+text input areas, and every text style is multiplied by the text scale. The renderer backends' timings move by up
+to 30 % in both directions although their code did not change, the machine's noise for runs of a few
+microseconds. A first run of the benchmarks on battery power came out twice as slow in every case, the backends
+included, and was discarded.
+
 ### Tried and rejected
 
 - **WebGPU: skip binding the texture's bind group when it has not changed.** Render time of the small scene (4 draw

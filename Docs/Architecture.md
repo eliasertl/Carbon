@@ -915,6 +915,7 @@ table). Checks that name CI refer to the CI workflow, which now runs only when s
 | M32 Safe areas, text size, on-screen keyboard | `SetSafeAreaInsets` with edge-to-edge backgrounds, `SetTextScale`, `SetKeyboardVisible`, `GetTextInputState`, `AddTextReplaceEvent`, `GetTextInputAreas`, `SetKeyboardRect` with scrolling and moving the interface, `TextFieldOptions::Keyboard`; `--safe-area`, `--text-scale`, `--keyboard` | Safe area, text size, keyboard and rotation tests; a phone layout allocates nothing in steady state |
 | M33 The web app on phones and tablets | `Examples/Common/WebHost`: pointer events, safe area, text size, keyboard through a hidden input element; the page's viewport; start screen, Gallery and Docs reader in compact width with addresses for the list (`#docs`) and browser history; pinch-zoomable pictures; `NavigationSplitViewOptions::RootBackTitle` | Chrome device emulation (iPhone and iPad, both orientations; typing, swipe back, pinch); the desktop page unchanged |
 | M34 Android | `Examples/Android`: a GameActivity host for the shared Gallery on the OpenGL ES backend (EGL, touch, pens and mice, keys, safe area with the display cutout, font scale, dark mode, soft keyboard through GameTextInput, Back, rendering on demand, surface and context loss), built with Gradle and the NDK from the command line; `CB_PLATFORM_ANDROID`; Return ends editing in touch mode | Debug and release APKs without warnings; on the emulator: taps, scrolling, typing on the soft keyboard, Done, Back and the edge swipe, rotation, background and back, dark mode and font size |
+| M35 Mobile wrap-up | README, Integration, Mobile and Building brought up to date; the cost of touch support for desktop frames measured against the commit before it | All tests in Debug, Release and in Node; desktop screenshots unchanged; benchmarks before and after in Optimizations.md |
 
 Features planned for 1.0, all done:
 
@@ -930,6 +931,7 @@ Features planned for 1.0, all done:
 | Color emoji: COLR v0/v1, CBDT, sbix | `Text/`, color glyph atlas, `RendererBackendVersion` 2 | 138, 139 |
 | Table upgrades: any number of columns, resizing, sideways scrolling, sorting, reordering (M22–M24) | `Table` | 140–144 |
 | Drag and drop, reordering lists and outlines, host file drops (M25–M27) | `Interaction/DragDrop.h`, `List`, `OutlineView`, `IO` | 145–148 |
+| Phones and tablets: touch and gestures, touch mode and size classes, compact-width patterns, safe areas, text size, the on-screen keyboard, the web app and an Android app (M29–M35) | `Input/`, `Interaction/Gesture.h`, `Input/Adaptive.h`, `NavigationSplitView`, `Examples/Common/WebHost.cpp`, `Examples/Android` | 152–174 |
 
 ## 16. Decision log
 

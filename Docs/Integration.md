@@ -300,6 +300,10 @@ callback. [Phones and tablets](Mobile.md) explains each:
 | `io.SetDefaultPointerType(PointerType::Touch)` | The device is a touchscreen first: start in touch mode |
 | `Callbacks.SetKeyboardVisible` | Show or hide the on-screen keyboard; `io.GetTextInputState()` says for what |
 
+Two complete hosts show it: [Examples/Common/WebHost.cpp](../Examples/Common/WebHost.cpp) for browsers and
+[Examples/Android](../Examples/Android/AndroidHost.cpp) for Android ([On Android](Mobile.md#on-android)). A phone
+host should also render on demand (`GetNextFrameDelay`) rather than every display refresh.
+
 ## Points, pixels and DPI
 
 All of Carbon's coordinates and sizes are **logical points**. The content scale is the number of physical pixels
