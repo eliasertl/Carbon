@@ -85,6 +85,16 @@ add_library(CarbonTestsStb OBJECT src/Support/StbImageWrite.cpp)
 target_link_libraries(CarbonTestsStb PRIVATE ${CARBON_DEPS_STB_NAME})
 target_sources(CarbonTests PRIVATE $<TARGET_OBJECTS:CarbonTestsStb>)
 
+# The Markdown parser and documentation library of the web app (Examples/WebApp) need neither a GPU nor a browser.
+# Their tests also read the documentation, whose links and images must all lead somewhere.
+target_sources(CarbonTests PRIVATE
+    src/WebApp/MarkdownTests.cpp
+    "${PROJECT_SOURCE_DIR}/Examples/WebApp/DocLibrary.cpp"
+    "${PROJECT_SOURCE_DIR}/Examples/WebApp/Markdown.cpp"
+)
+target_include_directories(CarbonTests PRIVATE "${PROJECT_SOURCE_DIR}/Examples/WebApp")
+target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_DOCS_DIR=\"${PROJECT_SOURCE_DIR}/Docs\"")
+
 if(CARBON_BUILD_EXTENSIONS)
     target_sources(CarbonTests PRIVATE
         src/Extensions/ContainerTests.cpp
