@@ -233,6 +233,24 @@ top-level document appears under Guides, a new folder as a group of its own.
 The tests check the documentation the reader shows: `MarkdownTests` parses every document in `Docs/` and fails
 when a link leads to a document, heading or file that does not exist, or an image is missing.
 
+### On phones and tablets
+
+The web app works with fingers ([Phones and tablets](Mobile.md)). On a phone in portrait (compact width) the
+Gallery and the documentation are navigation stacks: the list of pages or documents, from which a page slides in.
+The address shows which: `#docs` is the list, `#docs/Layout.md` a document, and the browser's Back button and the
+app's back buttons move between them without filling the history. The page reports the safe area
+(`env(safe-area-inset-*)`, with `viewport-fit=cover`), the text size (Dynamic Type on iOS, the browser's default
+font size elsewhere) and the on-screen keyboard (the visual viewport) to Carbon; pictures of the documentation
+and the Gallery's images can be pinched. All of this is in
+[Examples/Common/WebHost.cpp](../Examples/Common/WebHost.cpp) and works for every web example.
+
+To try it without a phone, open the local server in Chrome, open DevTools (F12), turn on the device toolbar
+(Ctrl+Shift+M) and choose an iPhone or an iPad; the rotate button switches the orientation. Typing goes to the
+focused field through a hidden input element, as the on-screen keyboard of a phone does; DevTools shows no
+keyboard, the safe area of a notch, or Dynamic Type, so check those on a real device. To reach the local server
+from a phone in the same network, serve on all interfaces (`python -m http.server --bind 0.0.0.0`) and open the
+computer's address; Safari needs `https` only for features Carbon does not use.
+
 ### Deploying to GitHub Pages
 
 [.github/workflows/Pages.yml](../.github/workflows/Pages.yml) builds the web app with Emscripten and publishes it

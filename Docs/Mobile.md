@@ -194,8 +194,35 @@ io.SetKeyboardRect(coveredArea);                               // empty when it 
 
 ![A text area being edited above an on-screen keyboard: the page scrolled and the interface moved up](Images/Mobile-Keyboard-Light.png)
 
-`Examples/WebApp` does this with a hidden input element, `Examples/Android` with Android's soft input; their
-sources show the details for each platform.
+`Examples/WebApp` does this with a hidden input element, `Examples/Android` with Android's soft input; the next
+two sections and their sources show the details for each platform.
+
+## In a browser
+
+[Examples/Common/WebHost.cpp](../Examples/Common/WebHost.cpp) is the browser's side, shared by every web example:
+
+- **The page.** `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1,
+  user-scalable=no, viewport-fit=cover">` keeps the browser from zooming, and the page fills the screen under the
+  status bar. The body is `position: fixed` and the canvas has `touch-action: none`, so the page never scrolls and
+  every finger goes to Carbon.
+- **Fingers and pens** come from pointer events (`pointerType` `touch` or `pen`) on the canvas, listened to in the
+  window's capture phase, before the GLFW port, which would see them as a mouse. The touch events of the same
+  fingers are stopped there too. A mouse still goes through GLFW, so nothing changes on a desktop.
+- **The safe area** is read from a hidden element padded with `env(safe-area-inset-*)`, the **text size** from an
+  element set in `-apple-system-body` (iOS Dynamic Type, 17 pixels at the default size) or in the browser's default
+  font size (16 pixels), and the **keyboard** from the visual viewport: what it leaves of the layout viewport at the
+  bottom is the area the keyboard covers.
+- **Text input** goes through a hidden `<input>` element that follows Carbon's caret, with 16-pixel text so that
+  iOS does not zoom when it gets the focus. It holds the text being edited (`GetTextInputState`), so autocorrection
+  and suggestions work; its `input` events become one `AddTextReplaceEvent` each, its composition events Carbon's
+  composition events (Japanese, Chinese, Korean), and Enter, Tab, Escape and the arrows go to Carbon as keys. Its
+  `type`, `inputmode`, `autocorrect` and `enterkeyhint` follow the keyboard Carbon asks for. iOS shows the keyboard
+  only for an element focused while a tap is handled, so the page focuses the input element in the tap's
+  `pointerup` and `touchend` handlers when the tap is inside one of `IO::GetTextInputAreas()`.
+- Focus moving between the canvas and the input element is kept from GLFW, which would report the window losing
+  focus.
+
+## Forwarding touches
 
 ## Forwarding touches
 
