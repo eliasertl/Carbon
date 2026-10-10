@@ -795,7 +795,7 @@ namespace Carbon
 
     TEST_F(TextFieldBufferTests, AnEmptyBufferIsReported)
     {
-        Frame([this] { TextField("Name", std::span<char>()); });
+        Frame([] { TextField("Name", std::span<char>()); });
         EXPECT_EQ(m_AssertMessages.size(), 1u);
     }
 

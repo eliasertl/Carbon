@@ -13,6 +13,8 @@
 
 namespace Example
 {
+#if !defined(__EMSCRIPTEN__)
+    // A page has no system fonts to look for.
     namespace
     {
         // Adds the first of the candidate files that exists. Returns false when none does.
@@ -28,6 +30,7 @@ namespace Example
             return false;
         }
     } // namespace
+#endif
 
     SystemFallbackFonts AddSystemFallbackFonts()
     {

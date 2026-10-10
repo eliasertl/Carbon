@@ -105,6 +105,14 @@ if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_NAME})
         # be compiled in one piece (its harfbuzz.cc). In a few batches it costs a fraction and still uses
         # several cores.
         set_target_properties(harfbuzz PROPERTIES UNITY_BUILD ON UNITY_BUILD_BATCH_SIZE 12)
+        # The raster library compiles HarfBuzz's static data (hb-static.cc) again, for a shared build where each
+        # library keeps it private. Linked statically next to HarfBuzz it defines the same symbols twice, which
+        # MSVC tolerates and wasm-ld does not: the raster library uses HarfBuzz's.
+        if(TARGET harfbuzz-raster AND NOT BUILD_SHARED_LIBS)
+            get_target_property(carbon_raster_sources harfbuzz-raster SOURCES)
+            list(FILTER carbon_raster_sources EXCLUDE REGEX "hb-static\.cc$")
+            set_target_properties(harfbuzz-raster PROPERTIES SOURCES "${carbon_raster_sources}")
+        endif()
     else()
         find_package(harfbuzz REQUIRED)
         carbon_add_package_dependency("find_dependency(harfbuzz)")
