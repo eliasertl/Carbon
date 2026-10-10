@@ -1,6 +1,7 @@
 #pragma once
 
 #include <optional>
+#include <string_view>
 
 #include "Carbon/Core/Color.h"
 #include "Carbon/Core/Rect.h"
@@ -20,6 +21,13 @@ namespace Carbon
         Color Tint = Color::White();
         /// The part of the texture to show, in 0..1 coordinates.
         Rect UV = Rect(0.0f, 0.0f, 1.0f, 1.0f);
+        /// Two fingers pinch the image to zoom it, up to MaxZoom, and pan it while it is zoomed in; a double tap
+        /// zooms in and out (ZoomBehavior). The mouse does not zoom.
+        bool Zoomable = false;
+        float MaxZoom = 4.0f;
+        /// The identity that keeps a zoomable image's zoom while it is shown. Derived from the texture when
+        /// empty; give one when the same texture is shown twice.
+        std::string_view ID = {};
     };
 
     /// Displays a texture at `size` points. Get the TextureID of one of your textures from the renderer

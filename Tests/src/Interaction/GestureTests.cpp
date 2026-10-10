@@ -569,6 +569,29 @@ namespace Carbon
         EXPECT_NEAR(m_Zoom.Scale, 1.0f, 0.01f);
     }
 
+    TEST_F(ZoomTests, AZoomableImageShowsPartOfItsTextureInItsFrame)
+    {
+        const Builder build = [&]
+        {
+            SetCursorPos(Area.GetMin());
+            Image(MakeTextureID(uint64_t{42}), Area.GetSize(), {.Zoomable = true});
+        };
+        Settle(build);
+        const auto uvWidth = [] { return GetDrawData().Vertices[1].UV.X - GetDrawData().Vertices[0].UV.X; };
+        const float full = uvWidth();
+        GetIO().AddTouchEvent(TouchPhase::Began, 1, 180.0f, 200.0f);
+        GetIO().AddTouchEvent(TouchPhase::Began, 2, 220.0f, 200.0f);
+        for (int i = 0; i < 3; i++)
+            Frame(build);
+        GetIO().AddTouchEvent(TouchPhase::Moved, 1, 160.0f, 200.0f);
+        GetIO().AddTouchEvent(TouchPhase::Moved, 2, 240.0f, 200.0f);
+        Frame(build);
+        // Twice the size: half of the texture fills the same frame.
+        const DrawVertex& corner = GetDrawData().Vertices[0];
+        EXPECT_NEAR(corner.Position.X, Area.X - 1.0f, 1.0f);
+        EXPECT_NEAR(uvWidth(), full * 0.5f, 0.02f);
+    }
+
     TEST_F(ZoomTests, TheMouseDoesNotZoom)
     {
         Frame(Picture());
