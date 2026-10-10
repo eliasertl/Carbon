@@ -196,5 +196,37 @@ namespace Gallery
             MoveFileItem(state, move);
         Text(std::format("Last move: {}", state.LastFileMove), {.Secondary = true});
         EndSection();
+
+        BeginSection("Files from the system",
+                     "Drop files from the file manager onto the box. The host forwards the system's drop through "
+                     "the IO object, and any item can accept files.");
+        BeginVStack({.Spacing = 6.0f,
+                     .Padding = EdgeInsets(16.0f),
+                     .Alignment = Alignment::Center,
+                     .Width = Size::Fill(),
+                     .Background = GetStyleColor(StyleColor::ControlBackground),
+                     .CornerRadius = 8.0f,
+                     .ID = "dropzone"});
+        Icon(Icons::FileArrowDown, {.Size = 32.0f, .Color = GetStyleColor(StyleColor::SecondaryLabel)});
+        Text(state.DroppedFiles.empty() ? "Drop files here" : "Drop more files here", {.Secondary = true});
+        for (const std::string& path : state.DroppedFiles)
+        {
+            BeginHStack({.Spacing = 6.0f});
+            Icon(Icons::File, {.Size = 15.0f, .Color = GetStyleColor(StyleColor::Accent)});
+            Text(path);
+            EndHStack();
+        }
+        EndVStack();
+        GetDrawList().AddSquircleStroke(GetLastItemRect(), GetStyleColor(StyleColor::ControlBorder), 8.0f,
+                                        GetContentScale().GetPixelSize());
+        const Drop files = AcceptDrop(GetID("dropzone"), GetLastItemRect(), FilesPayloadType, {.CornerRadius = 8.0f});
+        if (files.IsDelivered)
+        {
+            state.DroppedFiles.insert(state.DroppedFiles.begin(), files.Payload.Files.begin(),
+                                      files.Payload.Files.end());
+            if (state.DroppedFiles.size() > 6)
+                state.DroppedFiles.resize(6);
+        }
+        EndSection();
     }
 } // namespace Gallery

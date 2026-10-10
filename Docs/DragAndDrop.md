@@ -89,6 +89,30 @@ Carbon::ApplyListMove(songs, Carbon::EndList());
 Their rows use the payload type of their own, so they move only within their list. To drag rows elsewhere, make
 the row a source yourself with `BeginDragSource()` right after `ListItem` (the row is the last item).
 
+## Files from the system
+
+Files dragged in from the file manager are a drag like any other, of the type `Carbon::FilesPayloadType`, with the
+paths in `payload.Files`. Any item can accept them:
+
+```cpp
+Carbon::BeginVStack({ .Width = Carbon::Size::Fill(), .ID = "attachments" });
+Carbon::Text("Drop files here");
+Carbon::EndVStack();
+const Carbon::Drop drop =
+    Carbon::AcceptDrop(Carbon::GetID("attachments"), Carbon::GetLastItemRect(), Carbon::FilesPayloadType);
+if (drop.IsDelivered)
+    for (std::string_view path : drop.Payload.Files)
+        Attach(path);
+```
+
+![Files dragged over a drop target](Images/DragAndDropFiles-Light.png)
+
+The host forwards the system's drop through the IO object, `io.AddFileDropEvent(x, y, paths)`; the target under
+the position receives the files in the next frame. A host that also learns about the drag while it moves over the
+window forwards it with `io.AddFileDragEvent` and `io.AddFileDragLeaveEvent`, and the targets highlight before
+the drop. The examples forward GLFW's drop; [Integration](Integration.md#files-from-the-system) shows the code.
+Dragging between windows or applications other than receiving files is not supported.
+
 ## While something is dragged
 
 | Function | Purpose |

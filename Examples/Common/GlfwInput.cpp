@@ -1,6 +1,8 @@
 #include "GlfwInput.h"
 
 #include <string>
+#include <string_view>
+#include <vector>
 
 #define GLFW_INCLUDE_NONE
 #include <GLFW/glfw3.h>
@@ -179,6 +181,20 @@ namespace Example
                             { Carbon::GetIO().AddInputCharacter(static_cast<char32_t>(codepoint)); });
         glfwSetWindowFocusCallback(
             window, [](GLFWwindow*, int focused) { Carbon::GetIO().AddFocusEvent(focused == GLFW_TRUE); });
+        // Files dropped from the system's file manager. GLFW reports only the drop, at the cursor; drop targets
+        // for files highlight only with hosts that also report the drag (IO::AddFileDragEvent).
+        glfwSetDropCallback(window,
+                            [](GLFWwindow* source, int count, const char** paths)
+                            {
+                                std::vector<std::string_view> files(paths, paths + count);
+                                double cursorX = 0.0;
+                                double cursorY = 0.0;
+                                glfwGetCursorPos(source, &cursorX, &cursorY);
+                                float x = 0.0f;
+                                float y = 0.0f;
+                                CursorToPoints(source, cursorX, cursorY, x, y);
+                                Carbon::GetIO().AddFileDropEvent(x, y, files);
+                            });
     }
 
     void InstallPlatformCallbacks(GLFWwindow* window, Carbon::Callbacks& callbacks)

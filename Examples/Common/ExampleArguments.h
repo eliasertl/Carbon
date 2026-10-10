@@ -34,6 +34,11 @@ namespace Example
         /// position, where the button stays down: a drag in progress (moving a column, dragging a row).
         float DragX = -1.0f;
         float DragY = -1.0f;
+        /// --file-drag <x>x<y>, --file-drop <x>x<y>: in screenshot mode, files from the system (two sample paths)
+        /// are dragged over this position, or dropped there.
+        float FileX = -1.0f;
+        float FileY = -1.0f;
+        bool DropsFiles = false;
         /// --compose <text>: in screenshot mode, after the click, an input method composes this text in the focused
         /// text field: '|' separates its clauses, the first of which is being converted, and \uXXXX or
         /// \UXXXXXXXX stands for a character.

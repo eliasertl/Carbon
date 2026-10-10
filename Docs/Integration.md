@@ -183,6 +183,8 @@ Call these from your window's event handlers; Carbon queues the events and appli
 | Text | `io.AddInputCharactersUTF8(text)` or `io.AddInputCharacter(codepoint)` | From the OS's character events, not from key codes |
 | Window focus | `io.AddFocusEvent(focused)` | Losing focus releases all held keys and buttons |
 | Input method | `io.AddComposition...Event` | Start, update, commit, cancel; see [Input methods](#input-methods) |
+| Files dropped | `io.AddFileDropEvent(x, y, paths)` | UTF-8 paths and the position in points; see [Files from the system](#files-from-the-system) |
+| Files dragged over | `io.AddFileDragEvent(x, y, paths)`, `io.AddFileDragLeaveEvent()` | Optional, for hosts that learn about the drag before the drop |
 
 Details worth knowing:
 
@@ -198,6 +200,29 @@ Details worth knowing:
 - **Sharing input with your own content.** After `NewFrame`, `io.WantsMouse()`, `io.WantsKeyboard()` and
   `io.WantsTextInput()` tell you whether Carbon is using the mouse or keyboard, so your application can ignore
   those events for its own viewport.
+
+## Files from the system
+
+When the user drops files from the file manager onto the window, forward the drop: the drop target for
+`Carbon::FilesPayloadType` under the position receives the paths (see [Drag and drop](DragAndDrop.md)). With GLFW,
+which reports only the drop, at the cursor:
+
+```cpp
+glfwSetDropCallback(window, [](GLFWwindow* window, int count, const char** paths)
+{
+    std::vector<std::string_view> files(paths, paths + count);
+    double x = 0.0, y = 0.0;
+    glfwGetCursorPos(window, &x, &y);             // screen coordinates: convert to points like mouse positions
+    Carbon::GetIO().AddFileDropEvent(float(x), float(y), files);
+});
+```
+
+The drop is delivered in the frame after the one that applies the event, when the target under it is known;
+`IsAnimating()` stays true until then, so a host that renders on demand renders that frame. Hosts that learn about
+the drag while it is still over the window (`IDropTarget::DragOver` on Windows, `draggingUpdated:` in Cocoa,
+`drag-motion` in GTK) also call `io.AddFileDragEvent(x, y, paths)` as it moves and `io.AddFileDragLeaveEvent()`
+when it leaves: targets for files then highlight before the drop, as in macOS. The examples forward GLFW's drop
+in `Examples/Common/GlfwInput.cpp`.
 
 ## Input methods
 

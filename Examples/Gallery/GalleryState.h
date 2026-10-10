@@ -178,6 +178,8 @@ namespace Gallery
         std::vector<int> RootItems = {0, 3, 6, 7};
         int SelectedFileItem = 1;
         std::string LastFileMove = "nothing yet";
+        /// The paths of the files dropped from the system, most recent first.
+        std::vector<std::string> DroppedFiles;
 
         // Tabs and split views.
         int Tab = 0;

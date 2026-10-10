@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #if defined(__EMSCRIPTEN__)
@@ -126,6 +127,17 @@ namespace Example
         // Screenshots can be taken with the pointer somewhere, or after a click: the input is scripted. It starts
         // once the layout has settled, so that positions relative to a section (--section) are final.
         const Arguments& arguments = GetArguments();
+        // Files from the system, dragged over a position or dropped there.
+        if (m_Host.IsScreenshotMode() && arguments.FileX >= 0.0f && m_Host.GetFrameIndex() == 8)
+        {
+            const std::string_view files[] = {"Pictures/Beach.jpg", "Documents/Report.pdf"};
+            const float x = m_Host.GetPointerOriginX() + arguments.FileX;
+            const float y = m_Host.GetPointerOriginY() + arguments.FileY;
+            if (arguments.DropsFiles)
+                io.AddFileDropEvent(x, y, files);
+            else
+                io.AddFileDragEvent(x, y, files);
+        }
         if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f)
         {
             const int frame = m_Host.GetFrameIndex();

@@ -53,6 +53,12 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
   number), ProgressIndicator (bar and spinner), SearchField,
   List, Table, OutlineView (trees, such as a file browser), ColumnView, PathControl, SplitView, Alert, Sheet,
   ColorWell and notifications at any edge or corner.
+- **Data tables**: any number of columns that the user sorts, resizes, fits to their content and rearranges by
+  dragging their headers, with sideways scrolling; the application owns the sort, the widths and the order.
+- **Drag and drop**: any item can be a drag source with a typed payload and any rectangle a drop target, with a
+  preview, the macOS drop highlight, Escape to cancel and scroll views that scroll near their edges. Lists and
+  outline views reorder their rows by dragging, and files dropped from the system arrive through the same API.
+  [Docs/DragAndDrop.md](Docs/DragAndDrop.md) explains it.
 - **Overlays**: popovers, menus, alerts and sheets float in a layer above the interface and take the pointer and
   the keyboard while they are open.
 - **Reflection** (`CarbonReflection`): enum value names and struct fields found by the compiler, with an
@@ -138,6 +144,7 @@ Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f
 - [Styling](Docs/Styling.md) — the three styling layers, themes, typography, icons, corner shapes
 - [Keyboard navigation](Docs/KeyboardNavigation.md) — keys, focus order, the focus ring
 - [Overlays](Docs/Overlays.md) — how popovers, menus, alerts and sheets float above the interface
+- [Drag and drop](Docs/DragAndDrop.md) — drag sources, payloads, drop targets, reordering lists, files from the system
 - [Components](Docs/Components/README.md) — one page per component
 - [Custom components](Docs/CustomComponents.md) — the extension API, by example
 - [Reflection](Docs/Reflection.md) — interface from your own enums and structs: automatic reflection, the macros, limits
