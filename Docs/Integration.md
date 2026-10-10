@@ -186,6 +186,7 @@ Call these from your window's event handlers; Carbon queues the events and appli
 | Files dropped | `io.AddFileDropEvent(x, y, paths)` | UTF-8 paths and the position in points; see [Files from the system](#files-from-the-system) |
 | Files dragged over | `io.AddFileDragEvent(x, y, paths)`, `io.AddFileDragLeaveEvent()` | Optional, for hosts that learn about the drag before the drop |
 | Touch | `io.AddTouchEvent(phase, id, x, y, type)` | `Began`, `Moved`, `Ended`, `Cancelled` per finger or pen; see [Phones and tablets](Mobile.md#forwarding-touches) |
+| Keyboard edits | `io.AddTextReplaceEvent(start, end, text)` | Autocorrection and suggestions of an on-screen keyboard; see [On-screen keyboard](Mobile.md#on-screen-keyboard) |
 
 Details worth knowing:
 
@@ -285,6 +286,19 @@ in [Examples/Common/InputMethod.cpp](../Examples/Common/InputMethod.cpp), by rep
 their GLFW window, since GLFW has no input method API. On other platforms the same four events
 come from the platform's text-input API (`setMarkedText` and `insertText` on macOS, `text-input-v3` pre-edit and
 commit on Wayland, XIM pre-edit callbacks or `SDL_EVENT_TEXT_EDITING` and `SDL_EVENT_TEXT_INPUT` with SDL).
+
+## Phones and tablets
+
+Besides input, a host on a phone or a tablet reports four things every frame, before `NewFrame`, and handles one
+callback. [Phones and tablets](Mobile.md) explains each:
+
+| Call | What |
+| --- | --- |
+| `io.SetSafeAreaInsets(insets)` | What the status bar, a notch and the home indicator cover, in points from each edge |
+| `io.SetTextScale(factor)` | The text size the user chose in the system or the browser |
+| `io.SetKeyboardRect(rect)` | What an on-screen keyboard covers; empty when it is hidden |
+| `io.SetDefaultPointerType(PointerType::Touch)` | The device is a touchscreen first: start in touch mode |
+| `Callbacks.SetKeyboardVisible` | Show or hide the on-screen keyboard; `io.GetTextInputState()` says for what |
 
 ## Points, pixels and DPI
 

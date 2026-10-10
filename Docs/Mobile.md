@@ -126,6 +126,77 @@ while touch mode still sizes everything for fingers:
 
 ![The Gallery on an iPad in landscape: regular width in touch mode](Images/Mobile-Tablet-Light.png)
 
+## Safe area, text size and rotation
+
+A phone's display is not all usable: the status bar, a notch or a Dynamic Island, the home indicator and rounded
+corners cover parts of it. The host reports how far from each edge they reach, and Carbon keeps controls and text
+inside, while backgrounds still reach the edges, as the HIG asks:
+
+```cpp
+io.SetSafeAreaInsets({ left, top, right, bottom });     // points; env(safe-area-inset-*) in a browser
+```
+
+- The root of the layout is inset by the safe area, so a full-screen interface needs no changes.
+- A stack with a square background (`CornerRadius = 0`) whose edge reaches the safe area's edge is drawn on to the
+  display's edge: navigation bars, sidebars and toolbars reach under the status bar and beside the notch.
+  `ExtendToDisplayEdges(rect)` does the same for backgrounds you draw yourself; `GetSafeAreaInsets()` reports the
+  insets.
+- Overlays stay inside the safe area; sheets stand on the bottom edge with room for the home indicator.
+
+![The Gallery inside an iPhone's safe area: below the status bar, above the home indicator](Images/Mobile-SafeArea-Light.png)
+
+**Text size.** The host reports the text size the user chose in the system or the browser, as a factor:
+`io.SetTextScale(1.3f)`. Every style of the type ramp grows by it (Dynamic Type), and so do control heights and
+rows (`GetAdaptiveRowHeight`), so text never overflows them. Rows of controls in a wrapping `HStack` take more lines
+instead of running out of the display. Text sizes are clamped to 0.5 to 3 times Carbon's.
+
+![The toggles of the Gallery at a text size of 1.4](Images/Mobile-TextScale-Light.png)
+
+**Rotation and resizing** need nothing: pass the new display size, and `Fill` sizes, wrapping stacks, navigation
+stacks and sheets reflow in the next frame. Crossing 600 points switches between compact and regular width, and a
+navigation stack keeps whether it showed its content.
+
+## On-screen keyboard
+
+Carbon draws text fields and edits their text, but the keyboard belongs to the platform. Tapping a `TextField`,
+`TextArea`, `SearchField`, `NumberField`, `TokenField` or another text control starts editing; tapping outside ends it.
+The host shows and hides the keyboard when Carbon asks, feeds what it types back through the input events Carbon
+already has, and reports the area it covers:
+
+```cpp
+description.Callbacks.SetKeyboardVisible = [](bool visible) { visible ? ShowKeyboard() : HideKeyboard(); };
+
+// After EndFrame, while io.WantsTextInput():
+const Carbon::TextInputState& state = io.GetTextInputState();   // text, selection, keyboard type, password?
+const Carbon::Rect caret = io.GetCaretRect();                    // where the caret is
+
+// What the keyboard produces:
+io.AddInputCharactersUTF8(typed);                              // plain typing
+io.AddKeyEvent(Carbon::Key::Backspace, true);                  // keys it sends
+io.AddCompositionUpdateEvent(preEdit, caret);                  // Japanese, Chinese, Korean (and some autocorrection)
+io.AddTextReplaceEvent(start, end, replacement);               // autocorrection, a suggestion, a deletion
+io.SetKeyboardRect(coveredArea);                               // empty when it hides
+```
+
+- `SetKeyboardVisible(true)` comes at the end of the frame in which editing starts, or moves to another control (its
+  keyboard type may differ); `false` when it ends.
+- `IO::GetTextInputState()` holds the edited text and its selection, so that the keyboard's autocorrection and
+  suggestions see the words around the caret; `Keyboard` asks for a keyboard type (`TextFieldOptions::Keyboard`:
+  `Number` for number fields, `Search` for search fields), `IsSecure` for passwords, `IsMultiLine` for text areas.
+- `IO::AddTextReplaceEvent` replaces a byte range of that text, for edits that are not typing at the caret.
+- `IO::SetKeyboardRect` tells Carbon what the keyboard covers. The control being edited is scrolled into view above
+  it, in every scroll view around it; when that is not enough (it is not in a scroll view, or the view cannot scroll
+  further), the whole interface moves up on a spring until the caret clears the keyboard, and back when the keyboard
+  goes. Sheets stand on the keyboard.
+- `IO::GetTextInputAreas()` lists where text controls a tap would start editing were drawn in the last frame. A browser
+  must focus its input element inside the tap's event handler for iOS to show the keyboard at all, before Carbon has
+  seen the tap; with these areas it can decide synchronously.
+
+![A text area being edited above an on-screen keyboard: the page scrolled and the interface moved up](Images/Mobile-Keyboard-Light.png)
+
+`Examples/WebApp` does this with a hidden input element, `Examples/Android` with Android's soft input; their
+sources show the details for each platform.
+
 ## Forwarding touches
 
 A host that receives touches forwards each one with the finger's identifier and its position in points, from the

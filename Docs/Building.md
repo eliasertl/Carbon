@@ -265,6 +265,9 @@ For screenshots of states that need input, and of parts of a window, there are m
 | `--pointer`, `--click`, `--right-click <x>x<y>` | Put the pointer there, and click, before the screenshot is taken |
 | `--file-drag <x>x<y>`, `--file-drop <x>x<y>` | Files from the system (two sample paths) are dragged over this position, or dropped there |
 | `--drag <x>x<y>` | Press the left button at the `--pointer` position and drag to this one, holding the button while the screenshot is taken |
+| `--safe-area <l>,<t>,<r>,<b>` | Safe area insets in points, as a phone reports them (`0,59,0,34` for an iPhone 15 in portrait) |
+| `--text-scale <factor>` | The system's text size (`IO::SetTextScale`) |
+| `--keyboard <height>` | While a text control is edited, an on-screen keyboard of this height covers the bottom of the display; the example draws a stand-in for it |
 | `--touch` | Touch mode, as on a phone or a tablet; the scripted pointer is a finger: `--click` taps, `--right-click` presses long, `--drag` drags a finger |
 | `--compose <text>` | After the click, an input method composes this text in the focused text field: `|` separates its clauses, the first is the one being converted, and `\uXXXX` or `\UXXXXXXXX` stands for a character |
 | `--crop <x>,<y>,<width>,<height>` | Save only this area of the window, in points |

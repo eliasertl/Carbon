@@ -60,6 +60,7 @@ would otherwise turn into a fixed buffer of the string's current size.
 | `ControlSize` | `ControlSize` | `Regular` | |
 | `Disabled` | `bool` | `false` | |
 | `IsSecure` | `bool` | `false` | Shows bullets and keeps the text off the clipboard |
+| `Keyboard` | `KeyboardType` | `Text` | The on-screen keyboard a phone or a tablet shows: `Text`, `Number`, `Email`, `URL`, `Search` |
 | `MaxLength` | `size_t` | 0 | Longest text in characters; 0 is unlimited |
 | `TrailingInset` | `float` | 0 | Points kept free at the trailing edge for an accessory you draw there, such as the button of a [ComboBox](ComboBox.md) |
 | `VerticalArrowsMoveCaret` | `bool` | `true` | Up and down move the caret to the start and end. Turn it off when your component uses those keys. |
@@ -91,6 +92,12 @@ click turns it into a field.
 
 The pointer becomes an I-beam over the field (through the host's `SetCursor` callback), and the field's border
 gets stronger.
+
+## On phones and tablets
+
+Tapping the field starts editing and asks the host for the on-screen keyboard (`Callbacks.SetKeyboardVisible`);
+`Keyboard` chooses its kind (`KeyboardType::Text`, `Number`, `Email`, `URL`, `Search`). While a keyboard covers the
+bottom of the display, the field is scrolled above it. See [On-screen keyboard](../Mobile.md#on-screen-keyboard).
 
 ## Keyboard
 

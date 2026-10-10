@@ -5,7 +5,8 @@
 #
 # Examples are named <Backend>/<Example>, their path under Examples in the build tree; the documentation shows the
 # WebGPU builds. Options are those of the examples (Docs/Building.md): --page, --show, --theme, --size, --pointer,
-# --click, --right-click, --drag, --file-drag, --file-drop, --compose, --touch, --crop, and for the Gallery
+# --click, --right-click, --drag, --file-drag, --file-drop, --compose, --touch, --safe-area, --text-scale,
+# --keyboard, --crop, and for the Gallery
 # --section <key>[,<key>...] with --extend <left>,<top>,<right>,<bottom>.
 # A section's key is its title in lower case without spaces or punctuation. With --section, pointer positions are
 # relative to the section's box. The scale is 2 unless --scale is given.
@@ -27,6 +28,9 @@ InputMethod-Light.png             WebGPU/Gallery  --page textfields --section te
 Mobile-Navigation-Light.png         WebGPU/Gallery  --touch --size 390x700
 Mobile-NavigationDetail-Light.png   WebGPU/Gallery  --page buttons --touch --size 390x700
 Mobile-Tablet-Light.png             WebGPU/Gallery  --page selection --touch --size 1024x768 --scale 1
+Mobile-SafeArea-Light.png           WebGPU/Gallery  --page buttons --touch --size 390x844 --safe-area 0,59,0,34
+Mobile-TextScale-Light.png          WebGPU/Gallery  --page toggles --touch --size 390x844 --text-scale 1.4
+Mobile-Keyboard-Light.png           WebGPU/Gallery  --page textfields --touch --size 390x844 --safe-area 0,59,0,34 --keyboard 336 --click 150x750
 Components/NavigationSplitView.png  WebGPU/Gallery  --page navigation --touch --size 390x600 --theme dark
 Components/SplitView-Compact.png    WebGPU/Gallery  --page navigation --section splitview --touch --size 390x844
 Components/Menu-Compact.png         WebGPU/Gallery  --page menus --show menu --touch --size 390x844
