@@ -100,6 +100,7 @@ namespace Carbon
 
         context.IsAnimatingThisFrame = context.Style.Advance(context.DeltaTime, context.ReduceMotion);
         context.Style.IsTouchMode = context.IsTouchMode;
+        context.Style.TextScale = io.GetTextScale();
         context.NextFrameDelayThisFrame = std::numeric_limits<float>::infinity();
         context.Style.ResetWorkingValues();
 

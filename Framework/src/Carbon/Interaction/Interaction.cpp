@@ -21,6 +21,10 @@ namespace Carbon
 
         // Extra distance the focus ring starts at before it settles onto the control.
         constexpr float FocusRingTravel = 4.0f;
+        // Room kept between the text being edited and an on-screen keyboard, and for how many frames after the
+        // keyboard appeared the text is brought into view.
+        constexpr float KeyboardMargin = 12.0f;
+        constexpr int KeyboardRevealFrameCount = 3;
 
         bool IsKeyPressedOnce(const InputState& input, Key key)
         {
@@ -102,6 +106,42 @@ namespace Carbon
             io.m_WantsTextInput = IsTextInputActive;
             io.m_CaretRect = IsTextInputActive ? TextInputCaretRect : Rect();
             io.m_WantsCompositionCancel = IsCompositionCancelRequested;
+            // The state's text points into the IO object's own copy, which keeps its capacity.
+            if (IsTextInputActive)
+                io.m_TextInputText.assign(TextInputText);
+            else
+                io.m_TextInputText.clear();
+            io.m_TextInputState = IsTextInputActive ? TextInput : TextInputState();
+            io.m_TextInputState.Text = io.m_TextInputText;
+            io.m_TextInputAreas.assign(TextInputAreas.begin(), TextInputAreas.end());
+        }
+
+        void PublishTextInput(Context& context, ID owner, std::string_view text, size_t selectionStart,
+                              size_t selectionEnd, KeyboardType keyboard, bool isMultiLine, bool isSecure)
+        {
+            InteractionState& state = context.Interaction;
+            state.TextInputOwner = owner;
+            state.TextInputText.assign(text);
+            state.TextInput.SelectionStart = std::min(selectionStart, text.size());
+            state.TextInput.SelectionEnd = std::min(selectionEnd, text.size());
+            state.TextInput.Keyboard = keyboard;
+            state.TextInput.IsMultiLine = isMultiLine;
+            state.TextInput.IsSecure = isSecure;
+        }
+
+        void AddTextInputArea(Context& context, const Rect& rect)
+        {
+            const Rect visible = GetHitRect(rect).GetIntersection(context.Draw.GetClipRect());
+            if (visible.Width > 0.0f && visible.Height > 0.0f && !IsPointBlockedByOverlay(context, visible.GetCenter()))
+                context.Interaction.TextInputAreas.push_back(visible);
+        }
+
+        void KeepAboveKeyboard(Context& context, const Rect& rect)
+        {
+            const Rect keyboard = context.HostIO.GetKeyboardRect();
+            if (context.Interaction.KeyboardRevealFrames <= 0 || keyboard.Width <= 0.0f)
+                return;
+            RevealInScrollViews(context, rect, keyboard.Y - KeyboardMargin);
         }
 
         void BeginInteraction(Context& context)
@@ -125,9 +165,21 @@ namespace Carbon
             state.DisabledStack.clear();
             state.DisabledDepth = 0;
             state.RequestedCursor = Cursor::Arrow;
+            // Editing that moves to another control, or a keyboard that appears or grows, brings the control being
+            // edited into view above the keyboard for a few frames, while the layout settles.
+            const Rect keyboard = context.HostIO.GetKeyboardRect();
+            const float keyboardTop = keyboard.Width > 0.0f ? keyboard.Y : context.DisplaySize.Y;
+            if (keyboardTop < state.LastKeyboardTop - 0.5f)
+                state.KeyboardRevealFrames = KeyboardRevealFrameCount;
+            else if (state.KeyboardRevealFrames > 0)
+                state.KeyboardRevealFrames--;
+            state.LastKeyboardTop = keyboardTop;
+
             state.IsTextInputActive = false;
             state.TextInputCaretRect = Rect();
             state.IsCompositionCancelRequested = false;
+            state.TextInputOwner = ID();
+            state.TextInputAreas.clear();
             state.LastItem = InteractionState::LastItemData();
 
             // Using the keyboard while something has focus reveals the focus ring.
@@ -226,6 +278,17 @@ namespace Carbon
             }
 
             state.PublishTo(context.HostIO);
+
+            // The host's on-screen keyboard follows the control being edited: shown when editing starts or moves to
+            // another control, hidden when it ends.
+            const ID keyboardOwner = state.IsTextInputActive ? state.TextInputOwner : ID();
+            if (keyboardOwner != state.KeyboardOwner)
+            {
+                state.KeyboardOwner = keyboardOwner;
+                state.KeyboardRevealFrames = KeyboardRevealFrameCount;
+                if (context.HostCallbacks.SetKeyboardVisible)
+                    context.HostCallbacks.SetKeyboardVisible(keyboardOwner.IsValid());
+            }
         }
 
         void TakeTabKey(Context& context, ID id)

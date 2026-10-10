@@ -4,6 +4,7 @@
 #include <cmath>
 
 #include "Carbon/Animation/Easing.h"
+#include "Carbon/Animation/Spring.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Hash.h"
@@ -17,6 +18,10 @@ namespace Carbon::Internal
 {
     namespace
     {
+        // The interface moves up on this spring for an on-screen keyboard, leaving this much room above it.
+        constexpr float KeyboardPanResponse = 0.3f;
+        constexpr float KeyboardPanMargin = 12.0f;
+
         // Measurements that differ by less than this are the same; layout has settled.
         constexpr float SettleTolerance = 0.01f;
 
@@ -383,6 +388,23 @@ namespace Carbon::Internal
         root.Record->LastFrame = context.FrameCount;
         root.ResolvedSize = context.DisplaySize;
         root.Spacing = context.Style.GetVar(StyleVar::Spacing);
+        // Content stays inside the safe area; the interface moves up while an on-screen keyboard would cover the
+        // text being edited.
+        root.Padding = context.HostIO.GetSafeAreaInsets();
+        SpringState pan;
+        pan.Value = layout.KeyboardPanShown;
+        pan.Velocity = layout.KeyboardPanVelocity;
+        if (context.ReduceMotion)
+            pan = SpringState{layout.KeyboardPan, 0.0f};
+        else
+            pan = AdvanceSpring(pan, layout.KeyboardPan, KeyboardPanResponse, 1.0f, context.DeltaTime);
+        if (IsSpringAtRest(pan, layout.KeyboardPan))
+            pan = SpringState{layout.KeyboardPan, 0.0f};
+        else
+            context.IsAnimatingThisFrame = true;
+        layout.KeyboardPanShown = pan.Value;
+        layout.KeyboardPanVelocity = pan.Velocity;
+        root.Origin = Vec2(0.0f, -context.Scale.Snap(pan.Value));
         StartFlow(root, *root.Record, 0.0f, false, Vec2());
         layout.Frames.push_back(root);
     }
@@ -415,6 +437,24 @@ namespace Carbon::Internal
             LayoutFrame& root = layout.Frames.back();
             if (StoreMeasurements(root, *root.Record))
                 context.IsAnimatingThisFrame = true;
+        }
+
+        // The interface moves up just enough for the caret of the text being edited to clear an on-screen keyboard,
+        // once the scroll views have had their chance to bring it into view.
+        const Rect keyboard = context.HostIO.GetKeyboardRect();
+        const InteractionState& interaction = context.Interaction;
+        float panTarget = 0.0f;
+        if (interaction.IsTextInputActive && keyboard.Width > 0.0f)
+        {
+            const float caretBottom = interaction.TextInputCaretRect.GetBottom() + layout.KeyboardPanShown;
+            panTarget = std::clamp(caretBottom + KeyboardPanMargin - keyboard.Y, 0.0f, keyboard.Height);
+            if (interaction.KeyboardRevealFrames > 0)
+                panTarget = std::min(panTarget, layout.KeyboardPan);
+        }
+        if (panTarget != layout.KeyboardPan)
+        {
+            layout.KeyboardPan = panTarget;
+            context.IsAnimatingThisFrame = true;
         }
 
         layout.HoveredScrollView = layout.HoveredScrollViewCandidate;
@@ -561,7 +601,10 @@ namespace Carbon::Internal
 
         if (frame.Background.IsValid)
         {
-            context.Draw.ResolveDeferredSquircle(frame.Background, rect, frame.BackgroundRadius,
+            // A square background that reaches the safe area's edge continues to the display's edge, under the
+            // system's bars and around a notch.
+            const Rect background = frame.BackgroundRadius <= 0.0f ? ExtendToDisplayEdges(rect) : rect;
+            context.Draw.ResolveDeferredSquircle(frame.Background, background, frame.BackgroundRadius,
                                                  context.Style.GetVar(StyleVar::CornerSmoothing));
         }
         if (frame.HasOpacity)
@@ -696,6 +739,32 @@ namespace Carbon
         LayoutFrame& frame = context.Layout.Frames.back();
         frame.HasCursorOverride = true;
         frame.CursorOverride = position;
+    }
+
+    EdgeInsets GetSafeAreaInsets()
+    {
+        return Internal::GetContext().HostIO.GetSafeAreaInsets();
+    }
+
+    Rect ExtendToDisplayEdges(const Rect& rect)
+    {
+        const Context& context = Internal::GetContext();
+        const Rect display(Vec2(), context.DisplaySize);
+        const Rect safe = display.Inset(context.HostIO.GetSafeAreaInsets());
+        const float tolerance = 0.5f;
+        float left = rect.X;
+        float top = rect.Y;
+        float right = rect.GetRight();
+        float bottom = rect.GetBottom();
+        if (left <= safe.X + tolerance)
+            left = std::min(left, display.X);
+        if (top <= safe.Y + tolerance + context.Layout.KeyboardPanShown)
+            top = std::min(top, display.Y);
+        if (right >= safe.GetRight() - tolerance)
+            right = std::max(right, display.GetRight());
+        if (bottom >= safe.GetBottom() - tolerance - context.Layout.KeyboardPanShown)
+            bottom = std::max(bottom, display.GetBottom());
+        return Rect::FromMinMax(Vec2(left, top), Vec2(right, bottom));
     }
 
     Rect GetContentRect()

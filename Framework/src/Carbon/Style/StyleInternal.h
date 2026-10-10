@@ -39,6 +39,8 @@ namespace Carbon::Internal
 
         /// Touch mode of the frame: controls and the spacing between them grow (see ResetWorkingValues).
         bool IsTouchMode = false;
+        /// The host's text scale (IO::SetTextScale): text grows by it, and controls with larger text.
+        float TextScale = 1.0f;
 
         Theme Current = Theme::Light();
         Theme Source = Theme::Light();

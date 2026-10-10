@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Carbon/Core/EdgeInsets.h"
 #include "Carbon/Core/Rect.h"
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Layout/Size.h"
@@ -32,6 +33,14 @@ namespace Carbon
     /// Places the next item's top-left corner at an absolute position instead of the flow position. The escape
     /// hatch for manual layout; items after it continue from where it ends.
     void SetCursorPos(Vec2 position);
+
+    /// The safe area insets the host reported (IO::SetSafeAreaInsets): how far from each display edge the system
+    /// covers or cuts off the display. The root of the layout already keeps its content inside them.
+    EdgeInsets GetSafeAreaInsets();
+    /// `rect` grown to the display's edges on every side where it reaches the safe area's edge. A background
+    /// drawn there covers what is under a status bar, beside a notch or below the home indicator, as the HIG
+    /// asks, while the content stays inside. Square stack backgrounds do this by themselves.
+    Rect ExtendToDisplayEdges(const Rect& rect);
 
     /// The content area of the current container: its rectangle minus padding. Uses last frame's measurement for
     /// axes that fit their content.

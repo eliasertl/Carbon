@@ -21,6 +21,10 @@ namespace Carbon
         std::function<void(std::string_view text)> SetClipboardText;
         /// Called at the end of a frame when the mouse cursor shape should change.
         std::function<void(Cursor cursor)> SetCursor;
+        /// Called at the end of a frame in which a text control starts being edited (true), another one takes over
+        /// (true again: its keyboard may differ), or editing ends (false). A host with an on-screen keyboard shows
+        /// or hides it; IO::GetTextInputState() tells what kind. A host on a desktop leaves it unset.
+        std::function<void(bool visible)> SetKeyboardVisible;
         /// Called when a CB_ASSERT or CB_VERIFY fails, after the failure was logged. When set, Carbon does not
         /// break into the debugger and continues.
         std::function<void(const AssertInfo& info)> AssertFailed;

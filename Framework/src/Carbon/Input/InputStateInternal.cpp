@@ -44,6 +44,8 @@ namespace Carbon::Internal
         KeyRepeated.fill(false);
         KeyReleased.fill(false);
         Characters.clear();
+        Replacements.clear();
+        ReplacementText.clear();
         CompositionChanged = false;
         FileDrag.IsDropped = false;
         IsPointerCancelled = false;
@@ -261,9 +263,27 @@ namespace Carbon::Internal
                     }
                     break;
                 }
+                case InputEventType::TextReplace:
+                {
+                    // An edit is text too; it waits for characters typed before it, and they wait for it.
+                    if (actionKeyPressed || !Characters.empty())
+                    {
+                        defer = true;
+                        break;
+                    }
+                    TextReplacement replacement;
+                    replacement.Start = event.ReplaceStart;
+                    replacement.End = event.ReplaceEnd;
+                    replacement.TextStart = ReplacementText.size();
+                    replacement.TextLength = event.TextLength;
+                    ReplacementText.append(std::string_view(io.m_EventText).substr(event.TextStart, event.TextLength));
+                    Replacements.push_back(replacement);
+                    textEntered = true;
+                    break;
+                }
                 case InputEventType::Character:
                 {
-                    if (actionKeyPressed)
+                    if (actionKeyPressed || !Replacements.empty())
                     {
                         defer = true;
                         break;

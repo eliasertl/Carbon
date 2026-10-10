@@ -6,6 +6,7 @@
 #include <string_view>
 #include <vector>
 
+#include "Carbon/Core/EdgeInsets.h"
 #include "Carbon/Core/Rect.h"
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Input/Adaptive.h"
@@ -37,6 +38,24 @@ namespace Carbon
         /// Seconds since the previous frame. Drives animations and key repeat.
         void SetDeltaTime(float seconds);
         float GetDeltaTime() const { return m_DeltaTime; }
+
+        /// The parts of the display that the system covers or cuts off (a status bar, a notch, the home indicator,
+        /// rounded corners), in points from each edge. Carbon keeps controls and text inside them while
+        /// backgrounds reach the display's edges. Zero by default.
+        void SetSafeAreaInsets(const EdgeInsets& insets);
+        EdgeInsets GetSafeAreaInsets() const { return m_SafeAreaInsets; }
+
+        /// The text size the user chose in the system or the browser, as a factor of Carbon's type ramp: 1 by
+        /// default, 1.5 for text half again as large. Text, controls and rows grow with it; layouts grow
+        /// downwards. Clamped to 0.5 to 3.
+        void SetTextScale(float scale);
+        float GetTextScale() const { return m_TextScale; }
+
+        /// The part of the display an on-screen keyboard covers, in points; an empty rectangle while none shows.
+        /// Carbon scrolls the text control being edited above it, or moves the interface up when nothing can
+        /// scroll, and keeps sheets above it.
+        void SetKeyboardRect(const Rect& rect);
+        Rect GetKeyboardRect() const { return m_KeyboardRect; }
 
         /// Queues a mouse move; the position is in points relative to the top-left of the display area.
         void AddMousePosEvent(float x, float y);
@@ -77,6 +96,12 @@ namespace Carbon
         void AddCompositionCommitEvent(std::string_view text);
         /// Queues the end of a composition without any text: the user abandoned it.
         void AddCompositionCancelEvent();
+
+        /// Queues an edit an on-screen keyboard made to the text being edited: the bytes [start, end) of the text
+        /// as GetTextInputState reported it are replaced with `text` (UTF-8), and the caret goes after it. This
+        /// is how autocorrection, a chosen suggestion or a deletion by a keyboard that sends no keys arrive. Typed
+        /// characters (AddInputCharactersUTF8) and Backspace keep working as before; send each change once.
+        void AddTextReplaceEvent(size_t start, size_t end, std::string_view text);
 
         /// Queues files dragged over the display area from outside the application (from the system's file
         /// manager), at a position in points: call it whenever the drag moves. Carbon treats it as a drag of
@@ -121,6 +146,13 @@ namespace Carbon
         /// focus: the pre-edit text was inserted as it stood. The host cancels the input method's composition so
         /// that it does not commit the same text again.
         bool WantsCompositionCancel() const { return m_WantsCompositionCancel; }
+        /// The text control being edited, while WantsTextInput() is true: its text, selection and the keyboard it
+        /// asks for. A host whose on-screen keyboard edits a copy of the text keeps that copy equal to this.
+        const TextInputState& GetTextInputState() const { return m_TextInputState; }
+        /// Where text controls that a tap would start editing were drawn during the last frame (their hit areas),
+        /// in points. A browser must focus its text input inside the event handler of the tap for iOS to show the
+        /// keyboard; it can tell from these, synchronously, whether a tap will start editing.
+        std::span<const Rect> GetTextInputAreas() const { return m_TextInputAreas; }
 
     private:
         void AddFileEvent(InputEventType type, Vec2 position, std::span<const std::string_view> paths);
@@ -146,6 +178,12 @@ namespace Carbon
         bool m_WantsTextInput = false;
         bool m_WantsCompositionCancel = false;
         Rect m_CaretRect;
+        EdgeInsets m_SafeAreaInsets;
+        float m_TextScale = 1.0f;
+        Rect m_KeyboardRect;
+        TextInputState m_TextInputState;
+        std::string m_TextInputText;
+        std::vector<Rect> m_TextInputAreas;
     };
 
     /// Returns the IO object of the current context.

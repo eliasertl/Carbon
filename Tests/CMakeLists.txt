@@ -105,6 +105,7 @@ if(CARBON_BUILD_EXTENSIONS)
         src/Extensions/HierarchyTests.cpp
         src/Extensions/MenuBarTests.cpp
         src/Extensions/MenuTests.cpp
+        src/Extensions/MobileHostTests.cpp
         src/Extensions/NotificationTests.cpp
         src/Extensions/NumberFieldTests.cpp
         src/Extensions/TokenFieldTests.cpp

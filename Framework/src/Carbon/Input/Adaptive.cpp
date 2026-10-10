@@ -1,6 +1,7 @@
 #include "Carbon/Input/Adaptive.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Input/AdaptiveInternal.h"
@@ -30,7 +31,10 @@ namespace Carbon
 
     float GetAdaptiveRowHeight(float rowHeight)
     {
-        return Internal::GetContext().IsTouchMode ? std::max(rowHeight, MinimumTouchTarget) : rowHeight;
+        const Context& context = Internal::GetContext();
+        // Rows grow with the host's text size, and are finger-sized in touch mode.
+        const float height = std::round(rowHeight * std::max(context.Style.TextScale, 1.0f));
+        return context.IsTouchMode ? std::max(height, MinimumTouchTarget) : height;
     }
 
     SizeClass GetSizeClass()

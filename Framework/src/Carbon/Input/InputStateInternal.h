@@ -55,6 +55,16 @@ namespace Carbon::Internal
         void Clear();
     };
 
+    /// An edit an on-screen keyboard made: bytes [Start, End) of the edited text become Text.
+    struct TextReplacement
+    {
+        size_t Start = 0;
+        size_t End = 0;
+        /// Where the new text is stored in InputState::ReplacementText.
+        size_t TextStart = 0;
+        size_t TextLength = 0;
+    };
+
     /// Files from outside the application, dragged over the display or dropped onto it.
     struct FileDragState
     {
@@ -109,6 +119,10 @@ namespace Carbon::Internal
 
         /// Typed characters, and the text of compositions committed this frame, in the order they arrived.
         std::vector<char32_t> Characters;
+        /// Edits of an on-screen keyboard this frame, in order, and their text. A frame has either characters or
+        /// replacements, so that they keep their order.
+        std::vector<TextReplacement> Replacements;
+        std::string ReplacementText;
         /// The composition after this frame's events.
         CompositionState Composition;
         /// A composition event arrived this frame.

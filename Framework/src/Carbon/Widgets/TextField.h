@@ -6,6 +6,7 @@
 #include <string_view>
 
 #include "Carbon/Core/FunctionRef.h"
+#include "Carbon/Input/InputEvent.h"
 #include "Carbon/Layout/Size.h"
 #include "Carbon/Widgets/ControlSize.h"
 
@@ -26,6 +27,8 @@ namespace Carbon
         bool Disabled = false;
         /// Displays bullets instead of the text, and keeps the text off the clipboard.
         bool IsSecure = false;
+        /// The on-screen keyboard a phone or a tablet shows for the field (IO::GetTextInputState).
+        KeyboardType Keyboard = KeyboardType::Text;
         /// Longest text the user can enter, in characters; 0 means unlimited.
         size_t MaxLength = 0;
         /// Points kept free at the trailing edge, for an accessory the caller draws there (the button of a combo

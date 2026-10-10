@@ -204,6 +204,7 @@ namespace Carbon::Internal
         }
 
         TextFieldOptions field;
+        field.Keyboard = KeyboardType::Number;
         field.Width = options.Width;
         field.ControlSize = options.ControlSize;
         field.Disabled = options.Disabled;

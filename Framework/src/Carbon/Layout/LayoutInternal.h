@@ -223,6 +223,12 @@ namespace Carbon::Internal
         ID FirstScrollViewCandidate;
         /// Call sites that have been reported for beginning several containers in one, so each is reported once.
         std::vector<uint64_t> ReportedCallSites;
+        /// How far the whole interface is moved up so that the text being edited is above an on-screen keyboard
+        /// that no scroll view could avoid: the target, decided at the end of a frame (see EndLayout), and the
+        /// distance and velocity of the spring that follows it.
+        float KeyboardPan = 0.0f;
+        float KeyboardPanShown = 0.0f;
+        float KeyboardPanVelocity = 0.0f;
     };
 
     /// Called by NewFrame: opens the root container, which covers the display.
@@ -236,8 +242,9 @@ namespace Carbon::Internal
     Rect EndContainer(Context& context, ContainerKind kind);
 
     /// Scrolls the open scroll views so that a rectangle becomes visible. Used when keyboard focus moves to an
-    /// item.
-    void RevealInScrollViews(Context& context, const Rect& rect);
+    /// item, and to bring text being edited above an on-screen keyboard, whose top `visibleBottom` is.
+    void RevealInScrollViews(Context& context, const Rect& rect,
+                             float visibleBottom = std::numeric_limits<float>::infinity());
 
     /// The grid whose cells are the items of `parent`, or null when `parent` is not a row directly inside the
     /// innermost open grid.

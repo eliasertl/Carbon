@@ -79,7 +79,8 @@ namespace Carbon
             OverlayPlacement Placement = OverlayPlacement::Below;
         };
 
-        PlacedOverlay PlaceOverlay(const OverlayOptions& options, Vec2 size, Vec2 display, float arrow)
+        // `area` is where overlays may go: the display, inside its safe area and above an on-screen keyboard.
+        PlacedOverlay PlaceOverlay(const OverlayOptions& options, Vec2 size, const Rect& area, float arrow)
         {
             const Rect& anchor = options.Anchor;
             const float gap = options.Gap + arrow;
@@ -88,10 +89,10 @@ namespace Carbon
             // Flip to the opposite side when the preferred one lacks room and the other one has more.
             PlacedOverlay placed;
             placed.Placement = options.Placement;
-            const float roomBelow = display.Y - ScreenMargin - anchor.GetBottom() - gap;
-            const float roomAbove = anchor.Y - gap - ScreenMargin;
-            const float roomTrailing = display.X - ScreenMargin - anchor.GetRight() - gap;
-            const float roomLeading = anchor.X - gap - ScreenMargin;
+            const float roomBelow = area.GetBottom() - ScreenMargin - anchor.GetBottom() - gap;
+            const float roomAbove = anchor.Y - gap - ScreenMargin - area.Y;
+            const float roomTrailing = area.GetRight() - ScreenMargin - anchor.GetRight() - gap;
+            const float roomLeading = anchor.X - gap - ScreenMargin - area.X;
             switch (options.Placement)
             {
                 case OverlayPlacement::Below:
@@ -131,20 +132,20 @@ namespace Carbon
                     placed.Origin = Vec2(anchor.X - gap - size.X, alignedY);
                     break;
                 case OverlayPlacement::Center:
-                    placed.Origin = (display - size) * 0.5f;
+                    placed.Origin = area.GetMin() + (area.GetSize() - size) * 0.5f;
                     break;
                 case OverlayPlacement::Top:
-                    placed.Origin = Vec2((display.X - size.X) * 0.5f, options.Gap);
+                    placed.Origin = Vec2(area.X + (area.Width - size.X) * 0.5f, area.Y + options.Gap);
                     break;
             }
 
             // Whatever the anchor says, the overlay stays on the display.
             if (options.Placement != OverlayPlacement::Top)
             {
-                placed.Origin.X = std::clamp(placed.Origin.X, ScreenMargin,
-                                             std::max(ScreenMargin, display.X - size.X - ScreenMargin));
-                placed.Origin.Y = std::clamp(placed.Origin.Y, ScreenMargin,
-                                             std::max(ScreenMargin, display.Y - size.Y - ScreenMargin));
+                const Vec2 least = area.GetMin() + Vec2(ScreenMargin, ScreenMargin);
+                const Vec2 most = Max(least, area.GetMax() - size - Vec2(ScreenMargin, ScreenMargin));
+                placed.Origin.X = std::clamp(placed.Origin.X, least.X, most.X);
+                placed.Origin.Y = std::clamp(placed.Origin.Y, least.Y, most.Y);
             }
             return placed;
         }
@@ -438,8 +439,15 @@ namespace Carbon
             drawList.PopOpacity();
         }
 
-        // The size is last frame's; a new overlay has none yet and stays hidden for its first frame.
+        // The size is last frame's; a new overlay has none yet and stays hidden for its first frame. Overlays stay
+        // inside the safe area and above an on-screen keyboard.
         const Vec2 size = state.Open[index].Bounds.GetSize();
+        const EdgeInsets safe = context.HostIO.GetSafeAreaInsets();
+        const Rect keyboard = context.HostIO.GetKeyboardRect();
+        Rect area = display.Inset(safe);
+        if (keyboard.Width > 0.0f)
+            area = Rect::FromMinMax(area.GetMin(),
+                                    Vec2(area.GetRight(), std::max(area.Y, std::min(area.GetBottom(), keyboard.Y))));
         PlacedOverlay placed;
         EdgeInsets padding = options.Padding;
         if (isSheet)
@@ -469,15 +477,20 @@ namespace Carbon
                     entry.IsSheetClosing = true;
                 slide = Animate(slideID, entry.IsSheetClosing ? size.Y + ShadowBlur : 0.0f, SheetSpring);
             }
-            placed.Origin = Vec2(0.0f, context.DisplaySize.Y - size.Y + slide);
+            // A sheet stands on the keyboard, or on the bottom edge with room for the home indicator.
+            const float bottom =
+                keyboard.Width > 0.0f ? std::min(display.GetBottom(), keyboard.Y) : display.GetBottom();
+            placed.Origin = Vec2(0.0f, bottom - size.Y + slide);
             placed.Placement = OverlayPlacement::Below;
             padding.Top += SheetTopInset;
-            padding.Left = std::max(padding.Left, SheetSideInset);
-            padding.Right = std::max(padding.Right, SheetSideInset);
+            padding.Left = std::max(padding.Left, SheetSideInset) + safe.Left;
+            padding.Right = std::max(padding.Right, SheetSideInset) + safe.Right;
+            if (keyboard.Width <= 0.0f)
+                padding.Bottom += safe.Bottom;
         }
         else
         {
-            placed = PlaceOverlay(options, size, context.DisplaySize, options.ShowsArrow ? ArrowLength : 0.0f);
+            placed = PlaceOverlay(options, size, area, options.ShowsArrow ? ArrowLength : 0.0f);
             if (options.Placement == OverlayPlacement::Center || options.Placement == OverlayPlacement::Top)
             {
                 const float progress = Animate(HashID("##appear", id), 1.0f, AnimationSpec::Spring(0.35f));

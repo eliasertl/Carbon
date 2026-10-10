@@ -13,6 +13,7 @@ namespace Carbon
         const bool cancels = IsFocused(GetID(label)) && IsKeyPressed(Key::Escape, false) && !text->empty();
 
         TextFieldOptions field;
+        field.Keyboard = KeyboardType::Search;
         field.Placeholder = options.Placeholder;
         field.Icon = Icons::MagnifyingGlass;
         field.ShowsClearButton = true;

@@ -134,6 +134,8 @@ namespace Carbon
             if (!isDisabled)
             {
                 RegisterFocusable(id, rect);
+                if (options.AcceptsInput)
+                    Internal::AddTextInputArea(context, rect);
                 isHovered = Internal::UpdateHover(context, id, rect);
                 if (isHovered)
                     SetCursor(Cursor::IBeam);
@@ -414,6 +416,14 @@ namespace Carbon
                 drawList.AddRect(context.Scale.Snap(caret), context.Style.GetColor(StyleColor::Accent));
             }
             drawList.PopClipRect();
+
+            // What a host's on-screen keyboard needs: the text and selection, and the field above the keyboard.
+            if (isFocused && options.AcceptsInput)
+            {
+                Internal::PublishTextInput(context, id, text, editor.GetSelectionStart(), editor.GetSelectionEnd(),
+                                           options.Keyboard, false, options.IsSecure);
+                Internal::KeepAboveKeyboard(context, rect);
+            }
 
             // Where the host's input method shows its candidates: at the caret, or the clause being converted.
             if (showsCaret)

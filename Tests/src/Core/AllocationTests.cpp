@@ -563,5 +563,46 @@ namespace Carbon
         EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
         EXPECT_TRUE(m_AssertMessages.empty());
     }
+
+    TEST_F(AllocationTests, APhoneLayoutDoesNotAllocateInSteadyState)
+    {
+        // Touch mode in compact width: a navigation stack, a sheet, a text field being edited above an on-screen
+        // keyboard, a safe area and a larger text size.
+        IO& io = GetIO();
+        io.SetDisplaySize(390.0f, 844.0f);
+        io.SetTouchModeOverride(true);
+        io.SetSafeAreaInsets(EdgeInsets(0.0f, 47.0f, 0.0f, 34.0f));
+        io.SetTextScale(1.3f);
+        const auto build = [this]
+        {
+            BeginNavigationSplitView("main", {.Title = "Pages", .DetailTitle = "Detail"});
+            BeginSidebar("pages");
+            SidebarItem("Inbox", true);
+            SidebarItem("Sent", false);
+            EndSidebar();
+            NavigationSplitViewDetail();
+            BeginHStack({.Spacing = 8.0f, .Width = Size::Fill(), .Wraps = true});
+            for (const char* label : {"One", "Two", "Three", "Four", "Five"})
+                Button(label);
+            EndHStack();
+            TextField("Text", &m_Text);
+            if (Button("Menu"))
+                OpenMenu("menu");
+            if (BeginMenu("menu"))
+            {
+                MenuItem("Copy");
+                EndMenu();
+            }
+            EndNavigationSplitView();
+        };
+        ShowNavigationDetail("main", true, false);
+        Settle(build);
+        TouchDown(Vec2(195.0f, 120.0f), build);
+        TouchUp(Vec2(195.0f, 120.0f), build);
+        io.SetKeyboardRect(Rect(0.0f, 500.0f, 390.0f, 344.0f));
+        OpenMenu("menu");
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 60), 0u);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
 #endif
 } // namespace Carbon

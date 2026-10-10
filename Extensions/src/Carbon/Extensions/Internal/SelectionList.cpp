@@ -231,7 +231,12 @@ namespace Carbon::Internal
         const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);
         const float pixel = GetContentScale().GetPixelSize();
         if (description.Background.has_value())
-            drawList.AddSquircle(build.Viewport, *description.Background, description.BackgroundRadius, smoothing);
+        {
+            // A square background reaches the display's edges past the safe area (a sidebar beside a notch).
+            const Rect background =
+                description.BackgroundRadius <= 0.0f ? ExtendToDisplayEdges(build.Viewport) : build.Viewport;
+            drawList.AddSquircle(background, *description.Background, description.BackgroundRadius, smoothing);
+        }
         if (description.HasBorder)
         {
             drawList.AddSquircleStroke(build.Viewport, GetStyleColor(StyleColor::ControlBorder),

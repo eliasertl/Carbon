@@ -1,11 +1,14 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "Carbon/Core/ID.h"
 #include "Carbon/Core/Rect.h"
 #include "Carbon/Input/Cursor.h"
+#include "Carbon/Input/InputEvent.h"
 #include "Carbon/Interaction/Interaction.h"
 
 namespace Carbon
@@ -97,6 +100,18 @@ namespace Carbon::Internal
         Rect TextInputCaretRect;
         /// Carbon ended a composition this frame that the host's input method still holds.
         bool IsCompositionCancelRequested = false;
+        /// The text control being edited this frame, as an on-screen keyboard sees it (see PublishTextInput), and
+        /// the one the host was last told about through SetKeyboardVisible.
+        ID TextInputOwner;
+        std::string TextInputText;
+        TextInputState TextInput;
+        ID KeyboardOwner;
+        /// The hit areas of the text controls a tap would start editing, this frame (see IO::GetTextInputAreas).
+        std::vector<Rect> TextInputAreas;
+        /// Frames left in which the control being edited is scrolled above the on-screen keyboard: set when the
+        /// keyboard appears or grows, or editing moves to another control.
+        int KeyboardRevealFrames = 0;
+        float LastKeyboardTop = 0.0f;
 
         struct LastItemData
         {
@@ -118,6 +133,17 @@ namespace Carbon::Internal
     /// Hover test shared by the behaviours: true when the pointer is over `rect` and `id` is the topmost item
     /// there. Also claims the pointer for `id` for the next frame.
     bool UpdateHover(Context& context, ID id, const Rect& rect);
+
+    /// Called every frame by the text control being edited, after its editing: its text and selection, for a host
+    /// whose on-screen keyboard edits a copy.
+    void PublishTextInput(Context& context, ID owner, std::string_view text, size_t selectionStart, size_t selectionEnd,
+                          KeyboardType keyboard, bool isMultiLine, bool isSecure);
+    /// Called by every text control that a tap would start editing, with its hit area.
+    void AddTextInputArea(Context& context, const Rect& rect);
+    /// Called by the text control being edited with the part that must stay in view (the field, or the caret of a
+    /// text area): while an on-screen keyboard has just appeared, the open scroll views scroll it above the
+    /// keyboard.
+    void KeepAboveKeyboard(Context& context, const Rect& rect);
 
     /// Called every frame by a focused item that uses Tab itself. While it stays focused, Tab is not used for
     /// navigation; Ctrl+Tab moves the focus forward instead, and Shift+Tab still moves it back.

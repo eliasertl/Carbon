@@ -59,6 +59,29 @@ namespace Carbon::Internal
                 changed = editor.Redo(text) || changed;
         }
 
+        // Edits of an on-screen keyboard: autocorrection, a suggestion, a deletion. Offsets are those of the text
+        // the host was told about; outside it or inside a character, they move to the nearest boundary.
+        for (const TextReplacement& replacement : input.Replacements)
+        {
+            const auto toBoundary = [&text](size_t offset)
+            {
+                offset = std::min(offset, text.size());
+                while (offset > 0 && offset < text.size() && (static_cast<unsigned char>(text[offset]) & 0xC0) == 0x80)
+                    offset--;
+                return offset;
+            };
+            const size_t end = toBoundary(replacement.End);
+            const size_t start = std::min(toBoundary(replacement.Start), end);
+            editor.SetCaret(text, start, false);
+            editor.SetCaret(text, end, true);
+            const std::string_view inserted =
+                std::string_view(input.ReplacementText).substr(replacement.TextStart, replacement.TextLength);
+            if (inserted.empty())
+                changed = editor.DeleteSelection(text) || changed;
+            else
+                changed = editor.Insert(text, inserted, options.MaxLength, options.MaxBytes) || changed;
+        }
+
         // Typed characters, and the text of compositions committed this frame: a Korean input method commits a
         // syllable and starts composing the next one in the same frame.
         for (const char32_t character : input.Characters)

@@ -399,6 +399,7 @@ namespace Carbon
             bool isHovered = false;
             if (!isDisabled)
             {
+                Internal::AddTextInputArea(context, viewport);
                 isHovered = Internal::UpdateHover(context, id, viewport);
                 if (isHovered)
                     SetCursor(Cursor::IBeam);
@@ -547,6 +548,10 @@ namespace Carbon
                 const size_t anchor =
                     isComposing ? compositionStart + Internal::GetCompositionAnchor(context) : editor.GetCaret();
                 interactionState.TextInputCaretRect = getCaretRect(anchor);
+                // What a host's on-screen keyboard needs: the text and selection, and the caret above the keyboard.
+                Internal::PublishTextInput(context, id, text, editor.GetSelectionStart(), editor.GetSelectionEnd(),
+                                           KeyboardType::Text, true, false);
+                Internal::KeepAboveKeyboard(context, getCaretRect(editor.GetCaret()).Expand(4.0f));
             }
 
             EndScrollView();

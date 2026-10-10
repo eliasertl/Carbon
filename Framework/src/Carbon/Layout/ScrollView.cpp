@@ -370,7 +370,7 @@ namespace Carbon
         Internal::EndContainer(context, Internal::ContainerKind::ScrollView);
     }
 
-    void Internal::RevealInScrollViews(Context& context, const Rect& rect)
+    void Internal::RevealInScrollViews(Context& context, const Rect& rect, float visibleBottom)
     {
         // Innermost first. Each view scrolls just far enough, with a little margin so the focus ring fits.
         const float margin = 6.0f;
@@ -388,8 +388,8 @@ namespace Carbon
             target = target.Offset(-pending);
 
             const float start = isVertical ? target.Y - viewport.Y : target.X - viewport.X;
-            const float end =
-                isVertical ? target.GetBottom() - viewport.GetBottom() : target.GetRight() - viewport.GetRight();
+            const float end = isVertical ? target.GetBottom() - std::min(viewport.GetBottom(), visibleBottom)
+                                         : target.GetRight() - viewport.GetRight();
 
             float delta = 0.0f;
             if (start < 0.0f)

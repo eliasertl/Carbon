@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <string_view>
 
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Input/Key.h"
@@ -26,7 +27,8 @@ namespace Carbon
         FileDrag,
         FileDragLeave,
         FileDrop,
-        Touch
+        Touch,
+        TextReplace
     };
 
     /// What a touch event reports about one finger (or pen) on the display.
@@ -87,5 +89,36 @@ namespace Carbon
         uint64_t TouchId = 0;
         TouchPhase Phase = TouchPhase::Began;
         PointerType Pointer = PointerType::Mouse;
+        /// TextReplace: the byte range of the edited text that TextStart and TextLength replace.
+        uint32_t ReplaceStart = 0;
+        uint32_t ReplaceEnd = 0;
+    };
+
+    /// The kind of on-screen keyboard a text control asks for (TextFieldOptions::Keyboard).
+    enum class KeyboardType : uint8_t
+    {
+        Text,
+        /// Digits, a decimal separator and a sign.
+        Number,
+        Email,
+        URL,
+        Search
+    };
+
+    /// The text control being edited, for a host whose on-screen keyboard edits a copy of the text: an Android
+    /// input connection, a browser's input element. Autocorrection and word suggestions need the text around the
+    /// caret. See IO::GetTextInputState and IO::AddTextReplaceEvent.
+    struct TextInputState
+    {
+        /// The whole text (UTF-8), without any pre-edit text of an input method. Valid until the next NewFrame.
+        std::string_view Text = {};
+        /// The selection as byte offsets into Text; equal for a caret.
+        size_t SelectionStart = 0;
+        size_t SelectionEnd = 0;
+        KeyboardType Keyboard = KeyboardType::Text;
+        /// Return inserts a new line (TextArea).
+        bool IsMultiLine = false;
+        /// A password: no suggestions, no autocorrection, nothing remembered.
+        bool IsSecure = false;
     };
 } // namespace Carbon

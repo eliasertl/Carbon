@@ -26,6 +26,23 @@ namespace Carbon
         m_DeltaTime = seconds > 0.0f ? seconds : 0.0f;
     }
 
+    void IO::SetSafeAreaInsets(const EdgeInsets& insets)
+    {
+        m_SafeAreaInsets = EdgeInsets(std::max(insets.Left, 0.0f), std::max(insets.Top, 0.0f),
+                                      std::max(insets.Right, 0.0f), std::max(insets.Bottom, 0.0f));
+    }
+
+    void IO::SetTextScale(float scale)
+    {
+        CB_VERIFY(scale > 0.0f, "Text scale must be positive ({})", scale);
+        m_TextScale = scale > 0.0f ? std::clamp(scale, 0.5f, 3.0f) : 1.0f;
+    }
+
+    void IO::SetKeyboardRect(const Rect& rect)
+    {
+        m_KeyboardRect = rect.Width > 0.0f && rect.Height > 0.0f ? rect : Rect();
+    }
+
     void IO::AddMousePosEvent(float x, float y)
     {
         InputEvent event;
@@ -178,6 +195,19 @@ namespace Carbon
     {
         InputEvent event;
         event.Type = InputEventType::CompositionCancel;
+        m_Events.push_back(event);
+    }
+
+    void IO::AddTextReplaceEvent(size_t start, size_t end, std::string_view text)
+    {
+        CB_VERIFY(start <= end, "A text replacement must not end before it starts ({} > {})", start, end);
+        InputEvent event;
+        event.Type = InputEventType::TextReplace;
+        event.ReplaceStart = static_cast<uint32_t>(std::min(start, end));
+        event.ReplaceEnd = static_cast<uint32_t>(end);
+        event.TextStart = static_cast<uint32_t>(m_EventText.size());
+        event.TextLength = static_cast<uint32_t>(text.size());
+        m_EventText.append(text);
         m_Events.push_back(event);
     }
 

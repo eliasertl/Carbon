@@ -58,6 +58,12 @@ namespace Carbon
                 height = std::round(height * TouchControlHeightFactor);
                 spacing = std::round(spacing * TouchSpacingFactor);
             }
+            // Larger text needs taller controls; smaller text keeps them, so that they stay easy to hit.
+            if (TextScale > 1.0f)
+            {
+                float& height = Vars[static_cast<size_t>(StyleVar::ControlHeight)];
+                height = std::round(height * TextScale);
+            }
             Font = Current.Font;
             ColorStack.clear();
             VarStack.clear();
@@ -234,8 +240,9 @@ namespace Carbon
         TextSpec spec;
         // The pushed font, else the theme's; a widget's own font option is applied by the widget.
         spec.Font = state.Font;
-        spec.Size = entry.Size;
-        spec.LineHeight = entry.LineHeight;
+        // The host's text size (IO::SetTextScale) applies to every style of the type ramp.
+        spec.Size = entry.Size * state.TextScale;
+        spec.LineHeight = entry.LineHeight * state.TextScale;
         spec.Weight = emphasized ? entry.EmphasizedWeight : entry.Weight;
         return spec;
     }
