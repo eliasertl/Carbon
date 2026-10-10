@@ -71,7 +71,8 @@ namespace Carbon
     bool BeginSubmenu(std::string_view label, const MenuItemOptions& options = {});
     void EndSubmenu();
 
-    /// A menu that opens at the pointer when the item submitted last is clicked with the right mouse button.
+    /// A menu that opens at the pointer when the item submitted last is clicked with the right mouse button, or
+    /// pressed long with a finger.
     /// Returns true while it is open; then add items and call EndContextMenu.
     ///
     ///     Carbon::Text("report.pdf");

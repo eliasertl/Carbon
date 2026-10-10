@@ -246,6 +246,38 @@ namespace Carbon
         EXPECT_FALSE(IsMenuOpen("context"));
     }
 
+    TEST_F(MenuTests, ContextMenuOpensOnALongPress)
+    {
+        Rect itemRect;
+        int areaClicks = 0;
+        const Builder build = [&]
+        {
+            const Rect area = AllocateItem(Vec2(300.0f, 200.0f));
+            areaClicks += ButtonBehavior(GetID("area"), area).Clicked ? 1 : 0;
+            if (BeginContextMenu("context"))
+            {
+                if (MenuItem("Rename"))
+                    m_Chosen = 7;
+                itemRect = GetItemRect();
+                EndContextMenu();
+            }
+        };
+        Settle(build);
+        TouchDown(Vec2(120.0f, 80.0f), build);
+        for (int i = 0; i < 40; i++)
+            Frame(build);
+        EXPECT_TRUE(IsMenuOpen("context"));
+        // Lifting the finger neither taps what is beneath nor closes the menu.
+        TouchUp(Vec2(120.0f, 80.0f), build);
+        EXPECT_EQ(areaClicks, 0);
+        EXPECT_TRUE(IsMenuOpen("context"));
+        Settle(build);
+
+        Tap(itemRect.GetCenter(), build);
+        EXPECT_EQ(m_Chosen, 7);
+        EXPECT_FALSE(IsMenuOpen("context"));
+    }
+
     // ---- PopUpButton and PullDownButton -------------------------------------------------------------------------
 
     class PopUpButtonTests : public WidgetTest

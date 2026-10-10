@@ -403,7 +403,8 @@ namespace Carbon
     {
         const ID menu = GetID(id);
         ContextMenuState& state = *GetState<ContextMenuState>(HashID("##context", menu));
-        if (IsItemHovered() && IsMousePressed(MouseButton::Right))
+        // A right click, or on a touchscreen a long press, as on iOS.
+        if ((IsItemHovered() && IsMousePressed(MouseButton::Right)) || IsItemLongPressed())
         {
             state.Position = GetMousePos();
             OpenOverlay(menu);
