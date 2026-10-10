@@ -29,6 +29,9 @@ namespace Carbon
         struct ChartState
         {
             bool IsShown;
+            /// With a finger, the value last touched plus one (0 for none): it stays called out after the finger is
+            /// lifted, until a touch elsewhere, since a finger cannot hover.
+            int TouchedValue;
         };
 
         // What both kinds of chart work out before drawing their marks.
@@ -266,12 +269,22 @@ namespace Carbon
             }
             frame.Appear = std::clamp(Animate(appear, 1.0f, AppearSpring), 0.0f, 1.0f);
 
+            const bool isTouch = GetPointerType() != PointerType::Mouse;
             if (frame.Count > 0 && IsRectHovered(frame.Plot))
             {
                 const float position = (GetMousePos().X - frame.Plot.X) / frame.Plot.Width;
                 const float index = isBarChart ? std::floor(position * static_cast<float>(frame.Count))
                                                : std::round(position * static_cast<float>(frame.Count - 1));
                 frame.Hovered = std::clamp(static_cast<int>(index), 0, frame.Count - 1);
+                state.TouchedValue = isTouch ? frame.Hovered + 1 : 0;
+            }
+            else if (!isTouch || IsMousePressed())
+            {
+                state.TouchedValue = 0;
+            }
+            else if (state.TouchedValue > 0 && state.TouchedValue <= frame.Count)
+            {
+                frame.Hovered = state.TouchedValue - 1;
             }
             return frame;
         }

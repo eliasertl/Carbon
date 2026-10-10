@@ -201,8 +201,10 @@ namespace Carbon
             behavior.Focusable = false;
             const Interaction card = ButtonBehavior(entry.Id, rect, behavior);
             const bool isPointerInside = IsRectHovered(rect.Expand(CloseButtonSize * 0.5f));
+            // In touch mode the close button is always there: a finger cannot hover to reveal it.
+            const bool showsClose = isPointerInside || IsTouchMode();
             const float hover =
-                Animate(HashID("##hover", entry.Id), isPointerInside ? 1.0f : 0.0f, AnimationSpec::Fade(0.12f));
+                Animate(HashID("##hover", entry.Id), showsClose ? 1.0f : 0.0f, AnimationSpec::Fade(0.12f));
 
             drawList.AddShadow(rect, GetStyleColor(StyleColor::Shadow), CornerRadius, 18.0f, Vec2(0.0f, 6.0f),
                                smoothing);
@@ -271,7 +273,8 @@ namespace Carbon
                 }
             }
 
-            // The close button appears at the top-left corner while the pointer is on the notification.
+            // The close button appears at the top-left corner while the pointer is on the notification, and
+            // always in touch mode.
             if (hover > 0.001f && !entry.IsClosing)
             {
                 const Rect close =
