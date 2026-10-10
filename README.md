@@ -2,8 +2,8 @@
 
 *“Persistence refines the miserable piece of carbon in you into the purest form of diamond.”* ― Tobi Delly
 
-Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux, and in
-web browsers through Emscripten. It has the productivity of an immediate-mode API and the look and feel of macOS:
+Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux, in
+web browsers through Emscripten, and on Android. It has the productivity of an immediate-mode API and the look and feel of macOS:
 calm, minimal, precise, with smooth spring-driven motion. Carbon renders into a target your application owns
 through a renderer backend, chosen at run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan,
 OpenGL 3.3, OpenGL ES 3.0 (WebGL 2 in a browser), Direct3D 11 or Direct3D 9, or a backend of your own for any
@@ -94,6 +94,10 @@ Carbon::OpenGLRender(); // or WebGPURender(pass), VulkanRender(commandBuffer), D
   switches.
 - **Styling**: light and dark themes with Apple-like semantic colors (the dark theme is pure black), a style
   stack, and per-call options.
+- **Phones and tablets**: multi-touch with momentum scrolling and bounce, long press, swipe back, pinch to zoom
+  and drag and drop; touch mode with 44-point targets; iOS patterns in compact width (navigation stacks, sheets
+  from the bottom, overflow menus); safe areas, the system's text size and the on-screen keyboard.
+  [Docs/Mobile.md](Docs/Mobile.md) explains what a host forwards.
 - **Keyboard**: Tab navigation, Space/Enter activation, arrow keys inside controls, menus and lists, Escape for
   overlays, and an animated focus ring.
 - **Integration**: a GPU-free draw list and renderer backends that draw into the host's own pass or command
@@ -126,7 +130,10 @@ graphics device for each backend is the only difference between the builds.
 In a browser (Emscripten), the examples are built for the OpenGL ES backend, and one more target exists:
 [`Web/index.html`](Examples/WebApp/Main.cpp), the [live demo](https://eliasertl.github.io/Carbon/): a start screen
 that leads to the Gallery and to a reader for every document in `Docs/`
-([Building](Docs/Building.md#the-web-app)).
+([Building](Docs/Building.md#the-web-app)). On a phone it becomes navigation stacks with the browser's Back button.
+
+[`Examples/Android`](Examples/Android/AndroidHost.cpp) is the Gallery as an Android app on the OpenGL ES backend,
+built with Gradle and the NDK from the command line ([Building](Docs/Building.md#android)).
 
 Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
 `--screenshot <file.png>`.
@@ -164,8 +171,9 @@ More backends are picked up when their tools are installed at the first configur
   `-DCMAKE_PREFIX_PATH=<dawn-install>` to the configure command. Carbon is developed and tested against Dawn
   commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b`.
 
-[Docs/Building.md](Docs/Building.md) documents every CMake option, the web build with Emscripten, and how to use
-Carbon from your own project, as a subdirectory or as an installed package (`find_package(Carbon)`).
+[Docs/Building.md](Docs/Building.md) documents every CMake option, the web build with Emscripten, the Android
+app, and how to use Carbon from your own project, as a subdirectory or as an installed package
+(`find_package(Carbon)`).
 
 ## Documentation
 

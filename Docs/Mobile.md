@@ -159,7 +159,8 @@ navigation stack keeps whether it showed its content.
 ## On-screen keyboard
 
 Carbon draws text fields and edits their text, but the keyboard belongs to the platform. Tapping a `TextField`,
-`TextArea`, `SearchField`, `NumberField`, `TokenField` or another text control starts editing; tapping outside ends it.
+`TextArea`, `SearchField`, `NumberField`, `TokenField` or another text control starts editing; tapping outside ends it,
+and so does Return in a single-line field (the keyboard's Done, Search or Go key).
 The host shows and hides the keyboard when Carbon asks, feeds what it types back through the input events Carbon
 already has, and reports the area it covers:
 
@@ -222,7 +223,40 @@ two sections and their sources show the details for each platform.
 - Focus moving between the canvas and the input element is kept from GLFW, which would report the window losing
   focus.
 
-## Forwarding touches
+## On Android
+
+[Examples/Android](../Examples/Android) runs the Gallery in a
+[GameActivity](https://developer.android.com/games/agdk/game-activity), which hands a native thread the surface,
+input events, window insets and the soft keyboard. Its host,
+[AndroidHost.cpp](../Examples/Android/AndroidHost.cpp), does each frame what any Android host does:
+
+- **Metrics.** The content scale is the density divided by 160 (`GameActivity_getDensityDpi`), the display size the
+  surface's pixels divided by it. The safe area is the larger of the system bars' and the display cutout's insets
+  on each side (`GameActivity_getWindowInsets` with `SYSTEM_BARS` and `DISPLAY_CUTOUT`); the activity draws edge to
+  edge and into the cutout. The text size is the system's font scale (`GameActivity_getFontScale`), the keyboard's
+  area the bottom inset of the `IME` insets. `SetDefaultPointerType(PointerType::Touch)` starts in touch mode.
+- **Input.** Fingers and pens become touch events, `MotionEvent`'s pointer IDs their IDs; a mouse becomes mouse
+  events and its wheel `AddMouseWheelEvent`. Hardware keys map to Carbon's keys and their characters to
+  `AddInputCharacter`. Back is not a key for Carbon: the activity's back dispatcher hands it to the native code only
+  while a page is shown over the list (`IsNavigationDetailShown`), and leaves the app otherwise, so the system's
+  predictive back animation stays right.
+- **Keyboard.** `SetKeyboardVisible` shows and hides the soft input. Before it shows, the editor info follows
+  `GetTextInputState()`: text, number, email, URL or search keyboard, a password that is not remembered, Return for
+  new lines in a text area and Done, Search or Go otherwise, never the full-screen editor in landscape. The keyboard
+  edits a copy of the text (GameTextInput), so suggestions, autocorrection and gesture typing work; each frame the
+  difference between that copy and Carbon's text becomes one `AddTextReplaceEvent`, and Carbon's text goes back to
+  the keyboard when it changed by other means. GameTextInput uses Java's modified UTF-8 and counts in UTF-16 code
+  units; [AndroidText.cpp](../Examples/Android/AndroidText.cpp) converts. The keyboard's action key arrives as
+  Return, which ends editing in touch mode.
+- **Lifecycle.** The app renders while it is visible and has a surface, and only when something happens, while
+  Carbon animates, or when Carbon asks for a frame later (`GetNextFrameDelay`); in between the thread sleeps. When
+  Android takes the surface away (the app goes to the background) the EGL context stays, with Carbon's backend and
+  the app's textures; a new surface is all the app needs when it comes back. If the context is lost, the host
+  shuts the backend down, creates a context and installs the backend again: Carbon uploads its glyph atlases again
+  by itself, and the app recreates its own textures. Rotation, resizing and changes of the font size or dark mode
+  do not recreate the activity; the next frame lays out the new size.
+- **Fonts.** Carbon embeds its text and icon fonts; the host adds the system's Noto Color Emoji and Noto Sans CJK
+  from `/system/fonts` as fallbacks.
 
 ## Forwarding touches
 

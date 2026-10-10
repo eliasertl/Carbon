@@ -264,6 +264,98 @@ The workflow builds the commit it runs on, sets `CARBON_WEBAPP_REPOSITORY_URL` t
 `https://<owner>.github.io/<repository>/`, for this repository https://eliasertl.github.io/Carbon/; the run's
 summary links to it.
 
+## Android
+
+`Examples/Android` is the Gallery as an Android app: a
+[GameActivity](https://developer.android.com/games/agdk/game-activity) whose native code runs the shared Gallery
+pages on the [OpenGL ES backend](Backends.md#opengl-es). It is a Gradle project of its own, built from the command
+line; Android Studio is not needed. Everything below installs into the user's profile, without administrator
+rights, except the emulator's hypervisor.
+
+### Tools
+
+| Tool | Version | Where it comes from |
+|------|---------|---------------------|
+| JDK | 17 (Temurin 17.0.20) | [adoptium.net](https://adoptium.net/temurin/releases/?version=17), the Windows x64 `.zip` |
+| Android command-line tools | 23.0 | [developer.android.com](https://developer.android.com/studio#command-tools), "Command line tools only" for Windows |
+| Android SDK platform | 36 | `sdkmanager` |
+| NDK | 27.3.13750724 | `sdkmanager` |
+| CMake (the SDK's) | 3.31.6 | `sdkmanager` |
+| Gradle | 8.14.6 | the wrapper in `Examples/Android` downloads it |
+| Android Gradle plugin | 8.13.2 | Gradle downloads it |
+| games-activity | 4.4.2 | Gradle downloads it (`androidx.games:games-activity`) |
+
+Step by step, in PowerShell:
+
+1. **JDK.** Unzip the Temurin 17 archive, for example to `%LOCALAPPDATA%\Programs\Temurin`, and point `JAVA_HOME`
+   at it:
+   `[Environment]::SetEnvironmentVariable('JAVA_HOME', "$env:LOCALAPPDATA\Programs\Temurin\jdk-17.0.20.1+1", 'User')`.
+2. **SDK.** Create the SDK folder `%LOCALAPPDATA%\Android\Sdk` and unzip the command-line tools so that
+   `cmdline-tools\latest\bin\sdkmanager.bat` exists in it (the archive's `cmdline-tools` folder becomes `latest`). Set
+   `ANDROID_HOME` to the SDK folder the same way, and add `%ANDROID_HOME%\platform-tools` and
+   `%ANDROID_HOME%\emulator` to the user's `Path` for `adb` and `emulator`. Open a new terminal afterwards: programs
+   see the new variables only when they start.
+3. **Packages.** Accept the licenses, then install the packages:
+
+   ```powershell
+   $sdkmanager = "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat"
+   & $sdkmanager --licenses            # answer y to each
+   & $sdkmanager "platform-tools" "platforms/android-36" "build-tools/36.0.0" "ndk/27.3.13750724" "cmake/3.31.6"
+   ```
+
+   The package names take `/` here where Google's documentation writes `;`: PowerShell ends a command at `;`, and
+   version 23 of `sdkmanager` then installs nothing without saying so. Gradle installs the build tools the Android
+   Gradle plugin wants (35.0.0) by itself on the first build.
+4. **Emulator (optional).** For testing without a phone:
+
+   ```powershell
+   & $sdkmanager "emulator" "system-images/android-36/google_apis/x86_64"
+   & "$env:ANDROID_HOME\cmdline-tools\latest\bin\avdmanager.bat" create avd -n CarbonPhone -d pixel_7 `
+       -k "system-images;android-36;google_apis;x86_64"
+   ```
+
+   In `%USERPROFILE%\.android\avd\CarbonPhone.avd\config.ini`, set `hw.gpu.enabled = yes` (the emulator then uses
+   the PC's GPU) and keep `hw.keyboard = no`: with a hardware keyboard the emulator shows no on-screen keyboard,
+   which is what a phone has. The emulator needs the Windows Hypervisor Platform. If `emulator -accel-check` does
+   not report it, turn it on as administrator and restart Windows:
+   `Enable-WindowsOptionalFeature -Online -FeatureName HypervisorPlatform`. This is the only step that needs
+   administrator rights.
+
+### Building and running
+
+```powershell
+cd Examples\Android
+.\gradlew.bat assembleDebug          # or assembleRelease, signed with the debug key
+adb install -r ..\..\Build\Android\Gradle\outputs\apk\debug\CarbonGallery-debug.apk
+adb shell am start -n io.github.eliasertl.carbon.gallery/.MainActivity
+```
+
+The first build downloads Gradle, the plugin and games-activity, and builds Carbon for two ABIs: `arm64-v8a` for
+phones and tablets and `x86_64` for the emulator. Everything it writes goes to `Build/Android` (Gradle to
+`Build/Android/Gradle`, the NDK's CMake trees to `Build/Android/Native`), as with the other build trees. To run on a
+phone, turn on USB debugging in its developer options and connect it; `adb devices` lists it. Start the emulator
+with `emulator -avd CarbonPhone -no-snapshot -no-boot-anim -gpu host`. `adb logcat -s CarbonGallery` shows Carbon's
+log, and `cmd /c "adb exec-out screencap -p > shot.png"` takes a screenshot (through `cmd`, since PowerShell's `>`
+changes binary output).
+
+How the project is set up:
+
+- **CMake.** [Examples/Android/CMakeLists.txt](../Examples/Android/CMakeLists.txt) adds the repository as a
+  subdirectory with the OpenGL ES backend only and without examples, tests or benchmarks, compiles the Gallery's
+  pages, and links `libGallery.so` with the static GameActivity library (`game-activity::game-activity_static`, found
+  through prefab), EGL and OpenGL ES 3. Carbon's own CMake needs nothing Android-specific.
+- **Gradle.** [Examples/Android/build.gradle.kts](../Examples/Android/build.gradle.kts): compile and target SDK 36,
+  minimum SDK 28 (Android 9, the first with display cutouts), the NDK and CMake versions above, prefab on. The
+  sources stay in the folder instead of Gradle's `src/main` tree; the Gradle wrapper (`gradlew.bat`,
+  `gradle/wrapper`) is committed, as is usual, and its folder keeps the lowercase name the wrapper scripts expect.
+- **The activity.** [MainActivity.java](../Examples/Android/Java/MainActivity.java) draws edge to edge, into the
+  display cutout, and takes Back while the app has somewhere to go back to. The manifest declares the configuration
+  changes the app handles itself (rotation, size, density, font size, dark mode), so the activity is never
+  recreated: Carbon lays out the new size in the next frame.
+
+What the native host does, and how to do the same in an application, is in
+[Phones and tablets](Mobile.md#on-android).
+
 ## Examples and tests
 
 Every example accepts `--screenshot <file.png>` (render a settled frame offscreen, save it and exit),
