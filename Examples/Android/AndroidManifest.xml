@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- One activity that keeps running through rotation, resizing and keyboard changes: Carbon lays the interface out
+     again for the new size instead of the activity being recreated. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-feature android:glEsVersion="0x00030000" android:required="true" />
+
+    <application
+        android:allowBackup="false"
+        android:label="Carbon Gallery"
+        android:theme="@style/Theme.AppCompat.DayNight.NoActionBar">
+
+        <activity
+            android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|density|keyboard|keyboardHidden|navigation|uiMode|fontScale|layoutDirection|locale"
+            android:exported="true"
+            android:resizeableActivity="true"
+            android:windowSoftInputMode="adjustNothing">
+
+            <meta-data
+                android:name="android.app.lib_name"
+                android:value="Gallery" />
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

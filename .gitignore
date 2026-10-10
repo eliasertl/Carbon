@@ -3,6 +3,10 @@
 /build/
 /out/
 /Install/
+# Gradle's caches and local settings of the Android example (its build tree is in Build/Android)
+/Examples/Android/.gradle/
+/Examples/Android/.kotlin/
+/Examples/Android/local.properties
 
 # Throwaway files: experiments, self-check screenshots, debug output
 /Scratch/
