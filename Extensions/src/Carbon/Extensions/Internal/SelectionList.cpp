@@ -116,7 +116,7 @@ namespace Carbon::Internal
 
     void BeginSelectionList(std::string_view id, const SelectionListDescription& description)
     {
-        SelectionListBuild& build = GetBuild();
+        SelectionListBuild& build = s_Build.Begin();
         const ID listID = GetID(id);
 
         build = SelectionListBuild();

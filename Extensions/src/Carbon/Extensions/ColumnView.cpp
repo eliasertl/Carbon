@@ -94,7 +94,7 @@ namespace Carbon
 
     void BeginColumnView(std::string_view id, const ColumnViewOptions& options)
     {
-        ColumnViewBuild& build = GetBuild();
+        ColumnViewBuild& build = s_Build.Begin();
         build = ColumnViewBuild();
         build.Options = options;
         build.IsOpen = true;

@@ -19,6 +19,15 @@ namespace Carbon::Internal
     public:
         explicit constexpr BuildState(std::string_view name) : m_Name(name) {}
 
+        /// The state of the current context, looked up afresh: for the Begin call of a component. A context that
+        /// replaces a destroyed one may have its address and its frame count, so only the Begin call can tell
+        /// that the remembered pointer is stale.
+        T& Begin()
+        {
+            m_State = nullptr;
+            return Get();
+        }
+
         /// The state of the current context. Zero-initialized the first time a context asks for it.
         T& Get()
         {
