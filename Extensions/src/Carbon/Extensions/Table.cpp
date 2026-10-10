@@ -1,6 +1,7 @@
 #include "Carbon/Extensions/Table.h"
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <vector>
 
@@ -29,6 +30,14 @@ namespace Carbon
         // The chevron that marks the column the rows are sorted by.
         constexpr float SortIndicatorSize = 9.0f;
         constexpr float SortIndicatorGap = 3.0f;
+        // A header has to be dragged this far before its column moves; less is a click.
+        constexpr float ReorderThreshold = 4.0f;
+        // Columns that make room for a moved one slide there on a spring, for about this long.
+        constexpr AnimationSpec SlideSpring = AnimationSpec::Spring(0.3f, 0.86f);
+        constexpr float SlideDuration = 0.8f;
+        // Near the table's edges, a column being moved scrolls the table, up to this fast in points per second.
+        constexpr float AutoScrollZone = 24.0f;
+        constexpr float AutoScrollSpeed = 900.0f;
 
         using Internal::CellPadding;
         using Internal::ColumnLayout;
@@ -61,13 +70,20 @@ namespace Carbon
             float FitWidth;
             /// The column the header's keyboard focus is on, as a position on screen.
             int FocusedPosition;
+            /// The column being moved by its header, plus one, while the user drags it.
+            int MovedColumn;
+            /// Where the pointer grabbed the moved column, from the column's leading edge.
+            float GrabOffset;
+            /// Seconds since the columns were last rearranged; they slide into place meanwhile.
+            float SlideTime;
+            bool IsSliding;
         };
 
         // The table whose rows are being added.
         struct TableBuild
         {
             /// Indexed like the columns; points into s_Columns. X is relative to the rows' leading edge and
-            /// includes the sideways scroll offset.
+            /// includes the sideways scroll offset and the slide of a column that moves.
             ColumnLayout* Columns;
             int ColumnCount;
             int NextColumn;
@@ -80,6 +96,7 @@ namespace Carbon
             ID HeaderID;
             TableSort Sort;
             bool IsSorting;
+            bool HasHeaderStop;
             /// The column whose header is held down, or -1.
             int PressedColumn;
             /// The visible area of the rows, including their inset.
@@ -99,6 +116,23 @@ namespace Carbon
             bool ShowsAlternatingRows;
             /// A row is open: its ID is on the ID stack, so that the widgets in its cells are its own.
             bool HasRow;
+            /// The column being moved, or -1. It floats above the others: their cells are cut where it is.
+            int MovedColumn;
+            /// The cell of BeginTableCell clips its content.
+            bool IsCellClipped;
+        };
+
+        // The columns of the table being begun and the storage that arranges them, all indexed like the columns
+        // except Order, which lists them as shown.
+        struct Arrangement
+        {
+            std::span<const TableColumn> Columns;
+            const TableOptions* Options = nullptr;
+            std::span<ColumnLayout> Layouts;
+            std::span<float> Widths;
+            std::span<int> Order;
+            /// How far each column is drawn from its place while columns slide.
+            std::span<float> Offsets;
         };
 
         Internal::BuildState<TableBuild> s_Build("Carbon.Table.Build");
@@ -107,6 +141,7 @@ namespace Carbon
         std::vector<ColumnLayout> s_Columns;
         std::vector<float> s_Widths;
         std::vector<int> s_Order;
+        std::vector<float> s_Offsets;
         std::vector<uint8_t> s_Seen;
 
         TableBuild& GetBuild()
@@ -117,6 +152,11 @@ namespace Carbon
         ColumnState& GetColumnState(ID table, size_t column)
         {
             return *GetState<ColumnState>(HashID(static_cast<int64_t>(column), table), StateLifetime::Persistent);
+        }
+
+        ID GetSlideID(ID table, int column)
+        {
+            return HashID("##slide", HashID(column, table));
         }
 
         // True when `order` holds every index below its size exactly once.
@@ -133,53 +173,127 @@ namespace Carbon
             return true;
         }
 
-        // Reads the widths and the order of the columns into `widths` and `order`: from the application's storage
-        // when it has some, from the table's memory otherwise.
-        void LoadArrangement(ID table, const TableOptions& options, std::span<float> widths, std::span<int> order)
+        // Reads the widths and the order of the columns: from the application's storage when it has some, from
+        // the table's memory otherwise. While the user moves a column, the table's memory has the order.
+        void LoadArrangement(const TableBuild& build, const Arrangement& arrangement)
         {
-            const size_t count = widths.size();
+            const TableOptions& options = *arrangement.Options;
+            const size_t count = arrangement.Columns.size();
             const bool hasWidths = !options.ColumnWidths.empty();
             const bool hasOrder = !options.ColumnOrder.empty();
             CB_VERIFY(!hasWidths || options.ColumnWidths.size() == count,
                       "TableOptions::ColumnWidths has {} entries for {} columns", options.ColumnWidths.size(), count);
             CB_VERIFY(!hasOrder || options.ColumnOrder.size() == count,
                       "TableOptions::ColumnOrder has {} entries for {} columns", options.ColumnOrder.size(), count);
+            const bool usesWidths = hasWidths && options.ColumnWidths.size() == count;
+            const bool usesOrder = hasOrder && options.ColumnOrder.size() == count && build.State->MovedColumn == 0;
 
-            std::fill(order.begin(), order.end(), -1);
+            std::fill(arrangement.Order.begin(), arrangement.Order.end(), -1);
             for (size_t i = 0; i < count; i++)
             {
-                ColumnState& column = GetColumnState(table, i);
-                if (hasWidths && options.ColumnWidths.size() == count)
+                ColumnState& column = GetColumnState(build.StateID, i);
+                if (usesWidths)
                     column.Width = std::max(options.ColumnWidths[i], 0.0f);
-                widths[i] = column.Width;
+                arrangement.Widths[i] = column.Width;
                 if (column.Position > 0 && static_cast<size_t>(column.Position) <= count)
-                    order[static_cast<size_t>(column.Position - 1)] = static_cast<int>(i);
+                    arrangement.Order[static_cast<size_t>(column.Position - 1)] = static_cast<int>(i);
             }
+            if (usesOrder)
+                std::copy(options.ColumnOrder.begin(), options.ColumnOrder.end(), arrangement.Order.begin());
 
-            if (hasOrder && options.ColumnOrder.size() == count)
-                std::copy(options.ColumnOrder.begin(), options.ColumnOrder.end(), order.begin());
-            if (IsPermutation(order))
-                return;
-            // A new table, columns that were added or removed, or an order that is no permutation: the columns are
-            // shown as declared.
-            for (size_t i = 0; i < count; i++)
-                order[i] = static_cast<int>(i);
-            for (size_t i = 0; i < count; i++)
-                GetColumnState(table, i).Position = static_cast<int>(i) + 1;
-            if (hasOrder && options.ColumnOrder.size() == count)
-                std::copy(order.begin(), order.end(), options.ColumnOrder.begin());
+            if (!IsPermutation(arrangement.Order))
+            {
+                // A new table, columns that were added or removed, or an order that is no permutation: the columns
+                // are shown as declared.
+                for (size_t i = 0; i < count; i++)
+                    arrangement.Order[i] = static_cast<int>(i);
+                if (usesOrder)
+                    std::copy(arrangement.Order.begin(), arrangement.Order.end(), options.ColumnOrder.begin());
+            }
+            for (size_t position = 0; position < count; position++)
+            {
+                const size_t column = static_cast<size_t>(arrangement.Order[position]);
+                GetColumnState(build.StateID, column).Position = static_cast<int>(position) + 1;
+            }
+        }
+
+        // Lays the columns out at their places, without the sideways scroll offset.
+        void Layout(TableBuild& build, const Arrangement& arrangement)
+        {
+            build.ContentWidth = Internal::LayoutColumns(arrangement.Columns, build.VisibleWidth, arrangement.Layouts,
+                                                         arrangement.Widths, arrangement.Order);
+            build.MaxScrollX = std::max(build.ContentWidth - build.VisibleWidth, 0.0f);
         }
 
         // Gives a column the width the user chose, in the table's memory and in the application's storage.
-        bool StoreWidth(ID table, const TableOptions& options, std::span<float> widths, size_t column, float width)
+        bool StoreWidth(const TableBuild& build, const Arrangement& arrangement, size_t column, float width)
         {
-            if (widths[column] == width)
+            if (arrangement.Widths[column] == width)
                 return false;
-            widths[column] = width;
-            GetColumnState(table, column).Width = width;
-            if (options.ColumnWidths.size() == widths.size())
+            arrangement.Widths[column] = width;
+            GetColumnState(build.StateID, column).Width = width;
+            const TableOptions& options = *arrangement.Options;
+            if (options.ColumnWidths.size() == arrangement.Widths.size())
                 options.ColumnWidths[column] = width;
             return true;
+        }
+
+        // Writes the order the user arranged to the application's storage.
+        void StoreOrder(const Arrangement& arrangement)
+        {
+            const TableOptions& options = *arrangement.Options;
+            if (options.ColumnOrder.size() == arrangement.Order.size())
+                std::copy(arrangement.Order.begin(), arrangement.Order.end(), options.ColumnOrder.begin());
+        }
+
+        // Moves a column to another position on screen. The columns are laid out anew, and every column that
+        // changed its place slides there from where it is drawn now.
+        void MoveColumn(TableBuild& build, const Arrangement& arrangement, int column, int position)
+        {
+            const auto current = std::find(arrangement.Order.begin(), arrangement.Order.end(), column);
+            const auto target = arrangement.Order.begin() + position;
+            if (current == arrangement.Order.end() || current == target)
+                return;
+            if (current < target)
+                std::rotate(current, current + 1, target + 1);
+            else
+                std::rotate(target, current, current + 1);
+
+            const size_t count = arrangement.Columns.size();
+            for (size_t i = 0; i < count; i++)
+                arrangement.Offsets[i] += arrangement.Layouts[i].X;
+            Layout(build, arrangement);
+            for (size_t i = 0; i < count; i++)
+            {
+                arrangement.Offsets[i] -= arrangement.Layouts[i].X;
+                SetAnimationValue(GetSlideID(build.StateID, static_cast<int>(i)), arrangement.Offsets[i]);
+                GetColumnState(build.StateID, i).Position = 0;
+            }
+            for (size_t i = 0; i < count; i++)
+            {
+                const size_t moved = static_cast<size_t>(arrangement.Order[i]);
+                GetColumnState(build.StateID, moved).Position = static_cast<int>(i) + 1;
+            }
+            build.State->IsSliding = true;
+            build.State->SlideTime = 0.0f;
+        }
+
+        // The position among the others at which the moved column belongs: before the first column whose middle
+        // its own middle has not passed.
+        int FindDropPosition(const Arrangement& arrangement, int moved, float center)
+        {
+            int position = 0;
+            float x = 0.0f;
+            for (const int index : arrangement.Order)
+            {
+                if (index == moved)
+                    continue;
+                const float width = arrangement.Layouts[static_cast<size_t>(index)].Width;
+                if (center > x + width * 0.5f)
+                    position++;
+                x += width;
+            }
+            return position;
         }
 
         // The width a column needs for its title, and for the sort indicator when the rows are sorted by it.
@@ -208,81 +322,154 @@ namespace Carbon
         }
 
         // Scrolls sideways just far enough to show a column completely.
-        void RevealColumn(const TableBuild& build, TableState& state, size_t column)
+        void RevealColumn(const TableBuild& build, const Arrangement& arrangement, int column)
         {
-            const ColumnLayout& layout = build.Columns[column];
+            TableState& state = *build.State;
+            const ColumnLayout& layout = arrangement.Layouts[static_cast<size_t>(column)];
             if (layout.X < state.ScrollX)
                 state.ScrollX = layout.X;
             else if (layout.X + layout.Width > state.ScrollX + build.VisibleWidth)
                 state.ScrollX = std::min(layout.X, layout.X + layout.Width - build.VisibleWidth);
         }
 
-        // The header's interaction: clicking a column sorts by it, the keyboard moves between the columns and
-        // sorts, dragging a divider resizes the column before it, and double-clicking a divider fits that column
-        // to its content. Column X positions are not scrolled yet.
-        TableChanges UpdateHeader(TableBuild& build, std::span<const TableColumn> columns, const TableOptions& options,
-                                  const Rect& header, std::span<float> widths, std::span<const int> order)
+        // The header's stop for Tab: the arrow keys move between the columns, Space or Enter sorts by one, and
+        // with the shortcut modifier the arrow keys move a column.
+        void UpdateHeaderKeyboard(TableBuild& build, const Arrangement& arrangement, const Rect& header,
+                                  TableChanges& changes)
+        {
+            TableState& state = *build.State;
+            const int count = static_cast<int>(arrangement.Order.size());
+            RegisterFocusable(build.HeaderID, header);
+            state.FocusedPosition = std::clamp(state.FocusedPosition, 0, count - 1);
+            if (!IsFocused(build.HeaderID) || IsDisabled() || state.MovedColumn != 0)
+                return;
+
+            const int column = arrangement.Order[static_cast<size_t>(state.FocusedPosition)];
+            const TableColumn& declaration = arrangement.Columns[static_cast<size_t>(column)];
+            const bool isMoving = IsShortcutPressed(Key::LeftArrow) || IsShortcutPressed(Key::RightArrow);
+            int step = 0;
+            if (IsKeyPressed(Key::LeftArrow))
+                step = -1;
+            if (IsKeyPressed(Key::RightArrow))
+                step = 1;
+            const int target = std::clamp(state.FocusedPosition + step, 0, count - 1);
+            if (target != state.FocusedPosition)
+            {
+                if (isMoving && declaration.IsReorderable)
+                {
+                    MoveColumn(build, arrangement, column, target);
+                    StoreOrder(arrangement);
+                    changes.OrderChanged = true;
+                }
+                state.FocusedPosition = target;
+                RevealColumn(build, arrangement, arrangement.Order[static_cast<size_t>(target)]);
+            }
+
+            const bool isActivated = IsKeyPressed(Key::Space, false) || IsKeyPressed(Key::Enter, false) ||
+                                     IsKeyPressed(Key::KeypadEnter, false);
+            if (isActivated && build.IsSorting && declaration.IsSortable)
+            {
+                SortBy(*arrangement.Options->Sort, column, declaration);
+                changes.SortChanged = true;
+            }
+        }
+
+        // The header's pointer interaction: clicking a column sorts by it, dragging one moves it, dragging a
+        // divider resizes the column before it, and double-clicking a divider fits that column to its content.
+        // Column positions are not scrolled yet.
+        TableChanges UpdateHeader(TableBuild& build, const Arrangement& arrangement, const Rect& header)
         {
             TableChanges changes;
             TableState& state = *build.State;
-            const size_t count = order.size();
+            const size_t count = arrangement.Order.size();
+            if (count == 0)
+                return changes;
+            if (build.HasHeaderStop)
+                UpdateHeaderKeyboard(build, arrangement, header, changes);
+
             DragBehaviorOptions behavior;
             behavior.Focusable = false;
             GetDrawList().PushClipRect(header);
+            // Where the pointer is, in the coordinates of the columns.
+            const float pointer = GetMousePos().X - header.X - RowInset + build.ScrollX;
 
-            // The header of a table that sorts is a stop for Tab of its own, before the rows.
-            if (build.IsSorting && count > 0)
-            {
-                RegisterFocusable(build.HeaderID, header);
-                state.FocusedPosition = std::clamp(state.FocusedPosition, 0, static_cast<int>(count) - 1);
-                if (IsFocused(build.HeaderID) && !IsDisabled())
-                {
-                    const int before = state.FocusedPosition;
-                    if (IsKeyPressed(Key::LeftArrow))
-                        state.FocusedPosition = std::max(state.FocusedPosition - 1, 0);
-                    if (IsKeyPressed(Key::RightArrow))
-                        state.FocusedPosition = std::min(state.FocusedPosition + 1, static_cast<int>(count) - 1);
-                    const int column = order[static_cast<size_t>(state.FocusedPosition)];
-                    if (state.FocusedPosition != before)
-                        RevealColumn(build, state, static_cast<size_t>(column));
-                    const bool isActivated = IsKeyPressed(Key::Space, false) || IsKeyPressed(Key::Enter, false) ||
-                                             IsKeyPressed(Key::KeypadEnter, false);
-                    if (isActivated && columns[static_cast<size_t>(column)].IsSortable)
-                    {
-                        SortBy(*options.Sort, column, columns[static_cast<size_t>(column)]);
-                        changes.SortChanged = true;
-                    }
-                }
-            }
-
-            // The columns themselves: a click sorts.
+            // The columns themselves: a click sorts, a drag moves the column.
             for (size_t position = 0; position < count; position++)
             {
-                const int index = order[position];
-                const TableColumn& column = columns[static_cast<size_t>(index)];
-                if (!build.IsSorting || !column.IsSortable)
+                const int index = arrangement.Order[position];
+                const TableColumn& column = arrangement.Columns[static_cast<size_t>(index)];
+                const bool sorts = build.IsSorting && column.IsSortable;
+                if (!sorts && !column.IsReorderable)
                     continue;
-                const ColumnLayout& layout = build.Columns[index];
+                const ColumnLayout& layout = arrangement.Layouts[static_cast<size_t>(index)];
                 const Rect cell(header.X + RowInset + layout.X - build.ScrollX, header.Y, layout.Width, header.Height);
                 const DragInteraction drag =
                     DragBehavior(HashID("##column", HashID(index, build.StateID)), cell, behavior);
-                if (drag.Active)
-                    build.PressedColumn = index;
-                if (drag.Ended && IsRectHovered(cell))
+                if (drag.Started)
+                    state.GrabOffset = pointer - layout.X;
+                const bool isMoved = state.MovedColumn == index + 1;
+                if (drag.Active && !isMoved && column.IsReorderable && std::abs(drag.Total.X) >= ReorderThreshold &&
+                    state.MovedColumn == 0)
                 {
-                    SortBy(*options.Sort, index, column);
+                    state.MovedColumn = index + 1;
+                }
+                else if (drag.Active && !isMoved && sorts)
+                {
+                    build.PressedColumn = index;
+                }
+                if (drag.Ended && isMoved)
+                {
+                    // Dropped: the column slides from the pointer into its place, and the order is reported.
+                    state.MovedColumn = 0;
+                    state.IsSliding = true;
+                    state.SlideTime = 0.0f;
+                    StoreOrder(arrangement);
+                    changes.OrderChanged = true;
+                }
+                else if (drag.Ended && sorts && IsRectHovered(cell))
+                {
+                    SortBy(*arrangement.Options->Sort, index, column);
                     changes.SortChanged = true;
                     state.FocusedPosition = static_cast<int>(position);
                 }
             }
 
+            // The column being moved follows the pointer; the others make room once its middle passes theirs.
+            if (state.MovedColumn > 0 && static_cast<size_t>(state.MovedColumn) <= count)
+            {
+                const int moved = state.MovedColumn - 1;
+                const ColumnLayout& layout = arrangement.Layouts[static_cast<size_t>(moved)];
+                const float x =
+                    std::clamp(pointer - state.GrabOffset, 0.0f, std::max(build.ContentWidth - layout.Width, 0.0f));
+                MoveColumn(build, arrangement, moved, FindDropPosition(arrangement, moved, x + layout.Width * 0.5f));
+                arrangement.Offsets[static_cast<size_t>(moved)] = x - layout.X;
+                SetAnimationValue(GetSlideID(build.StateID, moved), x - layout.X);
+
+                // Near the table's edges, the table scrolls towards the hidden columns.
+                const float mouse = GetMousePos().X;
+                const float leading = header.X + AutoScrollZone - mouse;
+                const float trailing = mouse - (header.GetRight() - AutoScrollZone);
+                const float depth = std::max(leading, trailing) / AutoScrollZone;
+                if (depth > 0.0f)
+                {
+                    const float distance = AutoScrollSpeed * std::min(depth, 1.0f) * GetDeltaTime();
+                    state.ScrollX += leading > 0.0f ? -distance : distance;
+                    state.ScrollIdleTime = 0.0f;
+                    RequestAnimationFrame();
+                }
+            }
+            else
+            {
+                state.MovedColumn = 0;
+            }
+
             // The dividers, after the columns so that they win the pointer where both are.
-            for (const int index : order)
+            for (const int index : arrangement.Order)
             {
                 const size_t column = static_cast<size_t>(index);
-                if (!columns[column].IsResizable)
+                if (!arrangement.Columns[column].IsResizable || state.MovedColumn != 0)
                     continue;
-                const ColumnLayout& layout = build.Columns[column];
+                const ColumnLayout& layout = arrangement.Layouts[column];
                 const float edge = header.X + RowInset + layout.X - build.ScrollX + layout.Width;
                 const Rect grab(edge - DividerGrabWidth * 0.5f, header.Y, DividerGrabWidth, header.Height);
                 const DragInteraction drag =
@@ -297,68 +484,95 @@ namespace Carbon
                         // Fitted once the rows have been measured; the header's title counts too.
                         state.FitColumn = index + 1;
                         build.MeasuredColumn = index;
-                        build.MeasuredWidth = MeasureTitle(build, columns[column], index);
+                        build.MeasuredWidth = MeasureTitle(build, arrangement.Columns[column], index);
                     }
                 }
                 else if (drag.Active)
                 {
-                    const float width =
-                        std::max(state.ResizeStartWidth + drag.Total.X, std::max(columns[column].MinWidth, 0.0f));
-                    changes.WidthsChanged =
-                        StoreWidth(build.StateID, options, widths, column, width) || changes.WidthsChanged;
+                    const float minimum = std::max(arrangement.Columns[column].MinWidth, 0.0f);
+                    const float width = std::max(state.ResizeStartWidth + drag.Total.X, minimum);
+                    changes.WidthsChanged = StoreWidth(build, arrangement, column, width) || changes.WidthsChanged;
                 }
             }
             GetDrawList().PopClipRect();
             if (changes.SortChanged)
-                build.Sort = *options.Sort;
+                build.Sort = *arrangement.Options->Sort;
             return changes;
+        }
+
+        void DrawHeaderColumn(const TableBuild& build, const TableColumn& column, int index, const Rect& header,
+                              size_t position, bool isMoved)
+        {
+            DrawList& drawList = GetDrawList();
+            const ColumnLayout& layout = build.Columns[index];
+            const Rect cell(header.X + RowInset + layout.X, header.Y, layout.Width, header.Height);
+            if (cell.X > header.GetRight() || cell.GetRight() < header.X)
+                return;
+            const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);
+            if (isMoved)
+            {
+                // The column being moved floats above the others.
+                drawList.AddShadow(cell, GetStyleColor(StyleColor::Shadow), 4.0f, 8.0f, Vec2(0.0f, 1.0f));
+                drawList.AddSquircle(cell, GetStyleColor(StyleColor::ControlBackground), 4.0f, smoothing);
+                drawList.AddSquircle(cell, GetStyleColor(StyleColor::ControlFill), 4.0f, smoothing);
+            }
+            else if (index == build.PressedColumn)
+            {
+                drawList.AddSquircle(cell.Inset(EdgeInsets(1.0f, 2.0f)), GetStyleColor(StyleColor::ControlFill), 4.0f,
+                                     smoothing);
+            }
+
+            TextSpec spec = GetTextSpec(TextStyle::Subheadline, true);
+            spec.Wraps = false;
+            const Color titleColor = GetStyleColor(StyleColor::SecondaryLabel);
+            // The sorted column shows a chevron at its trailing edge: up for ascending, down for descending.
+            float titleWidth = layout.Width - CellPadding * 2.0f;
+            if (build.IsSorting && build.Sort.Column == index)
+            {
+                const std::string_view icon =
+                    build.Sort.Direction == SortDirection::Ascending ? Icons::CaretUp : Icons::CaretDown;
+                const Vec2 center(cell.GetRight() - CellPadding - SortIndicatorSize * 0.5f, cell.GetCenter().Y);
+                DrawIcon(drawList, center, icon, SortIndicatorSize, titleColor, IconVariant::Bold);
+                titleWidth -= SortIndicatorSize + SortIndicatorGap;
+            }
+            spec.MaxWidth = std::max(titleWidth, 1.0f);
+            spec.Alignment = layout.Alignment;
+            DrawLabel(drawList, header, cell.X + CellPadding, column.Title, spec, titleColor);
+            if (position > 0 && !isMoved)
+            {
+                drawList.AddRect(Rect(cell.X, header.Y + 5.0f, GetContentScale().GetPixelSize(), header.Height - 10.0f),
+                                 GetStyleColor(StyleColor::Separator));
+            }
+            if (build.HasHeaderStop && static_cast<int>(position) == build.State->FocusedPosition &&
+                IsFocusVisible(build.HeaderID))
+            {
+                DrawFocusRing(build.HeaderID, cell.Inset(EdgeInsets(2.0f, 3.0f)), 4.0f);
+            }
         }
 
         void DrawHeader(const TableBuild& build, std::span<const TableColumn> columns, const Rect& header,
                         std::span<const int> order)
         {
             DrawList& drawList = GetDrawList();
-            const float pixel = GetContentScale().GetPixelSize();
-            TextSpec spec = GetTextSpec(TextStyle::Subheadline, true);
-            spec.Wraps = false;
-            const Color titleColor = GetStyleColor(StyleColor::SecondaryLabel);
-            const Color separator = GetStyleColor(StyleColor::Separator);
-            const bool isFocusVisible = build.IsSorting && IsFocusVisible(build.HeaderID);
+            const int moved = build.State->MovedColumn - 1;
             drawList.PushClipRect(header);
             for (size_t position = 0; position < order.size(); position++)
             {
-                const int index = order[position];
-                const ColumnLayout& layout = build.Columns[index];
-                const Rect cell(header.X + RowInset + layout.X, header.Y, layout.Width, header.Height);
-                if (cell.X > header.GetRight() || cell.GetRight() < header.X)
-                    continue;
-                if (index == build.PressedColumn)
-                {
-                    drawList.AddSquircle(cell.Inset(EdgeInsets(1.0f, 2.0f)), GetStyleColor(StyleColor::ControlFill),
-                                         4.0f, GetStyleVar(StyleVar::CornerSmoothing));
-                }
-
-                // The sorted column shows a chevron at its trailing edge: up for ascending, down for descending.
-                float titleWidth = layout.Width - CellPadding * 2.0f;
-                if (build.IsSorting && build.Sort.Column == index)
-                {
-                    const std::string_view icon =
-                        build.Sort.Direction == SortDirection::Ascending ? Icons::CaretUp : Icons::CaretDown;
-                    const Vec2 center(cell.GetRight() - CellPadding - SortIndicatorSize * 0.5f, cell.GetCenter().Y);
-                    DrawIcon(drawList, center, icon, SortIndicatorSize, titleColor, IconVariant::Bold);
-                    titleWidth -= SortIndicatorSize + SortIndicatorGap;
-                }
-                spec.MaxWidth = std::max(titleWidth, 1.0f);
-                spec.Alignment = layout.Alignment;
-                DrawLabel(drawList, header, cell.X + CellPadding, columns[static_cast<size_t>(index)].Title, spec,
-                          titleColor);
-                if (position > 0)
-                    drawList.AddRect(Rect(cell.X, header.Y + 5.0f, pixel, header.Height - 10.0f), separator);
-                if (isFocusVisible && static_cast<int>(position) == build.State->FocusedPosition)
-                    DrawFocusRing(build.HeaderID, cell.Inset(EdgeInsets(2.0f, 3.0f)), 4.0f);
+                if (order[position] != moved)
+                    DrawHeaderColumn(build, columns[static_cast<size_t>(order[position])], order[position], header,
+                                     position, false);
+            }
+            // The column being moved is drawn last, above the ones it passes.
+            const auto movedPosition = std::find(order.begin(), order.end(), moved);
+            if (movedPosition != order.end())
+            {
+                DrawHeaderColumn(build, columns[static_cast<size_t>(moved)], moved, header,
+                                 static_cast<size_t>(movedPosition - order.begin()), true);
             }
             drawList.PopClipRect();
-            drawList.AddRect(Rect(header.X, header.GetBottom() - pixel, header.Width, pixel), separator);
+            const float pixel = GetContentScale().GetPixelSize();
+            drawList.AddRect(Rect(header.X, header.GetBottom() - pixel, header.Width, pixel),
+                             GetStyleColor(StyleColor::Separator));
         }
 
         // The sideways scroll indicator at the bottom of the rows: shown while the table scrolls sideways or the
@@ -414,6 +628,26 @@ namespace Carbon
                                       width * 0.5f, 0.0f);
         }
 
+        // The part of the current row's cell in `column` that the column being moved leaves visible, or the whole
+        // cell when no column is being moved. When the moved column lies inside the cell, the wider side remains.
+        Rect GetUncoveredCell(const TableBuild& build, int column)
+        {
+            const ColumnLayout& layout = build.Columns[column];
+            Rect cell(build.Row.X + layout.X, build.Row.Y, layout.Width, build.Row.Height);
+            if (build.MovedColumn < 0 || build.MovedColumn == column)
+                return cell;
+            const ColumnLayout& moved = build.Columns[build.MovedColumn];
+            const float coverStart = build.Row.X + moved.X;
+            const float coverEnd = coverStart + moved.Width;
+            const float before = std::clamp(coverStart, cell.X, cell.GetRight()) - cell.X;
+            const float after = cell.GetRight() - std::clamp(coverEnd, cell.X, cell.GetRight());
+            if (coverEnd <= cell.X || coverStart >= cell.GetRight())
+                return cell;
+            if (before >= after)
+                return Rect(cell.X, cell.Y, before, cell.Height);
+            return Rect(cell.GetRight() - after, cell.Y, after, cell.Height);
+        }
+
         // The rectangle of the next cell of the current row, without its padding. Empty when the row is full.
         Rect TakeCell(TableBuild& build)
         {
@@ -436,20 +670,26 @@ namespace Carbon
         build.ShowsAlternatingRows = options.ShowsAlternatingRows;
         build.MeasuredColumn = -1;
         build.PressedColumn = -1;
+        build.MovedColumn = -1;
         build.StateID = HashID("##table", GetID(id));
         build.HeaderID = HashID("##header", build.StateID);
         build.IsSorting = options.Sort != nullptr;
         if (build.IsSorting)
             build.Sort = *options.Sort;
+        build.HasHeaderStop = options.ShowsHeader && build.IsSorting;
         TableState& state = *GetState<TableState>(build.StateID, StateLifetime::Persistent);
         build.State = &state;
 
         const size_t count = columns.size();
-        const std::span<ColumnLayout> layouts = Internal::GrowStorage(s_Columns, count);
-        const std::span<float> widths = Internal::GrowStorage(s_Widths, count);
-        const std::span<int> order = Internal::GrowStorage(s_Order, count);
-        LoadArrangement(build.StateID, options, widths, order);
-        build.Columns = layouts.data();
+        Arrangement arrangement;
+        arrangement.Columns = columns;
+        arrangement.Options = &options;
+        arrangement.Layouts = Internal::GrowStorage(s_Columns, count);
+        arrangement.Widths = Internal::GrowStorage(s_Widths, count);
+        arrangement.Order = Internal::GrowStorage(s_Order, count);
+        arrangement.Offsets = Internal::GrowStorage(s_Offsets, count);
+        LoadArrangement(build, arrangement);
+        build.Columns = arrangement.Layouts.data();
         build.ColumnCount = static_cast<int>(count);
 
         // A column fitted to its content during the last frame.
@@ -457,7 +697,7 @@ namespace Carbon
         {
             const size_t column = static_cast<size_t>(state.FitColumn - 1);
             const float width = std::max(state.FitWidth, std::max(columns[column].MinWidth, 0.0f));
-            changes.WidthsChanged = StoreWidth(build.StateID, options, widths, column, width);
+            changes.WidthsChanged = StoreWidth(build, arrangement, column, width);
         }
         state.FitColumn = 0;
 
@@ -479,11 +719,20 @@ namespace Carbon
         PushID(id);
 
         build.VisibleWidth = std::max(GetContentRect().Width - RowInset * 2.0f, 0.0f);
-        build.ContentWidth = Internal::LayoutColumns(columns, build.VisibleWidth, layouts, widths, order);
-        build.MaxScrollX = std::max(build.ContentWidth - build.VisibleWidth, 0.0f);
+        Layout(build, arrangement);
         state.ScrollX = std::clamp(state.ScrollX, 0.0f, build.MaxScrollX);
         build.ScrollX =
             GetContentScale().Snap(Animate(HashID("##scrollx", build.StateID), state.ScrollX, ScrollSpring));
+
+        // Columns that were rearranged slide into their places.
+        std::fill(arrangement.Offsets.begin(), arrangement.Offsets.end(), 0.0f);
+        if (state.IsSliding)
+        {
+            for (size_t i = 0; i < count; i++)
+                arrangement.Offsets[i] = Animate(GetSlideID(build.StateID, static_cast<int>(i)), 0.0f, SlideSpring);
+            state.SlideTime += GetDeltaTime();
+            state.IsSliding = state.MovedColumn != 0 || state.SlideTime < SlideDuration;
+        }
 
         Rect header;
         if (options.ShowsHeader)
@@ -491,21 +740,21 @@ namespace Carbon
             ItemOptions item;
             item.Width = Size::Fill();
             header = AllocateItem(Vec2(0.0f, Internal::ColumnHeaderHeight), item);
-            const TableChanges clicked = UpdateHeader(build, columns, options, header, widths, order);
+            const TableChanges clicked = UpdateHeader(build, arrangement, header);
             changes.SortChanged = clicked.SortChanged;
+            changes.OrderChanged = clicked.OrderChanged;
             if (clicked.WidthsChanged)
             {
                 changes.WidthsChanged = true;
-                build.ContentWidth = Internal::LayoutColumns(columns, build.VisibleWidth, layouts, widths, order);
-                build.MaxScrollX = std::max(build.ContentWidth - build.VisibleWidth, 0.0f);
+                Layout(build, arrangement);
             }
             state.ScrollX = std::clamp(state.ScrollX, 0.0f, build.MaxScrollX);
         }
         build.ScrollX = std::min(build.ScrollX, build.MaxScrollX);
-        for (ColumnLayout& layout : layouts)
-            layout.X -= build.ScrollX;
+        for (size_t i = 0; i < count; i++)
+            arrangement.Layouts[i].X += arrangement.Offsets[i] - build.ScrollX;
         if (options.ShowsHeader)
-            DrawHeader(build, columns, header, order);
+            DrawHeader(build, columns, header, arrangement.Order);
 
         Internal::SelectionListDescription description;
         description.Scroll.Spacing = 0.0f;
@@ -514,6 +763,18 @@ namespace Carbon
         const Rect content = Internal::GetSelectionListContentRect();
         build.Viewport = Rect(content.X - RowInset, content.Y - RowInsetY, content.Width + RowInset * 2.0f,
                               content.Height + RowInsetY * 2.0f);
+
+        // The column being moved floats above the others down the rows too.
+        if (state.MovedColumn > 0 && static_cast<size_t>(state.MovedColumn) <= count)
+        {
+            build.MovedColumn = state.MovedColumn - 1;
+            const ColumnLayout& moved = arrangement.Layouts[static_cast<size_t>(build.MovedColumn)];
+            const Rect band(build.Viewport.X + RowInset + moved.X, build.Viewport.Y, moved.Width,
+                            build.Viewport.Height);
+            DrawList& drawList = GetDrawList();
+            drawList.AddRect(band, GetStyleColor(StyleColor::ControlBackground));
+            drawList.AddRect(band, GetStyleColor(StyleColor::ControlFill));
+        }
         return changes;
     }
 
@@ -597,14 +858,28 @@ namespace Carbon
         // Columns scrolled out of view sideways are not drawn.
         if (cell.GetRight() <= build.Viewport.X || cell.X >= build.Viewport.GetRight())
             return;
+        if (build.MovedColumn < 0)
+        {
+            Internal::DrawCellText(cell, text, options, build.Columns[column].Alignment, build.IsRowEmphasized);
+            return;
+        }
+        // A column is being moved: what it covers of this cell is not drawn.
+        DrawList& drawList = GetDrawList();
+        drawList.PushClipRect(GetUncoveredCell(build, column));
         Internal::DrawCellText(cell, text, options, build.Columns[column].Alignment, build.IsRowEmphasized);
+        drawList.PopClipRect();
     }
 
     void BeginTableCell()
     {
         TableBuild& build = GetBuild();
         const Rect cell = TakeCell(build);
+        const int column = build.NextColumn;
         build.NextColumn = std::min(build.NextColumn + 1, build.ColumnCount);
+        // A column is being moved: what it covers of this cell is not drawn.
+        build.IsCellClipped = build.MovedColumn >= 0 && column < build.ColumnCount;
+        if (build.IsCellClipped)
+            GetDrawList().PushClipRect(GetUncoveredCell(build, column));
         // The cell is placed by hand; the row has already taken its space in the list.
         SetCursorPos(cell.GetMin());
         BeginHStack({.Width = Size::Fixed(cell.Width), .Height = Size::Fixed(cell.Height)});
@@ -613,5 +888,9 @@ namespace Carbon
     void EndTableCell()
     {
         EndHStack();
+        TableBuild& build = GetBuild();
+        if (build.IsCellClipped)
+            GetDrawList().PopClipRect();
+        build.IsCellClipped = false;
     }
 } // namespace Carbon

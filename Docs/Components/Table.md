@@ -51,6 +51,7 @@ selection.
 | `IsResizable` | `bool` | `true` | The user can drag the divider at the column's trailing edge, and double-click it to fit the column |
 | `IsSortable` | `bool` | `true` | Clicking the header sorts by the column, in a table with a `Sort` |
 | `InitialSortDirection` | `SortDirection` | `Ascending` | The direction of the first sort by the column. `Descending` suits dates and sizes |
+| `IsReorderable` | `bool` | `true` | The user can drag the column's header to move the column |
 
 ## Table options
 
@@ -118,9 +119,22 @@ with the rows. A table with forty columns costs little more than one with four: 
 neither shaped nor drawn, and the table's column storage grows only when a table has more columns than any
 before it.
 
+## Moving columns
+
+Drag a column's header sideways to move the column. It follows the pointer above the others, which slide out of
+its way on a spring once its middle passes theirs; near the table's edges the table scrolls. When the column is
+dropped, `BeginTable` reports `OrderChanged`. A press that moves less than four points is a click and sorts.
+
+![A column being moved in a table of monthly rainfall](../Images/Components/TableColumns.png)
+
+Your code does not change: cells are still submitted in the order of the `columns` array, and the table puts each
+where its column is shown. A column with `IsReorderable = false` cannot be dragged, though the others may move
+past it. In a table that sorts, the keyboard moves the column the header's focus is on with Ctrl and the left or
+right arrow key.
+
 ## Saving the arrangement
 
-Carbon remembers the widths the user gave the columns, per table, for as long as the context lives. To save
+Carbon remembers the widths the user gave the columns and their order, per table, for as long as the context lives. To save
 them, or to set them, give the table your own storage: one entry per column, indexed like `columns`. The table
 reads it every frame and writes what the user changes.
 
@@ -171,6 +185,7 @@ so that the keyboard can move on from a selection that is not among the submitte
 | Tab / Shift+Tab | Focus the header of a table that sorts, then the rows (one stop), then the widgets inside the cells |
 | Left / Right arrow | In the header: move between the columns |
 | Space / Enter | In the header: sort by the column, or flip the direction |
+| Ctrl+Left / Ctrl+Right | In the header: move the column (the shortcut modifier, which a host may set to Command) |
 | Up / Down arrow | Select the previous / next row |
 | Home / End | Select the first / last row |
 

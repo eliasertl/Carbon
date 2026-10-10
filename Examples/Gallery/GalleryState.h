@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <optional>
 #include <string>
 #include <vector>
@@ -160,6 +161,10 @@ namespace Gallery
         Carbon::TableSort RainfallSort = {.Column = 0};
         /// The rows of the rainfall table, in the order of RainfallSort.
         std::vector<int> RainfallRows;
+        /// The arrangement of the rainfall table's 42 columns, which the application could save.
+        std::array<float, 42> RainfallWidths = {};
+        std::array<int, 42> RainfallOrder = {};
+        int RainfallArrangementChanges = 0;
         bool TaskDone[6] = {true, false, false, true, false, false};
 
         // Tabs and split views.

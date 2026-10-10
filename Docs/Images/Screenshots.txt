@@ -5,7 +5,7 @@
 #
 # Examples are named <Backend>/<Example>, their path under Examples in the build tree; the documentation shows the
 # WebGPU builds. Options are those of the examples (Docs/Building.md): --page, --show, --theme, --size, --pointer,
-# --click, --right-click, --crop, and for the Gallery --section <key>[,<key>...] with
+# --click, --right-click, --drag, --crop, and for the Gallery --section <key>[,<key>...] with
 # --extend <left>,<top>,<right>,<bottom>.
 # A section's key is its title in lower case without spaces or punctuation. With --section, pointer positions are
 # relative to the section's box. The scale is 2 unless --scale is given.
@@ -61,6 +61,7 @@ Components/Sheet.png              WebGPU/Gallery  --page dialogs --show sheet --
 Components/Notification.png       WebGPU/Gallery  --page notifications --show notification --pointer 800x70 --crop 640,0,400,150
 Components/ProgressIndicator.png  WebGPU/Gallery  --page progress --section progressbar,spinner
 Components/List.png               WebGPU/Gallery  --page lists --section list
+Components/TableColumns.png       WebGPU/Gallery  --page lists --section datatable --pointer 300x34 --drag 470x40
 Components/Table.png              WebGPU/Gallery  --page lists --section table
 Components/OutlineView.png        WebGPU/Gallery  --page hierarchies --section outlineview
 Components/ColumnView.png         WebGPU/Gallery  --page hierarchies --section columnview

@@ -982,11 +982,14 @@ namespace Gallery
 
         BeginSection("Data table",
                      "Forty-two columns of monthly rainfall in millimeters. Click a header to sort by its column, "
-                     "drag a divider to resize a column and double-click it to fit the column to its content. "
-                     "Scroll sideways with Shift and the wheel.");
+                     "drag a header to move the column, drag a divider to resize a column and double-click it to "
+                     "fit the column to its content. Scroll sideways with Shift and the wheel.");
         const RainfallTable& rainfall = GetRainfallTable();
-        const TableChanges changes =
-            BeginTable("rainfall", rainfall.Columns, {.Height = 260.0f, .Sort = &state.RainfallSort});
+        const TableChanges changes = BeginTable("rainfall", rainfall.Columns,
+                                                {.Height = 260.0f,
+                                                 .Sort = &state.RainfallSort,
+                                                 .ColumnWidths = state.RainfallWidths,
+                                                 .ColumnOrder = state.RainfallOrder});
         if (changes.SortChanged || state.RainfallRows.empty())
             SortStations(state.RainfallRows, state.RainfallSort);
         for (const int row : state.RainfallRows)
@@ -999,6 +1002,19 @@ namespace Gallery
                 TableCell(cell, {.Secondary = &cell != &rainfall.Cells[station].back()});
         }
         EndTable();
+        if (changes.OrderChanged || changes.WidthsChanged)
+            state.RainfallArrangementChanges++;
+        BeginHStack();
+        // The arrangement is the application's: clearing it puts the columns back as declared.
+        if (Button("Reset Columns", {.Disabled = state.RainfallArrangementChanges == 0}))
+        {
+            state.RainfallWidths.fill(0.0f);
+            state.RainfallOrder.fill(0);
+            state.RainfallArrangementChanges = 0;
+        }
+        Text(std::format("Columns rearranged or resized {} times", state.RainfallArrangementChanges),
+             {.Secondary = true});
+        EndHStack();
         EndSection();
     }
 

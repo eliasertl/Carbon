@@ -46,6 +46,8 @@ namespace Carbon
         /// The direction of the first sort by this column; another click flips it. Descending suits dates and
         /// sizes, where the newest or largest usually matter most.
         SortDirection InitialSortDirection = SortDirection::Ascending;
+        /// The user can drag the column's header to move the column to another place.
+        bool IsReorderable = true;
     };
 
     /// Per-call options of BeginTable. All fields are optional.
@@ -67,8 +69,9 @@ namespace Carbon
         /// The table writes the width the user drags or fits. Leave it empty to let Carbon remember the widths.
         std::span<float> ColumnWidths = {};
         /// The order in which the columns are shown, as column indices, for an application that keeps the user's
-        /// arrangement: one entry per column. An entry that is not a permutation of the indices is reset to
-        /// 0, 1, 2, ... Leave it empty to let Carbon remember the order.
+        /// arrangement: one entry per column. The table writes the order when the user moves a column. Contents
+        /// that are not a permutation of the indices are reset to 0, 1, 2, ... Leave it empty to let Carbon
+        /// remember the order.
         std::span<int> ColumnOrder = {};
     };
 
@@ -80,7 +83,7 @@ namespace Carbon
         bool SortChanged = false;
         /// A column was resized: dragged or fitted to its content.
         bool WidthsChanged = false;
-        /// The columns were rearranged.
+        /// The user moved a column to another place; reported when the column is dropped.
         bool OrderChanged = false;
     };
 
@@ -111,7 +114,7 @@ namespace Carbon
     ///
     /// The user resizes a column by dragging the divider at its trailing edge and fits it to its content with a
     /// double-click on the divider. A column whose width the user has set keeps that width; the Fill columns
-    /// share what is left.
+    /// share what is left. Dragging a column's header moves the column; the others slide out of its way.
     ///
     /// Sorting is the application's: Carbon reports which column to sort by and in which direction, and the
     /// application submits its rows in that order.
@@ -122,7 +125,7 @@ namespace Carbon
     ///
     /// The table is one stop for Tab; with focus, the up and down arrow keys, Home and End move the selection. A
     /// table that sorts has a second stop before it, its header: the left and right arrow keys move between the
-    /// columns, and Space or Enter sorts by the column.
+    /// columns, Space or Enter sorts by the column, and the arrow keys with the shortcut modifier (Ctrl) move it.
     TableChanges BeginTable(std::string_view id, std::span<const TableColumn> columns,
                             const TableOptions& options = {});
     void EndTable();

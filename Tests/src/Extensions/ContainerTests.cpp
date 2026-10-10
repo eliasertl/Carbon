@@ -633,6 +633,62 @@ namespace Carbon
         EXPECT_EQ(m_Selected, 0);
     }
 
+    TEST_F(TableTests, DraggingAHeaderMovesTheColumn)
+    {
+        m_HasArrangement = true;
+        m_IsSorting = true;
+        Settle(Interface());
+        // Done (100 points) is dragged by its header until its middle passes the middle of Name (96.7 points).
+        MoveMouse(Vec2(50.0f, 12.0f), Interface());
+        PressMouse(Interface());
+        MoveMouse(Vec2(180.0f, 12.0f), Interface());
+        // Name makes room: it slides towards the leading edge rather than jumping there.
+        EXPECT_GT(m_Cells[0][1].X, 5.0f + 8.0f + 1.0f);
+        EXPECT_LT(m_Cells[0][1].X, 5.0f + 100.0f + 8.0f - 1.0f);
+        // Done follows the pointer, in the cells too.
+        EXPECT_NEAR(m_Cells[0][0].X, 5.0f + 130.0f + 8.0f, 0.5f);
+        EXPECT_FALSE(m_OrderChanged) << "the order is reported when the column is dropped";
+        ReleaseMouse(Interface());
+        EXPECT_TRUE(m_OrderChanged);
+        EXPECT_EQ(m_Order[0], 1);
+        EXPECT_EQ(m_Order[1], 0);
+        EXPECT_EQ(m_Order[2], 2);
+        Settle(Interface(), 60);
+        EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 8.0f, 0.5f);
+        EXPECT_NEAR(m_Cells[0][0].X, 5.0f + 96.7f + 8.0f, 0.5f);
+        EXPECT_EQ(m_SortChanges, 0) << "a drag is no click";
+        EXPECT_FALSE(m_Done[0]);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(TableTests, MovedColumnsAreRememberedWithoutStorage)
+    {
+        Settle(Interface());
+        // Size (193.3 points) is dragged to the leading edge, where it stops; its middle passes the middle of
+        // Done but not that of Name.
+        Drag(Vec2(300.0f, 12.0f), Vec2(20.0f, 12.0f), Interface());
+        Settle(Interface(), 60);
+        EXPECT_NEAR(m_Cells[0][0].X, 5.0f + 8.0f, 0.5f);
+        EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 100.0f + 193.3f + 8.0f, 0.5f);
+    }
+
+    TEST_F(TableTests, TheKeyboardMovesAColumn)
+    {
+        m_HasArrangement = true;
+        m_IsSorting = true;
+        Settle(Interface());
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::LeftCtrl, Key::RightArrow, Interface());
+        EXPECT_TRUE(m_OrderChanged);
+        EXPECT_EQ(m_Order[0], 1);
+        EXPECT_EQ(m_Order[1], 0);
+        // The header's focus moved with Done; Name is to its left now.
+        TapKey(Key::LeftArrow, Interface());
+        TapKey(Key::Space, Interface());
+        EXPECT_EQ(m_Sort.Column, 1);
+        EXPECT_EQ(m_SortChanges, 1);
+    }
+
     TEST_F(TableTests, ManyColumnsScrollSideways)
     {
         constexpr int ColumnCount = 48;
