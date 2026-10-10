@@ -88,6 +88,25 @@ namespace Example
             {
                 arguments.IsTouch = true;
             }
+            else if (option == "--safe-area" && hasValue)
+            {
+                if (!ParseNumbers(argv[++i], arguments.SafeArea, 4))
+                {
+                    std::fprintf(stderr, "Invalid safe area '%s'; expected four numbers separated by commas\n",
+                                 argv[i]);
+                    std::fill(arguments.SafeArea, arguments.SafeArea + 4, 0.0f);
+                }
+            }
+            else if (option == "--text-scale" && hasValue)
+            {
+                arguments.TextScale = static_cast<float>(std::atof(argv[++i]));
+                if (arguments.TextScale <= 0.0f)
+                    arguments.TextScale = 1.0f;
+            }
+            else if (option == "--keyboard" && hasValue)
+            {
+                arguments.KeyboardHeight = std::max(static_cast<float>(std::atof(argv[++i])), 0.0f);
+            }
             else if (option == "--compose" && hasValue)
             {
                 arguments.Composition = argv[++i];

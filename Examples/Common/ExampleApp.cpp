@@ -128,6 +128,15 @@ namespace Example
         io.SetDisplaySize(m_Host.GetWidth(), m_Host.GetHeight());
         io.SetContentScale(m_Host.GetContentScale());
         io.SetDeltaTime(m_Host.GetDeltaTime());
+        // A phone's safe area, text size and keyboard, for screenshots of what a phone host reports.
+        const float* safe = GetArguments().SafeArea;
+        io.SetSafeAreaInsets(Carbon::EdgeInsets(safe[0], safe[1], safe[2], safe[3]));
+        io.SetTextScale(GetArguments().TextScale);
+        if (GetArguments().KeyboardHeight > 0.0f && io.WantsTextInput())
+        {
+            const float height = GetArguments().KeyboardHeight;
+            io.SetKeyboardRect(Carbon::Rect(0.0f, m_Host.GetHeight() - height, m_Host.GetWidth(), height));
+        }
 
         // Screenshots can be taken with the pointer somewhere, or after a click: the input is scripted. It starts
         // once the layout has settled, so that positions relative to a section (--section) are final.
@@ -198,6 +207,22 @@ namespace Example
 
         Carbon::NewFrame();
         m_Build();
+        // A stand-in for a phone's on-screen keyboard (--keyboard), where the system would draw it.
+        const Carbon::Rect keyboard = io.GetKeyboardRect();
+        if (keyboard.Width > 0.0f)
+        {
+            Carbon::DrawList& drawList = Carbon::GetDrawList();
+            drawList.PushLayer(Carbon::DrawLayer::Tooltip);
+            drawList.AddRect(keyboard, Carbon::GetStyleColor(Carbon::StyleColor::SecondaryBackground));
+            drawList.AddRect(
+                Carbon::Rect(keyboard.X, keyboard.Y, keyboard.Width, Carbon::GetContentScale().GetPixelSize()),
+                Carbon::GetStyleColor(Carbon::StyleColor::Separator));
+            const Carbon::TextSpec spec = Carbon::GetTextSpec(Carbon::TextStyle::Body);
+            const float width = Carbon::MeasureText("Keyboard", spec).X;
+            drawList.AddText(keyboard.GetCenter() - Carbon::Vec2(width * 0.5f, 8.0f), "Keyboard", spec,
+                             Carbon::GetStyleColor(Carbon::StyleColor::TertiaryLabel));
+            drawList.PopLayer();
+        }
         Carbon::EndFrame();
         UpdateInputMethod(m_Host.GetWindow());
 

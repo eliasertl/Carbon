@@ -46,6 +46,12 @@ namespace Example
         /// --touch: touch mode, as on a phone or a tablet. Scripted input (--click, --right-click, --drag) uses a
         /// finger: a click is a tap and a right click a long press.
         bool IsTouch = false;
+        /// --safe-area <left>,<top>,<right>,<bottom>: safe area insets in points, as a phone reports them.
+        float SafeArea[4] = {0.0f, 0.0f, 0.0f, 0.0f};
+        /// --text-scale <factor>: the system's text size, as a factor (IO::SetTextScale).
+        float TextScale = 1.0f;
+        /// --keyboard <height>: an on-screen keyboard of this height in points covers the bottom of the display.
+        float KeyboardHeight = 0.0f;
         /// --crop <x>,<y>,<width>,<height>: in screenshot mode, saves only this area of the window, in points.
         float Crop[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         /// --section <key>[,<key>...]: in screenshot mode, an example with sections (the Gallery) scrolls to them
