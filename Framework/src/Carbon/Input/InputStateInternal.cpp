@@ -208,6 +208,10 @@ namespace Carbon::Internal
             Modifiers = Modifiers | KeyModifiers::Alt;
         if (KeyDown[static_cast<size_t>(Key::LeftSuper)] || KeyDown[static_cast<size_t>(Key::RightSuper)])
             Modifiers = Modifiers | KeyModifiers::Super;
+
+        // Shift turns a plain wheel sideways, as macOS does for every application.
+        if (HasModifiers(Modifiers, KeyModifiers::Shift) && MouseWheel.X == 0.0f)
+            MouseWheel = Vec2(MouseWheel.Y, 0.0f);
     }
 
     void CompositionState::Clear()

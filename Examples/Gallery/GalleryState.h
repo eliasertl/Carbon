@@ -156,6 +156,7 @@ namespace Gallery
         // Lists and tables.
         int SelectedFile = 2;
         int SelectedTask = 1;
+        int SelectedStation = 0;
         bool TaskDone[6] = {true, false, false, true, false, false};
 
         // Tabs and split views.

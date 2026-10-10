@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <vector>
 
 #include "Carbon/Extensions/Internal/BuildState.h"
 #include "Carbon/Extensions/Internal/ColumnLayout.h"
@@ -23,12 +24,12 @@ namespace Carbon
 
         using Internal::CellPadding;
         using Internal::ColumnLayout;
-        using Internal::MaxColumns;
 
         // The outline view whose items are being added.
         struct OutlineBuild
         {
-            ColumnLayout Columns[MaxColumns];
+            /// Indexed like the columns; points into s_Columns.
+            ColumnLayout* Columns;
             int ColumnCount;
             int NextColumn;
             /// The ordinal of the open item at each depth, so that the left arrow can move to the parent.
@@ -60,6 +61,9 @@ namespace Carbon
         };
 
         Internal::BuildState<OutlineBuild> s_Build("Carbon.OutlineView.Build");
+        // The layout of the columns of the outline view being built. Outline views do not nest, so one is enough;
+        // it grows with the largest number of columns seen.
+        std::vector<ColumnLayout> s_Columns;
 
         OutlineBuild& GetBuild()
         {
@@ -82,9 +86,7 @@ namespace Carbon
 
     void BeginOutlineView(std::string_view id, const OutlineViewOptions& options)
     {
-        CB_VERIFY(options.Columns.size() <= static_cast<size_t>(MaxColumns), "An outline view has at most {} columns",
-                  MaxColumns);
-        OutlineBuild& build = GetBuild();
+        OutlineBuild& build = s_Build.Begin();
         build = OutlineBuild();
         build.RowHeight = options.RowHeight;
         build.ShowsAlternatingRows = options.ShowsAlternatingRows;
@@ -110,9 +112,11 @@ namespace Carbon
             ItemOptions item;
             item.Width = Size::Fill();
             const Rect header = AllocateItem(Vec2(0.0f, Internal::ColumnHeaderHeight), item);
-            build.ColumnCount =
-                Internal::LayoutColumns(options.Columns, header.Width - ListPadding * 2.0f, build.Columns);
-            Internal::DrawColumnHeader(header, ListPadding, options.Columns, build.Columns, build.ColumnCount);
+            const std::span<ColumnLayout> layouts = Internal::GrowStorage(s_Columns, options.Columns.size());
+            Internal::LayoutColumns(options.Columns, header.Width - ListPadding * 2.0f, layouts);
+            Internal::DrawColumnHeader(header, ListPadding, options.Columns, layouts);
+            build.Columns = layouts.data();
+            build.ColumnCount = static_cast<int>(layouts.size());
             description.Scroll.Padding = EdgeInsets(ListPadding, 3.0f);
             Internal::BeginSelectionList("##rows", description);
         }

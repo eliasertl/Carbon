@@ -42,6 +42,26 @@ namespace Carbon
         EndFrame();
     }
 
+    TEST_F(InputTests, ShiftTurnsTheWheelSideways)
+    {
+        GetIO().AddMouseWheelEvent(0.0f, 2.0f);
+        NewFrame();
+        EXPECT_EQ(GetMouseWheel(), Vec2(0.0f, 2.0f));
+        EndFrame();
+
+        GetIO().AddKeyEvent(Key::LeftShift, true);
+        GetIO().AddMouseWheelEvent(0.0f, 2.0f);
+        NewFrame();
+        EXPECT_EQ(GetMouseWheel(), Vec2(2.0f, 0.0f));
+        EndFrame();
+
+        // A wheel that already moves sideways is left alone.
+        GetIO().AddMouseWheelEvent(-1.0f, 3.0f);
+        NewFrame();
+        EXPECT_EQ(GetMouseWheel(), Vec2(-1.0f, 3.0f));
+        EndFrame();
+    }
+
     TEST_F(InputTests, ClickProducesPressedThenReleased)
     {
         IO& io = GetIO();

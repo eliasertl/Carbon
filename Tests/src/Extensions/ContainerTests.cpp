@@ -360,7 +360,14 @@ namespace Carbon
                 options.Width = 400.0f;
                 options.Height = 200.0f;
                 options.ShowsHeader = m_ShowsHeader;
-                BeginTable("table", columns, options);
+                if (m_HasArrangement)
+                {
+                    options.ColumnWidths = m_Widths;
+                    options.ColumnOrder = m_Order;
+                }
+                const TableChanges changes = BeginTable("table", columns, options);
+                m_WidthsChanged = m_WidthsChanged || changes.WidthsChanged;
+                m_OrderChanged = m_OrderChanged || changes.OrderChanged;
                 for (int i = 0; i < 3; i++)
                 {
                     if (TableRow(i, i == m_Selected))
@@ -373,7 +380,7 @@ namespace Carbon
                     BeginTableCell();
                     m_Cells[i][1] = AllocateItem(Vec2(10.0f, 10.0f));
                     EndTableCell();
-                    TableCell("42 KB");
+                    TableCell(m_SizeText);
                     for (int extra = 0; extra < m_ExtraCells; extra++)
                         TableCell("too many");
                 }
@@ -382,9 +389,25 @@ namespace Carbon
             };
         }
 
+        /// Drags with the left button from one point to another, in two steps.
+        void Drag(Vec2 from, Vec2 to, const Builder& build)
+        {
+            MoveMouse(from, build);
+            PressMouse(build);
+            MoveMouse(from + (to - from) * 0.5f, build);
+            MoveMouse(to, build);
+            ReleaseMouse(build);
+        }
+
         int m_Selected = -1;
         bool m_Done[3] = {false, false, false};
         bool m_ShowsHeader = true;
+        bool m_HasArrangement = false;
+        float m_Widths[3] = {0.0f, 0.0f, 0.0f};
+        int m_Order[3] = {0, 1, 2};
+        bool m_WidthsChanged = false;
+        bool m_OrderChanged = false;
+        std::string_view m_SizeText = "42 KB";
         int m_ExtraCells = 0;
         ID m_ToggleIDs[3];
         Rect m_Cells[3][2];
@@ -473,6 +496,122 @@ namespace Carbon
         Frame(Interface());
         ASSERT_FALSE(m_AssertMessages.empty());
         EXPECT_NE(m_AssertMessages[0].find("columns"), std::string::npos);
+    }
+
+    TEST_F(TableTests, DraggingADividerResizesTheColumnBeforeIt)
+    {
+        m_HasArrangement = true;
+        Settle(Interface());
+        // The divider after the fixed column of 100 points, in the 24-point header.
+        Drag(Vec2(5.0f + 100.0f, 12.0f), Vec2(5.0f + 140.0f, 12.0f), Interface());
+        Settle(Interface());
+        EXPECT_TRUE(m_WidthsChanged);
+        EXPECT_FLOAT_EQ(m_Widths[0], 140.0f);
+        EXPECT_FLOAT_EQ(m_Widths[1], 0.0f) << "the Fill columns keep sharing what is left";
+        EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 140.0f + 8.0f, 0.5f);
+        EXPECT_FALSE(m_Done[0]) << "the drag does not reach the cells";
+
+        // A column does not get narrower than its minimum width.
+        Drag(Vec2(5.0f + 140.0f, 12.0f), Vec2(0.0f, 12.0f), Interface());
+        Settle(Interface());
+        EXPECT_FLOAT_EQ(m_Widths[0], 40.0f);
+        EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 40.0f + 8.0f, 0.5f);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(TableTests, ResizedWidthsAreRememberedWithoutStorage)
+    {
+        Settle(Interface());
+        Drag(Vec2(5.0f + 100.0f, 12.0f), Vec2(5.0f + 160.0f, 12.0f), Interface());
+        Settle(Interface());
+        EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 160.0f + 8.0f, 0.5f);
+    }
+
+    TEST_F(TableTests, DoubleClickingADividerFitsTheColumn)
+    {
+        m_HasArrangement = true;
+        m_SizeText = "A rather long size description";
+        Settle(Interface());
+        // The divider after the last column, at the trailing edge of the rows.
+        const Vec2 divider(400.0f - 5.0f, 12.0f);
+        Click(divider, Interface());
+        Click(divider, Interface());
+        Settle(Interface());
+        EXPECT_TRUE(m_WidthsChanged);
+        TextSpec spec = GetTextSpec(TextStyle::Body);
+        spec.Wraps = false;
+        EXPECT_NEAR(m_Widths[2], MeasureText(m_SizeText, spec).X + 16.0f, 0.5f);
+    }
+
+    TEST_F(TableTests, TheApplicationSetsWidthsAndOrder)
+    {
+        m_HasArrangement = true;
+        m_Widths[1] = 120.0f;
+        m_Order[0] = 2;
+        m_Order[1] = 0;
+        m_Order[2] = 1;
+        Settle(Interface());
+        // Size, the only flexible column, comes first and takes what the others leave of 390 points.
+        EXPECT_NEAR(m_Cells[0][0].X, 5.0f + 170.0f + 8.0f, 0.5f);
+        EXPECT_NEAR(m_Cells[0][1].X, 5.0f + 170.0f + 100.0f + 8.0f, 0.5f);
+        EXPECT_FALSE(m_OrderChanged) << "only changes made by the user are reported";
+
+        // An order that is no permutation is reset, also in the application's storage.
+        m_Order[0] = 1;
+        m_Order[1] = 1;
+        m_Order[2] = 0;
+        Frame(Interface());
+        EXPECT_EQ(m_Order[0], 0);
+        EXPECT_EQ(m_Order[1], 1);
+        EXPECT_EQ(m_Order[2], 2);
+    }
+
+    TEST_F(TableTests, ManyColumnsScrollSideways)
+    {
+        constexpr int ColumnCount = 48;
+        TableColumn columns[ColumnCount];
+        for (TableColumn& column : columns)
+            column = {.Title = "Column", .Width = 100.0f};
+        Rect first;
+        Rect last;
+        const Builder build = [&]
+        {
+            BeginTable("wide", columns, {.Width = 400.0f, .Height = 200.0f});
+            for (int row = 0; row < 3; row++)
+            {
+                TableRow(row);
+                for (int column = 0; column < ColumnCount; column++)
+                {
+                    BeginTableCell();
+                    const Rect cell = AllocateItem(Vec2(10.0f, 10.0f));
+                    if (row == 0 && column == 0)
+                        first = cell;
+                    if (row == 0 && column == ColumnCount - 1)
+                        last = cell;
+                    EndTableCell();
+                }
+            }
+            EndTable();
+        };
+        Settle(build);
+        EXPECT_FLOAT_EQ(first.X, 5.0f + 8.0f);
+        EXPECT_FLOAT_EQ(last.X, 5.0f + 4700.0f + 8.0f);
+
+        // A sideways wheel over the table scrolls it, 48 points per notch.
+        MoveMouse(Vec2(200.0f, 100.0f), build);
+        GetIO().AddMouseWheelEvent(-2.0f, 0.0f);
+        Settle(build, 60);
+        EXPECT_NEAR(first.X, 5.0f + 8.0f - 96.0f, 0.5f);
+
+        // Shift with a plain wheel scrolls sideways too, as far as the last column.
+        GetIO().AddKeyEvent(Key::LeftShift, true);
+        GetIO().AddMouseWheelEvent(0.0f, -1000.0f);
+        Frame(build);
+        GetIO().AddKeyEvent(Key::LeftShift, false);
+        Settle(build, 60);
+        // The last column ends at the trailing edge of the rows.
+        EXPECT_NEAR(last.X - 8.0f + 100.0f, 400.0f - 5.0f, 0.5f);
+        EXPECT_TRUE(m_AssertMessages.empty());
     }
 
     // ---- TabView ------------------------------------------------------------------------------------------------

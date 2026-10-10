@@ -17,6 +17,11 @@ namespace Carbon
         Size Width = Size::Fill();
         /// How the column's text cells and its title are aligned.
         TextAlignment Alignment = TextAlignment::Leading;
+        /// The narrowest the column gets, whether the user drags its divider or Fill columns share little space.
+        float MinWidth = 40.0f;
+        /// The user can drag the divider at the column's trailing edge to resize it, and double-click it to fit
+        /// the column to its content.
+        bool IsResizable = true;
     };
 
     /// Per-call options of BeginTable. All fields are optional.
@@ -29,6 +34,24 @@ namespace Carbon
         bool ShowsHeader = true;
         /// Tints every other row, which helps the eye follow a row across many columns.
         bool ShowsAlternatingRows = true;
+        /// The width of each column in points, by column index, for an application that keeps the user's widths
+        /// (to save them, or to set them): one entry per column, 0 for a column that keeps its declared Width.
+        /// The table writes the width the user drags or fits. Leave it empty to let Carbon remember the widths.
+        std::span<float> ColumnWidths = {};
+        /// The order in which the columns are shown, as column indices, for an application that keeps the user's
+        /// arrangement: one entry per column. An entry that is not a permutation of the indices is reset to
+        /// 0, 1, 2, ... Leave it empty to let Carbon remember the order.
+        std::span<int> ColumnOrder = {};
+    };
+
+    /// What the user changed in the header of a table this frame. The table has already written the change to
+    /// the storage of TableOptions; this tells an application that saves it when to do so.
+    struct TableChanges
+    {
+        /// A column was resized: dragged or fitted to its content.
+        bool WidthsChanged = false;
+        /// The columns were rearranged.
+        bool OrderChanged = false;
     };
 
     /// Per-call options of TableCell. All fields are optional.
@@ -40,7 +63,8 @@ namespace Carbon
         std::string_view Icon = {};
     };
 
-    /// Rows of data in columns, with a header and a selection. At most 16 columns.
+    /// Rows of data in columns, with a header and a selection. Any number of columns; when they are wider than
+    /// the table, it scrolls sideways.
     ///
     ///     const Carbon::TableColumn columns[] = { { .Title = "Name" }, { .Title = "Size", .Width = 80.0f } };
     ///     Carbon::BeginTable("files", columns, { .Height = 240.0f });
@@ -53,8 +77,15 @@ namespace Carbon
     ///     }
     ///     Carbon::EndTable();
     ///
+    /// Cells are submitted in the order of `columns`, however the user has arranged the columns on screen.
+    ///
+    /// The user resizes a column by dragging the divider at its trailing edge and fits it to its content with a
+    /// double-click on the divider. A column whose width the user has set keeps that width; the Fill columns
+    /// share what is left.
+    ///
     /// The table is one stop for Tab; with focus, the up and down arrow keys, Home and End move the selection.
-    void BeginTable(std::string_view id, std::span<const TableColumn> columns, const TableOptions& options = {});
+    TableChanges BeginTable(std::string_view id, std::span<const TableColumn> columns,
+                            const TableOptions& options = {});
     void EndTable();
 
     /// Starts the next row; its cells follow. Pass whether it is selected. Returns true when the user picks it,

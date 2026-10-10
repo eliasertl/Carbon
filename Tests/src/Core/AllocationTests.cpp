@@ -461,5 +461,37 @@ namespace Carbon
         EXPECT_EQ(allocations, 0u);
         EXPECT_TRUE(m_AssertMessages.empty()) << "a misused component would allocate to report it";
     }
+
+    TEST_F(AllocationTests, WideTablesDoNotAllocateInSteadyState)
+    {
+        // Forty-eight columns, scrolled sideways, while a divider is being dragged.
+        static TableColumn Columns[48];
+        for (TableColumn& column : Columns)
+            column = {.Title = "Column", .Width = 90.0f};
+        const auto build = [this]
+        {
+            BeginTable("wide", Columns, {.Width = 600.0f, .Height = 300.0f});
+            for (int row = 0; row < 20; row++)
+            {
+                TableRow(row, row == m_Selected);
+                for (int column = 0; column < 48; column++)
+                    TableCell("Cell", {.Secondary = column % 2 == 1});
+            }
+            EndTable();
+        };
+        MoveMouse(Vec2(300.0f, 150.0f), build);
+        GetIO().AddMouseWheelEvent(-20.0f, 0.0f);
+        CountAllocationsOfOneFrame(build, 30);
+        // The divider after the third visible column, which the table has scrolled to.
+        MoveMouse(Vec2(5.0f + 90.0f * 13.0f - 960.0f, 12.0f), build);
+        GetIO().AddMouseButtonEvent(MouseButton::Left, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddMousePosEvent(5.0f + 90.0f * 13.0f - 900.0f, 12.0f);
+        CountAllocationsOfOneFrame(build, 5);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 10), 0u);
+        GetIO().AddMouseButtonEvent(MouseButton::Left, false);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 30), 0u);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
 #endif
 } // namespace Carbon

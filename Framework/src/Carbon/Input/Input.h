@@ -16,7 +16,8 @@ namespace Carbon
     Vec2 GetMousePos();
     /// Mouse movement since the previous frame, in points.
     Vec2 GetMouseDelta();
-    /// Scroll amount this frame, in wheel notches ("lines").
+    /// Scroll amount this frame, in wheel notches ("lines"). With Shift held, a vertical wheel scrolls sideways: it
+    /// is reported as x.
     Vec2 GetMouseWheel();
 
     /// True while the button is held.

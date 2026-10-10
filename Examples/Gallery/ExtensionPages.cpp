@@ -48,6 +48,59 @@ namespace Gallery
         const float Mobile[] = {31.0f, 39.0f, 47.0f, 61.0f};
         const float Tablet[] = {12.0f, 11.0f, 14.0f, 13.0f};
 
+        // A wide table: monthly rainfall at weather stations, one column per month.
+        const char* const Stations[] = {"Aberdeen", "Bergen",    "Cork",      "Dublin",    "Edinburgh", "Galway",
+                                        "Hamburg",  "Inverness", "Kiel",      "Lerwick",   "Malmö",     "Nantes",
+                                        "Oslo",     "Plymouth",  "Reykjavík", "Stavanger", "Tórshavn",  "Uppsala"};
+        constexpr size_t StationCount = std::size(Stations);
+        constexpr size_t RainMonthCount = 40;
+
+        // Millimeters of rain at a station in a month: made up, but with a season and a wetter west.
+        int GetRainfall(size_t station, size_t month)
+        {
+            const int season[] = {9, 7, 6, 4, 3, 3, 4, 5, 6, 8, 9, 10};
+            const uint32_t noise = static_cast<uint32_t>(station * 2654435761u) ^ static_cast<uint32_t>(month * 40503u);
+            return 30 + season[month % 12] * (6 + static_cast<int>(station % 5)) + static_cast<int>(noise % 53);
+        }
+
+        // The text of the rainfall table, made once so that frames only look it up.
+        struct RainfallTable
+        {
+            std::array<std::string, RainMonthCount> MonthTitles;
+            std::array<TableColumn, RainMonthCount + 2> Columns;
+            std::array<std::array<std::string, RainMonthCount + 1>, StationCount> Cells;
+        };
+
+        const RainfallTable& GetRainfallTable()
+        {
+            static RainfallTable table;
+            static const bool isReady = []
+            {
+                table.Columns[0] = {.Title = "Station", .Width = 110.0f};
+                for (size_t month = 0; month < RainMonthCount; month++)
+                {
+                    table.MonthTitles[month] = std::format("{} {}", Months[month % 12], 22 + month / 12);
+                    table.Columns[month + 1] = {
+                        .Title = table.MonthTitles[month], .Width = 64.0f, .Alignment = TextAlignment::Trailing};
+                }
+                table.Columns[RainMonthCount + 1] = {
+                    .Title = "Total", .Width = 72.0f, .Alignment = TextAlignment::Trailing};
+                for (size_t station = 0; station < StationCount; station++)
+                {
+                    int total = 0;
+                    for (size_t month = 0; month < RainMonthCount; month++)
+                    {
+                        total += GetRainfall(station, month);
+                        table.Cells[station][month] = std::format("{}", GetRainfall(station, month));
+                    }
+                    table.Cells[station][RainMonthCount] = std::format("{}", total);
+                }
+                return true;
+            }();
+            (void)isReady;
+            return table;
+        }
+
         // A small file system for the outline and column views.
         struct FileNode
         {
@@ -896,6 +949,24 @@ namespace Gallery
             TableCell(Tasks[i]);
             TableCell(Owners[i], {.Icon = Icons::User});
             TableCell(Estimates[i], {.Secondary = true});
+        }
+        EndTable();
+        EndSection();
+
+        BeginSection("Data table",
+                     "Forty-two columns of monthly rainfall in millimeters. Drag a divider in the header to resize a "
+                     "column, double-click it to fit the column to its content, and scroll sideways with Shift "
+                     "and the wheel.");
+        const RainfallTable& rainfall = GetRainfallTable();
+        BeginTable("rainfall", rainfall.Columns, {.Height = 260.0f});
+        for (size_t station = 0; station < StationCount; station++)
+        {
+            const int row = static_cast<int>(station);
+            if (TableRow(row, row == state.SelectedStation))
+                state.SelectedStation = row;
+            TableCell(Stations[station]);
+            for (const std::string& cell : rainfall.Cells[station])
+                TableCell(cell, {.Secondary = &cell != &rainfall.Cells[station].back()});
         }
         EndTable();
         EndSection();
