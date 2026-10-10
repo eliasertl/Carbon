@@ -14,6 +14,7 @@
 #include "Carbon/Extensions/List.h"
 #include "Carbon/Extensions/Menu.h"
 #include "Carbon/Extensions/MenuBar.h"
+#include "Carbon/Extensions/NavigationSplitView.h"
 #include "Carbon/Extensions/Notification.h"
 #include "Carbon/Extensions/NumberField.h"
 #include "Carbon/Extensions/OutlineView.h"

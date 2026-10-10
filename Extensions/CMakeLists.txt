@@ -14,6 +14,7 @@ set(CARBON_EXTENSIONS_PUBLIC_HEADERS
     src/Carbon/Extensions/List.h
     src/Carbon/Extensions/Menu.h
     src/Carbon/Extensions/MenuBar.h
+    src/Carbon/Extensions/NavigationSplitView.h
     src/Carbon/Extensions/Notification.h
     src/Carbon/Extensions/NumberField.h
     src/Carbon/Extensions/OutlineView.h
@@ -45,6 +46,7 @@ set(CARBON_EXTENSIONS_INTERNAL_HEADERS
     src/Carbon/Extensions/Internal/MenuInternal.h
     src/Carbon/Extensions/Internal/NumberEditing.h
     src/Carbon/Extensions/Internal/RowClipping.h
+    src/Carbon/Extensions/Internal/NavigationStack.h
     src/Carbon/Extensions/Internal/SelectionList.h
     src/Carbon/Extensions/Internal/WidestItem.h
 )
@@ -61,6 +63,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/List.cpp
     src/Carbon/Extensions/Menu.cpp
     src/Carbon/Extensions/MenuBar.cpp
+    src/Carbon/Extensions/NavigationSplitView.cpp
     src/Carbon/Extensions/Notification.cpp
     src/Carbon/Extensions/NumberField.cpp
     src/Carbon/Extensions/OutlineView.cpp
@@ -85,6 +88,7 @@ set(CARBON_EXTENSIONS_SOURCES
     src/Carbon/Extensions/Internal/ColumnLayout.cpp
     src/Carbon/Extensions/Internal/NumberEditing.cpp
     src/Carbon/Extensions/Internal/RowClipping.cpp
+    src/Carbon/Extensions/Internal/NavigationStack.cpp
     src/Carbon/Extensions/Internal/SelectionList.cpp
     src/Carbon/Extensions/Internal/WidestItem.cpp
 )

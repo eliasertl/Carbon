@@ -2,6 +2,7 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/NavigationStack.h"
 #include "Carbon/Extensions/Internal/SelectionList.h"
 
 namespace Carbon
@@ -14,17 +15,26 @@ namespace Carbon
         constexpr float IconSize = 16.0f;
         constexpr float IconGap = 7.0f;
         constexpr float HeaderHeight = 26.0f;
+        constexpr float ChevronSize = 13.0f;
+
+        // In the root of a collapsed navigation the sidebar is the list that leads to the content: it fills the
+        // width, and its rows end with a chevron, as in iOS.
+        bool IsNavigationList()
+        {
+            return Internal::IsInCollapsedNavigationRoot();
+        }
     } // namespace
 
     void BeginSidebar(std::string_view id, const SidebarOptions& options)
     {
         Internal::SelectionListDescription description;
-        description.Scroll.Width = Size::Fixed(options.Width);
+        const bool isNavigationList = IsNavigationList();
+        description.Scroll.Width = isNavigationList ? Size::Fill() : Size::Fixed(options.Width);
         description.Scroll.Height = Size::Fill();
         description.Scroll.Spacing = 1.0f;
         description.Scroll.Padding = options.Padding;
         description.Background = GetStyleColor(StyleColor::SecondaryBackground);
-        description.HasTrailingSeparator = true;
+        description.HasTrailingSeparator = !isNavigationList;
         description.RowRadius = RowCornerRadius;
         description.AnimatesHighlight = true;
         Internal::BeginSelectionList(id, description);
@@ -74,6 +84,13 @@ namespace Carbon
         }
 
         float right = row.Bounds.GetRight() - RowPadding;
+        if (IsNavigationList())
+        {
+            const Color chevron = row.IsEmphasized ? onAccent : GetStyleColor(StyleColor::TertiaryLabel);
+            DrawIcon(drawList, Vec2(right - ChevronSize * 0.5f, centerY), Icons::CaretRight, ChevronSize, chevron,
+                     IconVariant::Bold);
+            right -= ChevronSize + IconGap;
+        }
         TextSpec spec = GetTextSpec(TextStyle::Body);
         if (!options.Badge.empty())
         {

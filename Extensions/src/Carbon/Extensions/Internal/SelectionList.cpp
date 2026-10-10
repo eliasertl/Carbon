@@ -5,6 +5,7 @@
 #include <cstring>
 
 #include "Carbon/Extensions/Internal/BuildState.h"
+#include "Carbon/Extensions/Internal/NavigationStack.h"
 #include "Carbon/Extensions/Internal/RowClipping.h"
 
 namespace Carbon::Internal
@@ -321,7 +322,11 @@ namespace Carbon::Internal
             row.Interaction = ButtonBehavior(id, row.Layout, behavior);
             row.Clicked = row.Interaction.Clicked;
             if (row.Clicked)
+            {
                 SetFocus(build.Id);
+                // Picking a row of the list that leads to a collapsed navigation's content shows the content.
+                NotifyNavigationChoice();
+            }
         }
         else
         {

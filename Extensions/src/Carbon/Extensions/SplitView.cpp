@@ -2,6 +2,8 @@
 
 #include <algorithm>
 
+#include "Carbon/Extensions/Internal/NavigationStack.h"
+
 namespace Carbon
 {
     namespace
@@ -29,6 +31,9 @@ namespace Carbon
             /// False during the first frame, while the split view has not been measured.
             bool HasLength;
             bool HasDivider;
+            /// Compact width: the panes are a navigation stack, without a divider.
+            bool IsCollapsed;
+            std::string_view DetailTitle;
         };
 
         struct SplitStack
@@ -65,6 +70,22 @@ namespace Carbon
         }
 
         const bool isHorizontal = options.Axis == Axis::Horizontal;
+        if (isHorizontal && options.CollapsesInCompactWidth && IsCompactWidth())
+        {
+            if (hasRoom)
+            {
+                SplitLevel& level = stack.Levels[stack.Depth];
+                level.Id = splitID;
+                level.Direction = options.Axis;
+                level.HasDivider = false;
+                level.IsCollapsed = true;
+                level.DetailTitle = options.DetailTitle;
+            }
+            stack.Depth++;
+            Internal::BeginCollapsedNavigation(splitID, options.Title, options.Width, options.Height);
+            PushID(splitID);
+            return;
+        }
         if (isHorizontal)
             BeginHStack({.Spacing = 0.0f,
                          .Alignment = VerticalAlignment::Top,
@@ -91,6 +112,7 @@ namespace Carbon
             level.MaxSize = maxSize;
             level.HasLength = total > 0.0f;
             level.HasDivider = false;
+            level.IsCollapsed = false;
         }
         stack.Depth++;
 
@@ -111,6 +133,13 @@ namespace Carbon
         if (level.HasDivider)
             return;
         level.HasDivider = true;
+        if (level.IsCollapsed)
+        {
+            PopID();
+            Internal::CollapsedNavigationDetail(level.DetailTitle);
+            PushID(level.Id);
+            return;
+        }
 
         EndVStack();
 
@@ -171,6 +200,12 @@ namespace Carbon
         stack.Depth--;
         const bool isHorizontal =
             stack.Depth >= MaxSplitDepth || stack.Levels[stack.Depth].Direction == Axis::Horizontal;
+        if (stack.Depth < MaxSplitDepth && stack.Levels[stack.Depth].IsCollapsed)
+        {
+            PopID();
+            Internal::EndCollapsedNavigation();
+            return;
+        }
 
         EndVStack();
         PopID();

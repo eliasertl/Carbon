@@ -18,6 +18,14 @@ namespace Carbon
         float MinSecondSize = 120.0f;
         Size Width = Size::Fill();
         Size Height = Size::Fill();
+        /// In compact width (Carbon/Input/Adaptive.h), side-by-side panes become a navigation stack: the first
+        /// pane fills the area, choosing an item in it slides the second one in, and a back button or a swipe from
+        /// the leading edge returns. Vertical split views never collapse.
+        bool CollapsesInCompactWidth = true;
+        /// In compact width, the title of the first pane's navigation bar and of the back button (empty: no bar,
+        /// and "Back"), and the title of the second pane's navigation bar.
+        std::string_view Title = {};
+        std::string_view DetailTitle = {};
     };
 
     /// Two panes separated by a divider that the user can drag. Each pane lays its content out like a VStack.
@@ -28,7 +36,9 @@ namespace Carbon
     ///         BuildDetail();                 // second pane
     ///     Carbon::EndSplitView();
     ///
-    /// The divider is a stop for Tab; with focus, the arrow keys move it. Split views can be nested.
+    /// The divider is a stop for Tab; with focus, the arrow keys move it. Split views can be nested. In compact width
+    /// a horizontal split view is a navigation stack instead (see CollapsesInCompactWidth and ShowNavigationDetail
+    /// in NavigationSplitView.h).
     void BeginSplitView(std::string_view id, const SplitViewOptions& options = {});
     /// Ends the first pane, adds the divider and starts the second pane.
     void SplitViewDivider();
