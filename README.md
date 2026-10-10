@@ -9,6 +9,9 @@ through a renderer backend, chosen at run time: WebGPU ([Dawn](https://dawn.goog
 OpenGL 3.3, OpenGL ES 3.0 (WebGL 2 in a browser), Direct3D 11 or Direct3D 9, or a backend of your own for any
 other API. It never creates windows, devices or OS hooks.
 
+**[Try it in your browser](https://eliasertl.github.io/Carbon/)**: the Gallery and this documentation, drawn by
+Carbon itself, compiled to WebAssembly and rendered with WebGL 2 ([Examples/WebApp](Examples/WebApp/Main.cpp)).
+
 | Light | Dark |
 | --- | --- |
 | ![The Gallery example in the light appearance](Docs/Images/Gallery-Light.png) | ![The Gallery example in the dark appearance](Docs/Images/Gallery-Dark.png) |
@@ -120,6 +123,11 @@ graphics device for each backend is the only difference between the builds.
 | [`<Backend>/CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |
 | [`<Backend>/Reflection`](Examples/Reflection/Main.cpp) | A settings window generated from one `AppSettings` struct: a sidebar of sections, each drawn by a single `Carbon::Reflect` call (built once, for the first backend of WebGPU, Vulkan, OpenGL, OpenGL ES, DX11, DX9 that is compiled in) |
 
+In a browser (Emscripten), the examples are built for the OpenGL ES backend, and one more target exists:
+[`Web/index.html`](Examples/WebApp/Main.cpp), the [live demo](https://eliasertl.github.io/Carbon/): a start screen
+that leads to the Gallery and to a reader for every document in `Docs/`
+([Building](Docs/Building.md#the-web-app)).
+
 Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
 `--screenshot <file.png>`.
 
@@ -163,7 +171,7 @@ Carbon from your own project, as a subdirectory or as an installed package (`fin
 
 - [Getting started](Docs/GettingStarted.md) — from a clone to your first interface
 - [Architecture](Docs/Architecture.md) — modules, frame lifecycle, draw list, layout, animation, styling
-- [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn
+- [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn, the web build and the web app
 - [Integration](Docs/Integration.md) — creating a context, forwarding input, the render pass, DPI, fonts
 - [Renderer backends](Docs/Backends.md) — the graphics APIs, choosing one, writing your own backend
 - [Layout](Docs/Layout.md) — stacks, sizes, spacers, scroll views

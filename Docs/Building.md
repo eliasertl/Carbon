@@ -197,6 +197,54 @@ What changes in a web build:
   test, because every start of the executable compiles the module again.
 - The examples are built for the OpenGL ES backend only, into `Examples/OpenGLES`: `Minimal`, `Gallery`,
   `CustomComponent` and `Reflection`. CustomTitleBar is left out, since a page has no window to move.
+- One more target exists only here: the [web app](#the-web-app), `Examples/Web/index.html`.
+
+## The web app
+
+The [live demo](https://eliasertl.github.io/Carbon/) is the target `WebApp`
+([Examples/WebApp](../Examples/WebApp/Main.cpp)), built only with Emscripten. It starts on a start screen with two
+choices: the **Gallery**, the same pages as the Gallery example with a back button, and the **Documentation**, a
+reader for every Markdown file in `Docs/` with a sidebar of all documents. Everything is drawn by Carbon: the
+reader lays out headings, paragraphs, lists, tables, code blocks, links and the images of `Docs/Images` itself.
+Links to other documents and to headings open them in the reader; links to other files of the repository open
+them on GitHub. The address follows the screen (`#gallery/buttons`, `#docs/Components/Button.md`), so the
+browser's Back button works and every page can be linked to. The app starts in the appearance the browser
+prefers, and each screen has a Dark switch.
+
+Build and open it locally, in a build directory configured as in [Emscripten](#emscripten-web-browsers):
+
+```sh
+cmake --build Build/Web --target WebApp
+python -m http.server --directory Build/Web/Examples/Web
+# then open http://localhost:8000
+```
+
+The page needs a web server: opened as a file, the browser does not let it load `index.data`. The build writes
+four files to `Examples/Web`: `index.html`, `index.js`, `index.wasm`, and `index.data`, which holds the `Docs`
+folder as it was when the app was linked. Every file in `Docs/` is a dependency of the link, and the list is
+gathered again on every build, so a changed or new document is in the next build without any code change; a new
+top-level document appears under Guides, a new folder as a group of its own.
+
+| CMake variable | Default | Meaning |
+| --- | --- | --- |
+| `CARBON_WEBAPP_REPOSITORY_URL` | `https://github.com/eliasertl/Carbon` | The repository the start screen and the links to source files lead to |
+| `CARBON_WEBAPP_SOURCE_REF` | `main` | The branch, tag or commit whose files those links open |
+
+The tests check the documentation the reader shows: `MarkdownTests` parses every document in `Docs/` and fails
+when a link leads to a document, heading or file that does not exist, or an image is missing.
+
+### Deploying to GitHub Pages
+
+[.github/workflows/Pages.yml](../.github/workflows/Pages.yml) builds the web app with Emscripten and publishes it
+on GitHub Pages. It runs only when started by hand; nothing deploys automatically.
+
+1. Once: in the repository's **Settings > Pages**, set **Source** to **GitHub Actions**.
+2. Each deploy: **Actions > Pages > Run workflow**, on the branch to publish (normally `main`).
+
+The workflow builds the commit it runs on, sets `CARBON_WEBAPP_REPOSITORY_URL` to the repository and
+`CARBON_WEBAPP_SOURCE_REF` to that commit, and publishes the four files. The site is at
+`https://<owner>.github.io/<repository>/`, for this repository https://eliasertl.github.io/Carbon/; the run's
+summary links to it.
 
 ## Examples and tests
 
@@ -332,6 +380,9 @@ it against the installed package.
 > says how to turn the triggers back on. Until then, build and test locally before pushing (Debug and Release,
 > `ctest`, `Scripts/Format.ps1 -Check` or `Scripts/Format.sh --check`), and render the documentation screenshots
 > yourself with `python Scripts/Screenshots.py`. The last automatic run was on 2026-10-06.
+>
+> The [Pages workflow](#deploying-to-github-pages), which deploys the web app, is separate and has only ever been
+> manual.
 
 When it is enabled, [.github/workflows/CI.yml](../.github/workflows/CI.yml) runs on every push to `main` and on
 every pull request:
