@@ -14,6 +14,7 @@ namespace Carbon
         constexpr float LeadingPadding = 6.0f;
         constexpr float HighlightInset = 3.0f;
         constexpr float HighlightRadius = 5.0f;
+        constexpr float MoreIconSize = 18.0f;
 
         // The menu bar being built.
         struct MenuBarBuild
@@ -29,6 +30,13 @@ namespace Carbon
             /// and must not move on again.
             bool HasSwitched;
             bool IsOpen;
+            /// Compact width: where the titles must end, the first menu that did not fit (-1 while all do), and
+            /// whether the "more" menu that holds the menus from there on is being built. The menu being built is
+            /// then a submenu of it.
+            float TitlesEnd;
+            int FirstOverflow;
+            bool IsMoreBuilding;
+            bool IsCurrentInMore;
         };
 
         // Remembered per menu bar.
@@ -37,6 +45,8 @@ namespace Carbon
             /// The menu that was open during the last frame, and how many menus the bar had.
             ID OpenMenu;
             int Count;
+            /// The menus that did not fit in compact width were in the "more" menu; it was open.
+            bool WasMoreOpen;
             /// A menu to open on behalf of the keyboard, with its first item highlighted; -1 when none.
             int PendingIndex;
             bool FocusFirst;
@@ -100,6 +110,7 @@ namespace Carbon
         build.Height = options.Height;
         build.CurrentIndex = -1;
         build.IsOpen = true;
+        build.FirstOverflow = -1;
 
         MenuBarState& state = GetBarState(build.Id);
         const bool isBarMenuOpen = state.OpenMenu.IsValid() && IsOverlayOpen(state.OpenMenu);
@@ -117,6 +128,7 @@ namespace Carbon
                      .CornerRadius = 0.0f,
                      .ID = "##menubar"});
         Spacer({.Length = LeadingPadding});
+        build.TitlesEnd = GetContentRect().GetRight() - LeadingPadding;
         if (options.HasSeparator)
         {
             // Drawn at the bar's bottom edge once its size is known, in EndMenuBar.
@@ -130,6 +142,11 @@ namespace Carbon
         CB_VERIFY(build.IsOpen, "EndMenuBar called without BeginMenuBar");
         if (!build.IsOpen)
             return;
+        if (build.IsMoreBuilding)
+        {
+            EndMenu();
+            build.IsMoreBuilding = false;
+        }
         Spacer({.Length = LeadingPadding});
         EndHStack();
         if (build.Height < 0.0f)
@@ -146,6 +163,35 @@ namespace Carbon
         build.IsOpen = false;
     }
 
+    namespace
+    {
+        // Compact width: the button at the end of the titles that opens the menus that did not fit, as a sheet.
+        void BeginMoreMenu(MenuBarBuild& build, MenuBarState& state, float barHeight)
+        {
+            const ID button = GetID("##more");
+            const ID menu = HashID("##moremenu", build.Id);
+            const Rect rect = AllocateItem(Vec2(MoreIconSize + TitlePadding * 2.0f, barHeight));
+            ButtonBehaviorOptions behavior;
+            behavior.Focusable = false;
+            const Interaction interaction = ButtonBehavior(button, rect, behavior);
+            if (interaction.Clicked && !IsOverlayOpen(menu))
+                OpenOverlay(menu);
+            const bool isOpen = IsOverlayOpen(menu);
+            if (isOpen || interaction.Pressed)
+            {
+                const Rect highlight(rect.X, rect.Y + HighlightInset, rect.Width, rect.Height - HighlightInset * 2.0f);
+                GetDrawList().AddSquircle(
+                    highlight, GetStyleColor(StyleColor::Label).WithOpacity(GetStyleVar(StyleVar::PressedAmount)),
+                    HighlightRadius, GetStyleVar(StyleVar::CornerSmoothing));
+            }
+            DrawIcon(GetDrawList(), rect.GetCenter(), Icons::DotsThreeCircle, MoreIconSize,
+                     GetStyleColor(StyleColor::Label));
+            SetLastItem(button, rect, interaction);
+            build.IsMoreBuilding = BeginMenu(menu, {.Anchor = rect});
+            state.WasMoreOpen = build.IsMoreBuilding;
+        }
+    } // namespace
+
     bool BeginMenuBarMenu(std::string_view title, const MenuBarMenuOptions& options)
     {
         MenuBarBuild& build = GetBuild();
@@ -161,9 +207,31 @@ namespace Carbon
         const std::string_view text = GetDisplayLabel(title);
         const TextSpec spec = GetTextSpec(TextStyle::Body);
         const float barHeight = build.Height < 0.0f ? -build.Height : build.Height;
+        const float width = MeasureText(text, spec).X + TitlePadding * 2.0f;
+
+        // In compact width the menus that do not fit go into a "more" menu at the end of the titles; there they are
+        // submenus.
+        if (build.FirstOverflow < 0 && IsCompactWidth())
+        {
+            const bool isLast = index + 1 >= state.Count;
+            const float needed = width + (isLast ? 0.0f : MoreIconSize + TitlePadding * 2.0f);
+            if (index > 0 && GetCursorPos().X + needed > build.TitlesEnd)
+            {
+                build.FirstOverflow = index;
+                BeginMoreMenu(build, state, barHeight);
+            }
+        }
+        if (build.FirstOverflow >= 0)
+        {
+            if (!build.IsMoreBuilding || options.Disabled || !BeginSubmenu(title))
+                return false;
+            build.CurrentIndex = index;
+            build.IsCurrentInMore = true;
+            return true;
+        }
 
         PushDisabled(options.Disabled);
-        const Rect rect = AllocateItem(Vec2(MeasureText(text, spec).X + TitlePadding * 2.0f, barHeight));
+        const Rect rect = AllocateItem(Vec2(width, barHeight));
         ButtonBehaviorOptions behavior;
         behavior.Focusable = false;
         behavior.ActivateOnPress = true;
@@ -229,6 +297,13 @@ namespace Carbon
         CB_VERIFY(build.CurrentIndex >= 0, "EndMenuBarMenu called without an open BeginMenuBarMenu");
         if (build.CurrentIndex < 0)
             return;
+        if (build.IsCurrentInMore)
+        {
+            EndSubmenu();
+            build.IsCurrentInMore = false;
+            build.CurrentIndex = -1;
+            return;
+        }
 
         // Left and right move to the neighbouring menu, unless a submenu uses them.
         MenuBarState& state = GetBarState(build.Id);

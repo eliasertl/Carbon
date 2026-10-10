@@ -50,6 +50,8 @@ namespace Carbon
     ///
     /// Keyboard: Alt pressed and released on its own, or F10, opens the first menu. With a menu open, the left
     /// and right arrow keys move to the neighbouring menu; Escape closes it.
+    /// In compact width (Carbon/Input/Adaptive.h) the menus whose titles do not fit move into a "more" button at
+    /// the end of the bar, whose menu (a sheet there) lists them as submenus.
     void BeginMenuBar(const MenuBarOptions& options = {});
     void EndMenuBar();
 

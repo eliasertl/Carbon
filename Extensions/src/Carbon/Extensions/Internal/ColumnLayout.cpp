@@ -11,7 +11,7 @@ namespace Carbon::Internal
     } // namespace
 
     float LayoutColumns(std::span<const TableColumn> columns, float width, std::span<ColumnLayout> layouts,
-                        std::span<const float> widths, std::span<const int> order)
+                        std::span<const float> widths, std::span<const int> order, float fillMinimum)
     {
         const size_t count = std::min(columns.size(), layouts.size());
         const bool hasWidths = widths.size() >= count;
@@ -41,8 +41,9 @@ namespace Carbon::Internal
             else if (column.Width.Mode == SizeMode::Fixed)
                 layout.Width = std::max(column.Width.Value, 0.0f);
             else
-                layout.Width = std::max(
-                    unit * (column.Width.Mode == SizeMode::Fill ? std::max(column.Width.Value, 0.0f) : 1.0f), minimum);
+                layout.Width =
+                    std::max(unit * (column.Width.Mode == SizeMode::Fill ? std::max(column.Width.Value, 0.0f) : 1.0f),
+                             std::max(minimum, fillMinimum));
             layout.Alignment = column.Alignment;
         }
 

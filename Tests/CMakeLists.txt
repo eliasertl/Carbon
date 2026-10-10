@@ -98,6 +98,7 @@ target_compile_definitions(CarbonTests PRIVATE "CARBON_TESTS_DOCS_DIR=\"${PROJEC
 
 if(CARBON_BUILD_EXTENSIONS)
     target_sources(CarbonTests PRIVATE
+        src/Extensions/CompactTests.cpp
         src/Extensions/ContainerTests.cpp
         src/Extensions/ControlTests.cpp
         src/Extensions/DateTests.cpp

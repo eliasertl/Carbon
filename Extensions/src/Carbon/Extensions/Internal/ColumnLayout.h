@@ -27,8 +27,10 @@ namespace Carbon::Internal
     /// the user gave it); it may be empty. `order` lists the columns in the order they are shown and may be
     /// empty for the declared order. Writes one entry per column to `layouts`, indexed like `columns`, and
     /// returns the width of all columns together.
+    /// `fillMinimum` is the least width of a column that shares the rest, beyond its MinWidth: in compact width a
+    /// table scrolls sideways rather than squeezing its columns.
     float LayoutColumns(std::span<const TableColumn> columns, float width, std::span<ColumnLayout> layouts,
-                        std::span<const float> widths = {}, std::span<const int> order = {});
+                        std::span<const float> widths = {}, std::span<const int> order = {}, float fillMinimum = 0.0f);
 
     /// Grows `storage` to hold at least `count` entries and returns the first `count` of them. Storage only ever
     /// grows, so a frame allocates only when a component has more columns than any before it.

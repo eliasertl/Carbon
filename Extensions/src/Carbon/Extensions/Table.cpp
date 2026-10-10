@@ -19,6 +19,9 @@ namespace Carbon
         constexpr float TableCornerRadius = 7.0f;
         // The width around a column divider that the pointer can grab.
         constexpr float DividerGrabWidth = 8.0f;
+        // In compact width a column that shares the rest is at least this wide; the table scrolls sideways
+        // instead of squeezing it.
+        constexpr float CompactColumnWidth = 120.0f;
         // Points scrolled sideways per wheel notch, as in scroll views.
         constexpr float WheelStep = 48.0f;
         constexpr AnimationSpec ScrollSpring = AnimationSpec::Spring(0.25f, 1.0f);
@@ -77,6 +80,10 @@ namespace Carbon
             /// Seconds since the columns were last rearranged; they slide into place meanwhile.
             float SlideTime;
             bool IsSliding;
+            /// Scrolling sideways with a finger, and how far the columns could scroll during the last frame.
+            TouchScroll Touch;
+            float LastMaxScrollX;
+            float ShownScrollX;
         };
 
         // The table whose rows are being added.
@@ -221,7 +228,8 @@ namespace Carbon
         void Layout(TableBuild& build, const Arrangement& arrangement)
         {
             build.ContentWidth = Internal::LayoutColumns(arrangement.Columns, build.VisibleWidth, arrangement.Layouts,
-                                                         arrangement.Widths, arrangement.Order);
+                                                         arrangement.Widths, arrangement.Order,
+                                                         IsCompactWidth() ? CompactColumnWidth : 0.0f);
             build.MaxScrollX = std::max(build.ContentWidth - build.VisibleWidth, 0.0f);
         }
 
@@ -389,6 +397,8 @@ namespace Carbon
 
             DragBehaviorOptions behavior;
             behavior.Focusable = false;
+            // A finger swipes the header to scroll; a long press picks a column up.
+            behavior.WaitsForLongPress = true;
             GetDrawList().PushClipRect(header);
             // Where the pointer is, in the coordinates of the columns.
             const float pointer = GetMousePos().X - header.X - RowInset + build.ScrollX;
@@ -701,13 +711,17 @@ namespace Carbon
         }
         state.FitColumn = 0;
 
-        // Sideways scrolling: a horizontal wheel, a trackpad or Shift with the wheel, over the table.
+        // Sideways scrolling: a horizontal wheel, a trackpad or Shift with the wheel, over the table, or a finger.
         const float wheel = GetMouseWheel().X;
         if (wheel != 0.0f && IsRectHovered(state.Bounds))
         {
             state.ScrollX -= wheel * WheelStep;
             state.ScrollIdleTime = 0.0f;
+            state.Touch.IsMoving = false;
         }
+        const Pan pan =
+            PanBehavior(HashID("##pan", build.StateID), state.Bounds,
+                        {.Directions = state.LastMaxScrollX > 0.0f ? PanDirections::Horizontal : PanDirections::None});
 
         // The frame around header and rows is drawn first and sized when the table ends.
         BeginVStack({.Spacing = 0.0f,
@@ -720,9 +734,22 @@ namespace Carbon
 
         build.VisibleWidth = std::max(GetContentRect().Width - RowInset * 2.0f, 0.0f);
         Layout(build, arrangement);
+        state.LastMaxScrollX = build.MaxScrollX;
+        const bool isTouchScrolling = UpdateTouchScroll(state.Touch, pan, Axis::Horizontal, state.ShownScrollX,
+                                                        build.MaxScrollX, build.VisibleWidth);
+        if (isTouchScrolling)
+        {
+            state.ScrollX = state.Touch.Offset;
+            state.ScrollIdleTime = 0.0f;
+            SetAnimationValue(HashID("##scrollx", build.StateID), state.Touch.Offset);
+            RequestAnimationFrame();
+        }
         state.ScrollX = std::clamp(state.ScrollX, 0.0f, build.MaxScrollX);
         build.ScrollX =
-            GetContentScale().Snap(Animate(HashID("##scrollx", build.StateID), state.ScrollX, ScrollSpring));
+            isTouchScrolling
+                ? GetContentScale().Snap(state.Touch.Offset)
+                : GetContentScale().Snap(Animate(HashID("##scrollx", build.StateID), state.ScrollX, ScrollSpring));
+        state.ShownScrollX = build.ScrollX;
 
         // Columns that were rearranged slide into their places.
         std::fill(arrangement.Offsets.begin(), arrangement.Offsets.end(), 0.0f);
@@ -750,7 +777,8 @@ namespace Carbon
             }
             state.ScrollX = std::clamp(state.ScrollX, 0.0f, build.MaxScrollX);
         }
-        build.ScrollX = std::min(build.ScrollX, build.MaxScrollX);
+        if (!isTouchScrolling)
+            build.ScrollX = std::min(build.ScrollX, build.MaxScrollX);
         for (size_t i = 0; i < count; i++)
             arrangement.Layouts[i].X += arrangement.Offsets[i] - build.ScrollX;
         if (options.ShowsHeader)
