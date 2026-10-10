@@ -14,7 +14,7 @@ namespace PackageCheck
 {
     // A renderer backend written outside Carbon, against the installed Carbon/Renderer/RendererBackend.h only. It
     // draws nothing; it counts what Carbon hands it, which is what a real backend would upload and draw.
-    static_assert(Carbon::RendererBackendVersion == 1, "This backend was written for version 1 of the contract");
+    static_assert(Carbon::RendererBackendVersion == 2, "This backend was written for version 2 of the contract");
 
     class CountingBackend : public Carbon::RendererBackend
     {
