@@ -35,6 +35,7 @@ namespace Carbon
         overlay.Width = options.Width;
         overlay.Height = options.Height;
         overlay.CornerRadius = SheetCornerRadius;
+        overlay.PresentsAsSheetInCompactWidth = true;
         return BeginOverlay(GetID(id), overlay);
     }
 

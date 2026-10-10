@@ -6,6 +6,7 @@
 #include "Carbon/Animation/Animation.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
+#include "Carbon/Interaction/Gesture.h"
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Overlay/OverlayInternal.h"
@@ -27,6 +28,15 @@ namespace Carbon
         constexpr float AppearTravel = 12.0f;
         constexpr float ShadowBlur = 24.0f;
         constexpr Vec2 ShadowOffset(0.0f, 8.0f);
+        // Sheets from the bottom: the grabber at the top, the room above it, and what dismisses them by dragging,
+        // a third of their height or a throw, as on iOS.
+        constexpr Vec2 GrabberSize(36.0f, 5.0f);
+        constexpr float GrabberTop = 6.0f;
+        constexpr float SheetTopInset = 14.0f;
+        constexpr float SheetSideInset = 12.0f;
+        constexpr float SheetDismissFraction = 0.3f;
+        constexpr float SheetDismissVelocity = 800.0f;
+        const AnimationSpec SheetSpring = AnimationSpec::Spring(0.35f, 1.0f);
 
         size_t FindOpen(const OverlayState& state, ID id)
         {
@@ -330,6 +340,12 @@ namespace Carbon
         return !Internal::GetContext().Overlays.Open.empty();
     }
 
+    bool IsOverlayPresentedAsSheet()
+    {
+        const Internal::OverlayState& state = Internal::GetContext().Overlays;
+        return !state.Building.empty() && state.Building.back().IsSheet;
+    }
+
     bool BeginOverlay(ID id, const OverlayOptions& options)
     {
         Context& context = Internal::GetFrameContext();
@@ -337,10 +353,21 @@ namespace Carbon
         const size_t index = FindOpen(state, id);
         if (index == NotOpen)
             return false;
+        const bool isSheet = options.PresentsAsSheetInCompactWidth && context.HorizontalSizeClass == SizeClass::Compact;
+        const ID slideID = HashID("##sheet", id);
 
         {
             OpenOverlayEntry& entry = state.Open[index];
             entry.LastFrame = context.FrameCount;
+            entry.IsSheet = isSheet;
+            // A sheet that slid out closes.
+            if (isSheet && entry.IsSheetClosing &&
+                Animate(slideID, entry.Bounds.Height + ShadowBlur, SheetSpring) >=
+                    entry.Bounds.Height + ShadowBlur * 0.5f)
+            {
+                CloseFrom(context, index);
+                return false;
+            }
             if (!entry.IsStarted)
             {
                 entry.IsStarted = true;
@@ -387,13 +414,23 @@ namespace Carbon
                                     context.Input.MousePressed[static_cast<size_t>(MouseButton::Middle)]);
             if ((outside.Clicked || isOtherButtonPressed) && !options.IsModal)
             {
-                drawList.PopLayer();
-                CloseFrom(context, index);
-                return false;
+                // A sheet slides out first; anything else closes at once.
+                if (isSheet && state.Open[index].HasSheetStarted)
+                {
+                    state.Open[index].IsSheetClosing = true;
+                }
+                else
+                {
+                    drawList.PopLayer();
+                    CloseFrom(context, index);
+                    return false;
+                }
             }
         }
 
-        if (options.HasScrim)
+        // A sheet that holds the pointer dims what is beneath it; one that leaves the keyboard to a field beneath it
+        // (a combo box's list) does not.
+        if (options.HasScrim || (isSheet && captures))
         {
             const float scrim = Animate(HashID("##scrim", id), 1.0f, AnimationSpec::Fade(0.2f));
             drawList.PushOpacity(scrim, false);
@@ -403,21 +440,58 @@ namespace Carbon
 
         // The size is last frame's; a new overlay has none yet and stays hidden for its first frame.
         const Vec2 size = state.Open[index].Bounds.GetSize();
-        PlacedOverlay placed =
-            PlaceOverlay(options, size, context.DisplaySize, options.ShowsArrow ? ArrowLength : 0.0f);
-        if (options.Placement == OverlayPlacement::Center || options.Placement == OverlayPlacement::Top)
+        PlacedOverlay placed;
+        EdgeInsets padding = options.Padding;
+        if (isSheet)
         {
-            const float progress = Animate(HashID("##appear", id), 1.0f, AnimationSpec::Spring(0.35f));
-            placed.Origin.Y -= (1.0f - progress) * AppearTravel;
+            // From the bottom edge, across the display: it slides up once its height is known, follows a finger
+            // that drags it down, and slides out when dismissed.
+            OpenOverlayEntry& entry = state.Open[index];
+            if (!entry.HasSheetStarted && size.Y > 0.0f)
+            {
+                SetAnimationValue(slideID, size.Y + ShadowBlur);
+                entry.HasSheetStarted = true;
+            }
+            Pan drag;
+            if (!options.IsModal && entry.HasSheetStarted && !entry.IsSheetClosing)
+                drag = PanBehavior(HashID("##sheetdrag", id), entry.Bounds, {.Directions = PanDirections::Down});
+            float slide = 0.0f;
+            if (drag.Active)
+            {
+                // Upwards it barely moves.
+                slide = drag.Translation.Y >= 0.0f ? drag.Translation.Y : drag.Translation.Y * 0.1f;
+                SetAnimationValue(slideID, slide);
+            }
+            else
+            {
+                if (drag.Ended &&
+                    (drag.Translation.Y > size.Y * SheetDismissFraction || drag.Velocity.Y > SheetDismissVelocity))
+                    entry.IsSheetClosing = true;
+                slide = Animate(slideID, entry.IsSheetClosing ? size.Y + ShadowBlur : 0.0f, SheetSpring);
+            }
+            placed.Origin = Vec2(0.0f, context.DisplaySize.Y - size.Y + slide);
+            placed.Placement = OverlayPlacement::Below;
+            padding.Top += SheetTopInset;
+            padding.Left = std::max(padding.Left, SheetSideInset);
+            padding.Right = std::max(padding.Right, SheetSideInset);
+        }
+        else
+        {
+            placed = PlaceOverlay(options, size, context.DisplaySize, options.ShowsArrow ? ArrowLength : 0.0f);
+            if (options.Placement == OverlayPlacement::Center || options.Placement == OverlayPlacement::Top)
+            {
+                const float progress = Animate(HashID("##appear", id), 1.0f, AnimationSpec::Spring(0.35f));
+                placed.Origin.Y -= (1.0f - progress) * AppearTravel;
+            }
         }
 
         Internal::ContainerDescription description;
         description.Kind = Internal::ContainerKind::Overlay;
         description.Axis = Axis::Vertical;
         description.Id = id;
-        description.Width = options.Width;
+        description.Width = isSheet ? Size::Fixed(context.DisplaySize.X) : options.Width;
         description.Height = options.Height;
-        description.Padding = options.Padding;
+        description.Padding = padding;
         description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
         description.CrossFactor = GetFactor(options.ContentAlignment);
         description.IsFloating = true;
@@ -433,9 +507,10 @@ namespace Carbon
         build.Captures = captures;
         build.Radius = options.CornerRadius.value_or(context.Style.GetVar(StyleVar::OverlayCornerRadius));
         build.Opacity = drawList.GetOpacity();
-        build.ShowsArrow = options.ShowsArrow;
+        build.ShowsArrow = options.ShowsArrow && !isSheet;
         build.Anchor = options.Anchor;
         build.Placement = placed.Placement;
+        build.IsSheet = isSheet;
         build.Shadow = drawList.AddDeferredShadow(context.Style.GetColor(StyleColor::Shadow), ShadowBlur, ShadowOffset);
         build.Background = drawList.AddDeferredSquircle(context.Style.GetColor(StyleColor::OverlayBackground));
         build.Border = drawList.AddDeferredSquircleStroke(context.Style.GetColor(StyleColor::OverlayBorder),
@@ -464,9 +539,20 @@ namespace Carbon
 
         DrawList& drawList = context.Draw;
         const float smoothing = context.Style.GetVar(StyleVar::CornerSmoothing);
-        drawList.ResolveDeferredSquircle(build.Shadow, rect, build.Radius, smoothing);
-        drawList.ResolveDeferredSquircle(build.Background, rect, build.Radius, smoothing);
-        drawList.ResolveDeferredSquircle(build.Border, rect, build.Radius, smoothing);
+        // A sheet's surface reaches below the display, so only its top corners are rounded.
+        const Rect surface = build.IsSheet ? Rect(rect.X, rect.Y, rect.Width, rect.Height + build.Radius * 2.0f) : rect;
+        drawList.ResolveDeferredSquircle(build.Shadow, surface, build.Radius, smoothing);
+        drawList.ResolveDeferredSquircle(build.Background, surface, build.Radius, smoothing);
+        drawList.ResolveDeferredSquircle(build.Border, surface, build.Radius, smoothing);
+        if (build.IsSheet)
+        {
+            drawList.PushOpacity(build.Opacity, false);
+            const Rect grabber(rect.GetCenter().X - GrabberSize.X * 0.5f, rect.Y + GrabberTop, GrabberSize.X,
+                               GrabberSize.Y);
+            drawList.AddSquircle(grabber, context.Style.GetColor(StyleColor::TertiaryLabel), GrabberSize.Y * 0.5f,
+                                 0.0f);
+            drawList.PopOpacity();
+        }
         if (build.ShowsArrow && build.Opacity > 0.0f)
         {
             drawList.PushOpacity(build.Opacity, false);

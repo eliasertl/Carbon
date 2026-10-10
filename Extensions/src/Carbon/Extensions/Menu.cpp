@@ -102,6 +102,7 @@ namespace Carbon
             overlay.Padding = EdgeInsets(MenuPadding);
             overlay.Spacing = 0.0f;
             overlay.CornerRadius = MenuCornerRadius;
+            overlay.PresentsAsSheetInCompactWidth = true;
             return overlay;
         }
 
@@ -208,15 +209,19 @@ namespace Carbon
             const float leading = level.HasLeadingColumn ? LeadingWidth : 0.0f;
 
             float width = RowPadding * 2.0f + leading + MeasureText(title, spec).X;
-            const float shortcutWidth = options.Shortcut.empty() ? 0.0f : MeasureText(options.Shortcut, spec).X;
-            if (!options.Shortcut.empty())
+            // Keyboard shortcuts are left out on a sheet: a phone has no keyboard to press them on.
+            const std::string_view shortcut = IsOverlayPresentedAsSheet() ? std::string_view() : options.Shortcut;
+            const float shortcutWidth = shortcut.empty() ? 0.0f : MeasureText(shortcut, spec).X;
+            if (!shortcut.empty())
                 width += ShortcutGap + shortcutWidth;
             if (hasSubmenu)
                 width += ChevronWidth;
 
             // Every row spans the menu, whose width is that of its widest row.
-            const Rect item = AllocateItem(
-                Vec2(std::max(width, level.MinWidth - MenuPadding * 2.0f), GetAdaptiveRowHeight(RowHeight)));
+            // On a sheet (compact width) rows span the sheet.
+            const float rowWidth = IsOverlayPresentedAsSheet() ? GetContentRect().Width
+                                                               : std::max(width, level.MinWidth - MenuPadding * 2.0f);
+            const Rect item = AllocateItem(Vec2(rowWidth, GetAdaptiveRowHeight(RowHeight)));
             const Rect content = GetContentRect();
             result.Row = Rect(content.X, item.Y, std::max(content.Width, item.Width), item.Height);
 
@@ -233,7 +238,10 @@ namespace Carbon
                 state.PointerItem = id;
                 state.SawPointerItem = true;
             }
-            const bool isHighlighted = (IsFocused(id) || staysHighlighted) && !IsDisabled();
+            // A finger highlights the row it presses; the keyboard focus shows once the keyboard is used.
+            const bool isTouch = GetPointerType() != PointerType::Mouse;
+            const bool isCurrent = isTouch ? result.Interaction.Pressed || IsFocusVisible(id) : IsFocused(id);
+            const bool isHighlighted = (isCurrent || staysHighlighted) && !IsDisabled();
 
             DrawList& drawList = GetDrawList();
             Color text = GetStyleColor(options.IsDestructive ? StyleColor::Destructive : StyleColor::Label);
@@ -264,8 +272,8 @@ namespace Carbon
                 DrawIcon(drawList, Vec2(right - 4.0f, centerY), Icons::CaretRight, 10.0f, secondary, IconVariant::Bold);
                 right -= ChevronWidth;
             }
-            if (!options.Shortcut.empty())
-                DrawLabel(drawList, result.Row, right - shortcutWidth, options.Shortcut, spec, secondary);
+            if (!shortcut.empty())
+                DrawLabel(drawList, result.Row, right - shortcutWidth, shortcut, spec, secondary);
 
             PopDisabled();
             return result;

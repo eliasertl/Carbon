@@ -72,6 +72,12 @@ namespace Carbon
         Carbon::Alignment ContentAlignment = Carbon::Alignment::Leading;
         /// Defaults to the theme's OverlayCornerRadius.
         std::optional<float> CornerRadius = {};
+        /// In compact width (Carbon/Input/Adaptive.h) the overlay is presented as a sheet instead, as popovers and
+        /// menus are on iPhone: it slides up from the bottom of the display across its width, and dragging it down
+        /// by its grabber dismisses it (unless it is modal). One that holds the pointer (modal, or dismissed by
+        /// outside clicks) dims what is beneath, and a tap beside it dismisses it too. The anchor, placement, arrow
+        /// and width are ignored then.
+        bool PresentsAsSheetInCompactWidth = false;
     };
 
     /// Opens the overlay `id` above the ones that are already open. Nothing shows until BeginOverlay is called
@@ -94,4 +100,8 @@ namespace Carbon
     /// where it was when the overlay closes.
     bool BeginOverlay(ID id, const OverlayOptions& options = {});
     void EndOverlay();
+
+    /// True while the content of an overlay that is presented as a sheet is being built: components lay their
+    /// rows out across the sheet's width.
+    bool IsOverlayPresentedAsSheet();
 } // namespace Carbon

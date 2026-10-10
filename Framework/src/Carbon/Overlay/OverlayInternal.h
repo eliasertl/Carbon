@@ -31,6 +31,11 @@ namespace Carbon::Internal
         uint64_t LastFrame = 0;
         /// Where the overlay was drawn last. Its size places it during the next frame.
         Rect Bounds;
+        /// Presented as a sheet from the bottom (compact width); it has started to slide in, and it slides out
+        /// before it closes when dismissed by a tap beside it or a drag.
+        bool IsSheet = false;
+        bool HasSheetStarted = false;
+        bool IsSheetClosing = false;
     };
 
     /// An overlay whose content is being built: between BeginOverlay and EndOverlay.
@@ -48,6 +53,7 @@ namespace Carbon::Internal
         Rect Anchor;
         /// The side the overlay ended up on, after flipping.
         OverlayPlacement Placement = OverlayPlacement::Below;
+        bool IsSheet = false;
     };
 
     /// The overlay state of one context.

@@ -242,6 +242,7 @@ namespace Carbon
         overlay.Spacing = 0.0f;
         overlay.Width = Size::Fixed(rect.Width);
         overlay.CornerRadius = 8.0f;
+        overlay.PresentsAsSheetInCompactWidth = true;
         if (BeginOverlay(list, overlay))
         {
             // The rows of the list: every item, or the items that match the text.
