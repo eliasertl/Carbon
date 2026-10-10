@@ -30,6 +30,10 @@ namespace Example
         float PointerY = -1.0f;
         /// 0 for the left button, 1 for the right one, -1 for no click.
         int ClickButton = -1;
+        /// --drag <x>x<y>: in screenshot mode, presses the left button at the --pointer position and drags to this
+        /// position, where the button stays down: a drag in progress (moving a column, dragging a row).
+        float DragX = -1.0f;
+        float DragY = -1.0f;
         /// --compose <text>: in screenshot mode, after the click, an input method composes this text in the focused
         /// text field: '|' separates its clauses, the first of which is being converted, and \uXXXX or
         /// \UXXXXXXXX stands for a character.

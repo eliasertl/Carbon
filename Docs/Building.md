@@ -207,6 +207,7 @@ For screenshots of states that need input, and of parts of a window, there are m
 | `--page <name>` | The Gallery page to start on, by its key (`selection`, `menus`, `dates`, `reflection`, ...), or the section of the Reflection example (`general`, `appearance`, `audio`, `network`) |
 | `--show <name>` | Something the Gallery opens at startup: `menu`, `popover`, `alert`, `sheet`, `notification`, `datepicker`, `pathmenu`, `toolbaroverflow` |
 | `--pointer`, `--click`, `--right-click <x>x<y>` | Put the pointer there, and click, before the screenshot is taken |
+| `--drag <x>x<y>` | Press the left button at the `--pointer` position and drag to this one, holding the button while the screenshot is taken |
 | `--compose <text>` | After the click, an input method composes this text in the focused text field: `|` separates its clauses, the first is the one being converted, and `\uXXXX` or `\UXXXXXXXX` stands for a character |
 | `--crop <x>,<y>,<width>,<height>` | Save only this area of the window, in points |
 | `--section <key>[,<key>...]` | Gallery: scroll to these sections and save only their boxes. A key is a section's title in lower case without spaces or punctuation. Pointer positions are then relative to the box |

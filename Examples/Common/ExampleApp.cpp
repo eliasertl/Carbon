@@ -140,6 +140,20 @@ namespace Example
                 io.AddMouseButtonEvent(button, false);
             if (frame == 10 && !arguments.Composition.empty())
                 ComposeScripted(arguments.Composition);
+            // A drag: pressed at the pointer, moved in two steps, and held while the screenshot is taken.
+            if (arguments.DragX >= 0.0f)
+            {
+                const float startX = m_Host.GetPointerOriginX() + arguments.PointerX;
+                const float startY = m_Host.GetPointerOriginY() + arguments.PointerY;
+                const float endX = m_Host.GetPointerOriginX() + arguments.DragX;
+                const float endY = m_Host.GetPointerOriginY() + arguments.DragY;
+                if (frame == 8)
+                    io.AddMouseButtonEvent(Carbon::MouseButton::Left, true);
+                if (frame == 9)
+                    io.AddMousePosEvent((startX + endX) * 0.5f, (startY + endY) * 0.5f);
+                if (frame == 10)
+                    io.AddMousePosEvent(endX, endY);
+            }
         }
 
         Carbon::NewFrame();
