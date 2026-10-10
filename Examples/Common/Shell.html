@@ -2,14 +2,21 @@
 <html lang="en">
 <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <!-- The page fills the screen, under the status bar and around a notch (viewport-fit=cover; Carbon keeps its
+         content inside the safe area), and the browser never zooms it: Carbon zooms what can be zoomed itself. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
     <title>Carbon</title>
     <style>
         /* The canvas fills the whole viewport; Carbon draws everything inside it. The example sizes its
            framebuffer to the window (MakeCanvasResizable), so the page itself never scrolls. */
-        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #ffffff; }
+        html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; overscroll-behavior: none;
+                     -webkit-text-size-adjust: 100%; text-size-adjust: 100%; background: #ffffff; }
+        body { position: fixed; inset: 0; }
         @media (prefers-color-scheme: dark) { html, body { background: #000000; } }
-        canvas { display: block; width: 100vw; height: 100vh; outline: none; }
+        /* Fingers belong to Carbon: no panning, zooming, selecting or callouts by the browser. */
+        canvas { display: block; position: fixed; left: 0; top: 0; width: 100%; height: 100%; outline: none;
+                 touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
+                 -webkit-tap-highlight-color: transparent; }
         #status { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
                   font: 13px system-ui, sans-serif; color: #888; pointer-events: none; }
     </style>

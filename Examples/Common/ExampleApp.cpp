@@ -14,6 +14,7 @@
 #include "FileDrop.h"
 #include "GlfwInput.h"
 #include "InputMethod.h"
+#include "WebHost.h"
 
 namespace Example
 {
@@ -94,7 +95,9 @@ namespace Example
         // debugger, which Carbon would do in debug builds when no handler is set.
         description.Callbacks.AssertFailed = [](const Carbon::AssertInfo&) {};
         InstallPlatformCallbacks(m_Host.GetWindow(), description.Callbacks);
+        InstallWebHost(description.Callbacks);
         m_Context = Carbon::CreateContext(description);
+        StartWebHost();
         InstallInputCallbacks(m_Host.GetWindow());
         InstallInputMethod(m_Host.GetWindow());
         InstallFileDrop(m_Host.GetWindow());
@@ -137,6 +140,8 @@ namespace Example
             const float height = GetArguments().KeyboardHeight;
             io.SetKeyboardRect(Carbon::Rect(0.0f, m_Host.GetHeight() - height, m_Host.GetWidth(), height));
         }
+        // In a browser, the page reports these (and fingers and the on-screen keyboard) itself.
+        UpdateWebHostBeforeFrame();
 
         // Screenshots can be taken with the pointer somewhere, or after a click: the input is scripted. It starts
         // once the layout has settled, so that positions relative to a section (--section) are final.
@@ -225,6 +230,7 @@ namespace Example
         }
         Carbon::EndFrame();
         UpdateInputMethod(m_Host.GetWindow());
+        UpdateWebHostAfterFrame();
 
         // The host clears to the theme's background, which glides during a theme switch, and Carbon draws on top.
         m_Host.GetDevice().Render(Carbon::GetStyleColor(Carbon::StyleColor::Background));

@@ -23,6 +23,8 @@ add_library(CarbonExampleBase STATIC
     Screenshot.h
     SystemFonts.cpp
     SystemFonts.h
+    WebHost.cpp
+    WebHost.h
 )
 target_include_directories(CarbonExampleBase PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(CarbonExampleBase
