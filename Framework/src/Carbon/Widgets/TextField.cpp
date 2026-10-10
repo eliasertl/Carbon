@@ -7,6 +7,7 @@
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/UTF8.h"
+#include "Carbon/Input/Adaptive.h"
 #include "Carbon/Input/Input.h"
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/Layout.h"
@@ -310,6 +311,10 @@ namespace Carbon
                     if (!Internal::IsComposing(context))
                     {
                         submitted = IsKeyPressed(Key::Enter, false) || IsKeyPressed(Key::KeypadEnter, false);
+                        // On a phone Return is the keyboard's Done (or Search, Go) key, which ends editing and
+                        // puts the keyboard away. On a desktop the field keeps the focus, as on macOS.
+                        if (submitted && IsTouchMode())
+                            ClearFocus();
                         if (IsKeyPressed(Key::Escape, false))
                             ClearFocus();
                     }

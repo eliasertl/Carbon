@@ -97,7 +97,9 @@ gets stronger.
 
 Tapping the field starts editing and asks the host for the on-screen keyboard (`Callbacks.SetKeyboardVisible`);
 `Keyboard` chooses its kind (`KeyboardType::Text`, `Number`, `Email`, `URL`, `Search`). While a keyboard covers the
-bottom of the display, the field is scrolled above it. See [On-screen keyboard](../Mobile.md#on-screen-keyboard).
+bottom of the display, the field is scrolled above it. Return, which the keyboard's Done, Search or Go key sends,
+submits and ends editing in touch mode, so the keyboard goes away; with a mouse the field keeps the focus, as on
+macOS. See [On-screen keyboard](../Mobile.md#on-screen-keyboard).
 
 ## Keyboard
 
@@ -111,7 +113,7 @@ bottom of the display, the field is scrolled above it. See [On-screen keyboard](
 | Ctrl+A | Select all |
 | Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste through the host's clipboard callbacks |
 | Ctrl+Z, Ctrl+Shift+Z or Ctrl+Y | Undo, redo. A run of typing is one step. |
-| Enter | Submit: `IsItemSubmitted()` is true for this frame. The text and the focus stay. |
+| Enter | Submit: `IsItemSubmitted()` is true for this frame. The text and the focus stay (in touch mode editing ends). |
 | Escape | Give up focus |
 
 Ctrl is the default shortcut modifier; see [Keyboard navigation](../KeyboardNavigation.md).

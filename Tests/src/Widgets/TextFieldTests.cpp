@@ -488,6 +488,21 @@ namespace Carbon
         EXPECT_FALSE(GetIO().WantsTextInput());
     }
 
+    TEST_F(TextFieldTests, OnAPhoneReturnSubmitsAndEndsEditing)
+    {
+        // The on-screen keyboard's Done key arrives as Return: the field submits and gives up the focus, so that
+        // the host puts the keyboard away.
+        m_Text = "query";
+        Settle(Field());
+        Tap(m_Rect.GetCenter(), Field());
+        ASSERT_TRUE(GetIO().WantsTextInput());
+        TapKey(Key::Enter, Field());
+        EXPECT_EQ(m_Submits, 1);
+        EXPECT_EQ(m_Text, "query");
+        EXPECT_FALSE(GetFocusedID().IsValid());
+        EXPECT_FALSE(GetIO().WantsTextInput());
+    }
+
     TEST_F(TextFieldTests, MaxLengthLimitsTyping)
     {
         m_Options.MaxLength = 4;
