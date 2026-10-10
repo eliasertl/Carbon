@@ -26,6 +26,9 @@ namespace Carbon
         constexpr float IndicatorMargin = 2.0f;
         constexpr float IndicatorMinLength = 24.0f;
         constexpr float IndicatorHoverGrowth = 4.0f;
+        // The chevron that marks the column the rows are sorted by.
+        constexpr float SortIndicatorSize = 9.0f;
+        constexpr float SortIndicatorGap = 3.0f;
 
         using Internal::CellPadding;
         using Internal::ColumnLayout;
@@ -56,6 +59,8 @@ namespace Carbon
             /// rows are added; the width is applied when the next frame begins.
             int FitColumn;
             float FitWidth;
+            /// The column the header's keyboard focus is on, as a position on screen.
+            int FocusedPosition;
         };
 
         // The table whose rows are being added.
@@ -71,6 +76,12 @@ namespace Carbon
             float RowHeight;
             ID StateID;
             TableState* State;
+            /// The header's stop for Tab, in a table that sorts.
+            ID HeaderID;
+            TableSort Sort;
+            bool IsSorting;
+            /// The column whose header is held down, or -1.
+            int PressedColumn;
             /// The visible area of the rows, including their inset.
             Rect Viewport;
             /// The width of all columns together, the width they are shown in, and the displayed and largest
@@ -171,24 +182,101 @@ namespace Carbon
             return true;
         }
 
-        // The width a column needs for its title.
-        float MeasureTitle(const TableColumn& column)
+        // The width a column needs for its title, and for the sort indicator when the rows are sorted by it.
+        float MeasureTitle(const TableBuild& build, const TableColumn& column, int index)
         {
             TextSpec spec = GetTextSpec(TextStyle::Subheadline, true);
             spec.Wraps = false;
-            return MeasureText(column.Title, spec).X + CellPadding * 2.0f;
+            const bool isSorted = build.IsSorting && build.Sort.Column == index;
+            return MeasureText(column.Title, spec).X + CellPadding * 2.0f +
+                   (isSorted ? SortIndicatorSize + SortIndicatorGap : 0.0f);
         }
 
-        // The column dividers: dragging one resizes the column before it, double-clicking it fits that column to
-        // its content.
-        bool UpdateDividers(TableBuild& build, std::span<const TableColumn> columns, const TableOptions& options,
-                            const Rect& header, std::span<float> widths, std::span<const int> order)
+        // Sorts by a column, or flips the direction when the rows are sorted by it already.
+        void SortBy(TableSort& sort, int column, const TableColumn& declaration)
         {
+            if (sort.Column == column)
+            {
+                sort.Direction =
+                    sort.Direction == SortDirection::Ascending ? SortDirection::Descending : SortDirection::Ascending;
+            }
+            else
+            {
+                sort.Column = column;
+                sort.Direction = declaration.InitialSortDirection;
+            }
+        }
+
+        // Scrolls sideways just far enough to show a column completely.
+        void RevealColumn(const TableBuild& build, TableState& state, size_t column)
+        {
+            const ColumnLayout& layout = build.Columns[column];
+            if (layout.X < state.ScrollX)
+                state.ScrollX = layout.X;
+            else if (layout.X + layout.Width > state.ScrollX + build.VisibleWidth)
+                state.ScrollX = std::min(layout.X, layout.X + layout.Width - build.VisibleWidth);
+        }
+
+        // The header's interaction: clicking a column sorts by it, the keyboard moves between the columns and
+        // sorts, dragging a divider resizes the column before it, and double-clicking a divider fits that column
+        // to its content. Column X positions are not scrolled yet.
+        TableChanges UpdateHeader(TableBuild& build, std::span<const TableColumn> columns, const TableOptions& options,
+                                  const Rect& header, std::span<float> widths, std::span<const int> order)
+        {
+            TableChanges changes;
             TableState& state = *build.State;
-            bool changed = false;
+            const size_t count = order.size();
             DragBehaviorOptions behavior;
             behavior.Focusable = false;
             GetDrawList().PushClipRect(header);
+
+            // The header of a table that sorts is a stop for Tab of its own, before the rows.
+            if (build.IsSorting && count > 0)
+            {
+                RegisterFocusable(build.HeaderID, header);
+                state.FocusedPosition = std::clamp(state.FocusedPosition, 0, static_cast<int>(count) - 1);
+                if (IsFocused(build.HeaderID) && !IsDisabled())
+                {
+                    const int before = state.FocusedPosition;
+                    if (IsKeyPressed(Key::LeftArrow))
+                        state.FocusedPosition = std::max(state.FocusedPosition - 1, 0);
+                    if (IsKeyPressed(Key::RightArrow))
+                        state.FocusedPosition = std::min(state.FocusedPosition + 1, static_cast<int>(count) - 1);
+                    const int column = order[static_cast<size_t>(state.FocusedPosition)];
+                    if (state.FocusedPosition != before)
+                        RevealColumn(build, state, static_cast<size_t>(column));
+                    const bool isActivated = IsKeyPressed(Key::Space, false) || IsKeyPressed(Key::Enter, false) ||
+                                             IsKeyPressed(Key::KeypadEnter, false);
+                    if (isActivated && columns[static_cast<size_t>(column)].IsSortable)
+                    {
+                        SortBy(*options.Sort, column, columns[static_cast<size_t>(column)]);
+                        changes.SortChanged = true;
+                    }
+                }
+            }
+
+            // The columns themselves: a click sorts.
+            for (size_t position = 0; position < count; position++)
+            {
+                const int index = order[position];
+                const TableColumn& column = columns[static_cast<size_t>(index)];
+                if (!build.IsSorting || !column.IsSortable)
+                    continue;
+                const ColumnLayout& layout = build.Columns[index];
+                const Rect cell(header.X + RowInset + layout.X - build.ScrollX, header.Y, layout.Width, header.Height);
+                const DragInteraction drag =
+                    DragBehavior(HashID("##column", HashID(index, build.StateID)), cell, behavior);
+                if (drag.Active)
+                    build.PressedColumn = index;
+                if (drag.Ended && IsRectHovered(cell))
+                {
+                    SortBy(*options.Sort, index, column);
+                    changes.SortChanged = true;
+                    state.FocusedPosition = static_cast<int>(position);
+                }
+            }
+
+            // The dividers, after the columns so that they win the pointer where both are.
             for (const int index : order)
             {
                 const size_t column = static_cast<size_t>(index);
@@ -209,18 +297,21 @@ namespace Carbon
                         // Fitted once the rows have been measured; the header's title counts too.
                         state.FitColumn = index + 1;
                         build.MeasuredColumn = index;
-                        build.MeasuredWidth = MeasureTitle(columns[column]);
+                        build.MeasuredWidth = MeasureTitle(build, columns[column], index);
                     }
                 }
                 else if (drag.Active)
                 {
                     const float width =
                         std::max(state.ResizeStartWidth + drag.Total.X, std::max(columns[column].MinWidth, 0.0f));
-                    changed = StoreWidth(build.StateID, options, widths, column, width) || changed;
+                    changes.WidthsChanged =
+                        StoreWidth(build.StateID, options, widths, column, width) || changes.WidthsChanged;
                 }
             }
             GetDrawList().PopClipRect();
-            return changed;
+            if (changes.SortChanged)
+                build.Sort = *options.Sort;
+            return changes;
         }
 
         void DrawHeader(const TableBuild& build, std::span<const TableColumn> columns, const Rect& header,
@@ -232,19 +323,39 @@ namespace Carbon
             spec.Wraps = false;
             const Color titleColor = GetStyleColor(StyleColor::SecondaryLabel);
             const Color separator = GetStyleColor(StyleColor::Separator);
+            const bool isFocusVisible = build.IsSorting && IsFocusVisible(build.HeaderID);
             drawList.PushClipRect(header);
             for (size_t position = 0; position < order.size(); position++)
             {
-                const size_t column = static_cast<size_t>(order[position]);
-                const ColumnLayout& layout = build.Columns[column];
-                const float x = header.X + RowInset + layout.X;
-                if (x > header.GetRight() || x + layout.Width < header.X)
+                const int index = order[position];
+                const ColumnLayout& layout = build.Columns[index];
+                const Rect cell(header.X + RowInset + layout.X, header.Y, layout.Width, header.Height);
+                if (cell.X > header.GetRight() || cell.GetRight() < header.X)
                     continue;
-                spec.MaxWidth = std::max(layout.Width - CellPadding * 2.0f, 1.0f);
+                if (index == build.PressedColumn)
+                {
+                    drawList.AddSquircle(cell.Inset(EdgeInsets(1.0f, 2.0f)), GetStyleColor(StyleColor::ControlFill),
+                                         4.0f, GetStyleVar(StyleVar::CornerSmoothing));
+                }
+
+                // The sorted column shows a chevron at its trailing edge: up for ascending, down for descending.
+                float titleWidth = layout.Width - CellPadding * 2.0f;
+                if (build.IsSorting && build.Sort.Column == index)
+                {
+                    const std::string_view icon =
+                        build.Sort.Direction == SortDirection::Ascending ? Icons::CaretUp : Icons::CaretDown;
+                    const Vec2 center(cell.GetRight() - CellPadding - SortIndicatorSize * 0.5f, cell.GetCenter().Y);
+                    DrawIcon(drawList, center, icon, SortIndicatorSize, titleColor, IconVariant::Bold);
+                    titleWidth -= SortIndicatorSize + SortIndicatorGap;
+                }
+                spec.MaxWidth = std::max(titleWidth, 1.0f);
                 spec.Alignment = layout.Alignment;
-                DrawLabel(drawList, header, x + CellPadding, columns[column].Title, spec, titleColor);
+                DrawLabel(drawList, header, cell.X + CellPadding, columns[static_cast<size_t>(index)].Title, spec,
+                          titleColor);
                 if (position > 0)
-                    drawList.AddRect(Rect(x, header.Y + 5.0f, pixel, header.Height - 10.0f), separator);
+                    drawList.AddRect(Rect(cell.X, header.Y + 5.0f, pixel, header.Height - 10.0f), separator);
+                if (isFocusVisible && static_cast<int>(position) == build.State->FocusedPosition)
+                    DrawFocusRing(build.HeaderID, cell.Inset(EdgeInsets(2.0f, 3.0f)), 4.0f);
             }
             drawList.PopClipRect();
             drawList.AddRect(Rect(header.X, header.GetBottom() - pixel, header.Width, pixel), separator);
@@ -324,7 +435,12 @@ namespace Carbon
         build.RowHeight = options.RowHeight;
         build.ShowsAlternatingRows = options.ShowsAlternatingRows;
         build.MeasuredColumn = -1;
+        build.PressedColumn = -1;
         build.StateID = HashID("##table", GetID(id));
+        build.HeaderID = HashID("##header", build.StateID);
+        build.IsSorting = options.Sort != nullptr;
+        if (build.IsSorting)
+            build.Sort = *options.Sort;
         TableState& state = *GetState<TableState>(build.StateID, StateLifetime::Persistent);
         build.State = &state;
 
@@ -375,13 +491,15 @@ namespace Carbon
             ItemOptions item;
             item.Width = Size::Fill();
             header = AllocateItem(Vec2(0.0f, Internal::ColumnHeaderHeight), item);
-            if (UpdateDividers(build, columns, options, header, widths, order))
+            const TableChanges clicked = UpdateHeader(build, columns, options, header, widths, order);
+            changes.SortChanged = clicked.SortChanged;
+            if (clicked.WidthsChanged)
             {
                 changes.WidthsChanged = true;
                 build.ContentWidth = Internal::LayoutColumns(columns, build.VisibleWidth, layouts, widths, order);
                 build.MaxScrollX = std::max(build.ContentWidth - build.VisibleWidth, 0.0f);
-                state.ScrollX = std::clamp(state.ScrollX, 0.0f, build.MaxScrollX);
             }
+            state.ScrollX = std::clamp(state.ScrollX, 0.0f, build.MaxScrollX);
         }
         build.ScrollX = std::min(build.ScrollX, build.MaxScrollX);
         for (ColumnLayout& layout : layouts)

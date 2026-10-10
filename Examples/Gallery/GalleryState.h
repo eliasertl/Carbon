@@ -157,6 +157,9 @@ namespace Gallery
         int SelectedFile = 2;
         int SelectedTask = 1;
         int SelectedStation = 0;
+        Carbon::TableSort RainfallSort = {.Column = 0};
+        /// The rows of the rainfall table, in the order of RainfallSort.
+        std::vector<int> RainfallRows;
         bool TaskDone[6] = {true, false, false, true, false, false};
 
         // Tabs and split views.

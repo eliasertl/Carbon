@@ -49,6 +49,8 @@ selection.
 | `Alignment` | `TextAlignment` | `Leading` | Of the title and of text cells. Align numbers `Trailing`. |
 | `MinWidth` | `float` | 40 | The narrowest the column gets, by dragging or when Fill columns share little space |
 | `IsResizable` | `bool` | `true` | The user can drag the divider at the column's trailing edge, and double-click it to fit the column |
+| `IsSortable` | `bool` | `true` | Clicking the header sorts by the column, in a table with a `Sort` |
+| `InitialSortDirection` | `SortDirection` | `Ascending` | The direction of the first sort by the column. `Descending` suits dates and sizes |
 
 ## Table options
 
@@ -59,6 +61,7 @@ selection.
 | `RowHeight` | `float` | 24 | |
 | `ShowsHeader` | `bool` | `true` | |
 | `ShowsAlternatingRows` | `bool` | `true` | Tints every other row |
+| `Sort` | `TableSort*` | null | The application's sort. Makes the headers sortable; see [Sorting](#sorting) |
 | `ColumnWidths` | `std::span<float>` | empty | The application's storage for the widths the user gave the columns. See [Saving the arrangement](#saving-the-arrangement) |
 | `ColumnOrder` | `std::span<int>` | empty | The application's storage for the order of the columns |
 
@@ -76,6 +79,30 @@ selection.
 - A click on a widget inside a cell goes to the widget, not to the row.
 - A row with fewer cells than columns leaves the rest empty; more cells than columns is reported as an error.
 - Cells are submitted in the order of the `columns` array, whatever order the user has put the columns in.
+
+## Sorting
+
+Carbon does not sort your data. Keep a `TableSort` (the column to sort by, as an index into `columns`, and the
+direction), pass it as `TableOptions::Sort`, and submit your rows in that order. The table draws the sort indicator
+in the header, a chevron that points up for ascending and down for descending, and updates your `TableSort` when the
+user clicks a header: another column sorts by that column in its `InitialSortDirection`, the same column flips the
+direction. `BeginTable` reports `SortChanged` in that frame, so sort right after it:
+
+```cpp
+Carbon::TableSort sort = { .Column = 0 };              // kept by the application, like the selection
+
+const Carbon::TableChanges changes = Carbon::BeginTable("files", columns, { .Sort = &sort });
+if (changes.SortChanged)
+    std::ranges::sort(rows, [&](const File& a, const File& b) { return IsBefore(a, b, sort); });
+for (const File& file : rows)
+{
+    ...
+}
+Carbon::EndTable();
+```
+
+A column with `IsSortable = false` ignores clicks. Without a `Sort` the header is not interactive, apart from the
+dividers.
 
 ## Resizing and scrolling
 
@@ -141,7 +168,9 @@ so that the keyboard can move on from a selection that is not among the submitte
 
 | Key | Effect |
 | --- | --- |
-| Tab / Shift+Tab | Focus the table (one stop), then the widgets inside its cells |
+| Tab / Shift+Tab | Focus the header of a table that sorts, then the rows (one stop), then the widgets inside the cells |
+| Left / Right arrow | In the header: move between the columns |
+| Space / Enter | In the header: sort by the column, or flip the direction |
 | Up / Down arrow | Select the previous / next row |
 | Home / End | Select the first / last row |
 

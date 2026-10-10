@@ -1,9 +1,11 @@
 // The gallery's pages for the components of CarbonExtensions.
 
+#include <algorithm>
 #include <array>
 #include <format>
 #include <span>
 #include <string>
+#include <vector>
 
 #include "Pages.h"
 
@@ -69,6 +71,7 @@ namespace Gallery
             std::array<std::string, RainMonthCount> MonthTitles;
             std::array<TableColumn, RainMonthCount + 2> Columns;
             std::array<std::array<std::string, RainMonthCount + 1>, StationCount> Cells;
+            std::array<int, StationCount> Totals;
         };
 
         const RainfallTable& GetRainfallTable()
@@ -81,7 +84,7 @@ namespace Gallery
                 {
                     table.MonthTitles[month] = std::format("{} {}", Months[month % 12], 22 + month / 12);
                     table.Columns[month + 1] = {
-                        .Title = table.MonthTitles[month], .Width = 64.0f, .Alignment = TextAlignment::Trailing};
+                        .Title = table.MonthTitles[month], .Width = 72.0f, .Alignment = TextAlignment::Trailing};
                 }
                 table.Columns[RainMonthCount + 1] = {
                     .Title = "Total", .Width = 72.0f, .Alignment = TextAlignment::Trailing};
@@ -94,11 +97,35 @@ namespace Gallery
                         table.Cells[station][month] = std::format("{}", GetRainfall(station, month));
                     }
                     table.Cells[station][RainMonthCount] = std::format("{}", total);
+                    table.Totals[station] = total;
                 }
                 return true;
             }();
             (void)isReady;
             return table;
+        }
+
+        // Puts the stations in the order the table is sorted by, as an application sorts its own rows.
+        void SortStations(std::vector<int>& rows, TableSort sort)
+        {
+            rows.resize(StationCount);
+            for (size_t station = 0; station < StationCount; station++)
+                rows[station] = static_cast<int>(station);
+            const RainfallTable& table = GetRainfallTable();
+            const auto isBefore = [&](int left, int right)
+            {
+                const size_t a = static_cast<size_t>(left);
+                const size_t b = static_cast<size_t>(right);
+                if (sort.Column <= 0)
+                    return std::string_view(Stations[a]) < std::string_view(Stations[b]);
+                const size_t month = static_cast<size_t>(sort.Column - 1);
+                if (month < RainMonthCount)
+                    return GetRainfall(a, month) < GetRainfall(b, month);
+                return table.Totals[a] < table.Totals[b];
+            };
+            std::stable_sort(rows.begin(), rows.end(), isBefore);
+            if (sort.Direction == SortDirection::Descending)
+                std::reverse(rows.begin(), rows.end());
         }
 
         // A small file system for the outline and column views.
@@ -954,14 +981,17 @@ namespace Gallery
         EndSection();
 
         BeginSection("Data table",
-                     "Forty-two columns of monthly rainfall in millimeters. Drag a divider in the header to resize a "
-                     "column, double-click it to fit the column to its content, and scroll sideways with Shift "
-                     "and the wheel.");
+                     "Forty-two columns of monthly rainfall in millimeters. Click a header to sort by its column, "
+                     "drag a divider to resize a column and double-click it to fit the column to its content. "
+                     "Scroll sideways with Shift and the wheel.");
         const RainfallTable& rainfall = GetRainfallTable();
-        BeginTable("rainfall", rainfall.Columns, {.Height = 260.0f});
-        for (size_t station = 0; station < StationCount; station++)
+        const TableChanges changes =
+            BeginTable("rainfall", rainfall.Columns, {.Height = 260.0f, .Sort = &state.RainfallSort});
+        if (changes.SortChanged || state.RainfallRows.empty())
+            SortStations(state.RainfallRows, state.RainfallSort);
+        for (const int row : state.RainfallRows)
         {
-            const int row = static_cast<int>(station);
+            const size_t station = static_cast<size_t>(row);
             if (TableRow(row, row == state.SelectedStation))
                 state.SelectedStation = row;
             TableCell(Stations[station]);

@@ -9,6 +9,25 @@
 
 namespace Carbon
 {
+    /// The direction in which rows are sorted.
+    enum class SortDirection : uint8_t
+    {
+        /// Smallest first: A to Z, oldest first.
+        Ascending,
+        Descending
+    };
+
+    /// The column the rows of a table are sorted by. The application owns it and sorts its rows; the table shows
+    /// it in the header and changes it when the user clicks a column header.
+    struct TableSort
+    {
+        /// An index into the table's columns, as declared (not as shown), or -1 when the rows are not sorted.
+        int Column = -1;
+        SortDirection Direction = SortDirection::Ascending;
+
+        constexpr bool operator==(const TableSort& other) const = default;
+    };
+
     /// One column of a table.
     struct TableColumn
     {
@@ -22,6 +41,11 @@ namespace Carbon
         /// The user can drag the divider at the column's trailing edge to resize it, and double-click it to fit
         /// the column to its content.
         bool IsResizable = true;
+        /// Clicking the header sorts the rows by this column, in a table that has a TableOptions::Sort.
+        bool IsSortable = true;
+        /// The direction of the first sort by this column; another click flips it. Descending suits dates and
+        /// sizes, where the newest or largest usually matter most.
+        SortDirection InitialSortDirection = SortDirection::Ascending;
     };
 
     /// Per-call options of BeginTable. All fields are optional.
@@ -34,6 +58,10 @@ namespace Carbon
         bool ShowsHeader = true;
         /// Tints every other row, which helps the eye follow a row across many columns.
         bool ShowsAlternatingRows = true;
+        /// The column the rows are sorted by. Pass the application's sort to make the headers sortable: the table
+        /// shows the sort indicator and updates it when the user clicks a header. Sort the rows by it before you
+        /// add them. Null for a table whose headers do not sort.
+        TableSort* Sort = nullptr;
         /// The width of each column in points, by column index, for an application that keeps the user's widths
         /// (to save them, or to set them): one entry per column, 0 for a column that keeps its declared Width.
         /// The table writes the width the user drags or fits. Leave it empty to let Carbon remember the widths.
@@ -48,6 +76,8 @@ namespace Carbon
     /// the storage of TableOptions; this tells an application that saves it when to do so.
     struct TableChanges
     {
+        /// The user chose another column to sort by, or flipped the direction: sort the rows again.
+        bool SortChanged = false;
         /// A column was resized: dragged or fitted to its content.
         bool WidthsChanged = false;
         /// The columns were rearranged.
@@ -83,7 +113,16 @@ namespace Carbon
     /// double-click on the divider. A column whose width the user has set keeps that width; the Fill columns
     /// share what is left.
     ///
-    /// The table is one stop for Tab; with focus, the up and down arrow keys, Home and End move the selection.
+    /// Sorting is the application's: Carbon reports which column to sort by and in which direction, and the
+    /// application submits its rows in that order.
+    ///
+    ///     Carbon::TableSort sort = { .Column = 0 };     // kept by the application
+    ///     if (Carbon::BeginTable("files", columns, { .Sort = &sort }).SortChanged)
+    ///         SortFiles(files, sort);
+    ///
+    /// The table is one stop for Tab; with focus, the up and down arrow keys, Home and End move the selection. A
+    /// table that sorts has a second stop before it, its header: the left and right arrow keys move between the
+    /// columns, and Space or Enter sorts by the column.
     TableChanges BeginTable(std::string_view id, std::span<const TableColumn> columns,
                             const TableOptions& options = {});
     void EndTable();

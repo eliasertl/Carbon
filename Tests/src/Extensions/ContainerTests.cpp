@@ -353,9 +353,10 @@ namespace Carbon
         {
             return [this]
             {
-                const TableColumn columns[] = {{.Title = "Done", .Width = 100.0f},
-                                               {.Title = "Name"},
-                                               {.Title = "Size", .Width = Size::Fill(2.0f)}};
+                const TableColumn columns[] = {
+                    {.Title = "Done", .Width = 100.0f, .IsSortable = false},
+                    {.Title = "Name"},
+                    {.Title = "Size", .Width = Size::Fill(2.0f), .InitialSortDirection = SortDirection::Descending}};
                 TableOptions options;
                 options.Width = 400.0f;
                 options.Height = 200.0f;
@@ -365,9 +366,12 @@ namespace Carbon
                     options.ColumnWidths = m_Widths;
                     options.ColumnOrder = m_Order;
                 }
+                if (m_IsSorting)
+                    options.Sort = &m_Sort;
                 const TableChanges changes = BeginTable("table", columns, options);
                 m_WidthsChanged = m_WidthsChanged || changes.WidthsChanged;
                 m_OrderChanged = m_OrderChanged || changes.OrderChanged;
+                m_SortChanges += changes.SortChanged ? 1 : 0;
                 for (int i = 0; i < 3; i++)
                 {
                     if (TableRow(i, i == m_Selected))
@@ -405,6 +409,9 @@ namespace Carbon
         bool m_HasArrangement = false;
         float m_Widths[3] = {0.0f, 0.0f, 0.0f};
         int m_Order[3] = {0, 1, 2};
+        bool m_IsSorting = false;
+        TableSort m_Sort;
+        int m_SortChanges = 0;
         bool m_WidthsChanged = false;
         bool m_OrderChanged = false;
         std::string_view m_SizeText = "42 KB";
@@ -564,6 +571,66 @@ namespace Carbon
         EXPECT_EQ(m_Order[0], 0);
         EXPECT_EQ(m_Order[1], 1);
         EXPECT_EQ(m_Order[2], 2);
+    }
+
+    TEST_F(TableTests, ClickingAHeaderSortsByItsColumn)
+    {
+        m_IsSorting = true;
+        Settle(Interface());
+        // Name: from 105 to 105 + 96.7; Size after it.
+        Click(Vec2(150.0f, 12.0f), Interface());
+        EXPECT_EQ(m_Sort, (TableSort{.Column = 1, .Direction = SortDirection::Ascending}));
+        EXPECT_EQ(m_SortChanges, 1);
+        Click(Vec2(150.0f, 12.0f), Interface());
+        EXPECT_EQ(m_Sort, (TableSort{.Column = 1, .Direction = SortDirection::Descending}));
+        EXPECT_EQ(m_SortChanges, 2);
+
+        // A column starts in its own direction.
+        Click(Vec2(300.0f, 12.0f), Interface());
+        EXPECT_EQ(m_Sort, (TableSort{.Column = 2, .Direction = SortDirection::Descending}));
+
+        // A column that does not sort ignores the click, and so does a press that ends elsewhere.
+        Click(Vec2(50.0f, 12.0f), Interface());
+        EXPECT_EQ(m_Sort.Column, 2);
+        Drag(Vec2(150.0f, 12.0f), Vec2(150.0f, 120.0f), Interface());
+        EXPECT_EQ(m_Sort.Column, 2);
+        EXPECT_EQ(m_SortChanges, 3);
+        EXPECT_EQ(m_Selected, -1) << "clicks on the header do not reach the rows";
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(TableTests, AHeaderWithoutSortIsNotInteractive)
+    {
+        Settle(Interface());
+        Click(Vec2(150.0f, 12.0f), Interface());
+        EXPECT_EQ(m_SortChanges, 0);
+        // Without sorting, the header is no stop for Tab: the rows are the first.
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 0);
+    }
+
+    TEST_F(TableTests, TheKeyboardSortsFromTheHeader)
+    {
+        m_IsSorting = true;
+        Settle(Interface());
+        // The header is the first stop for Tab; the left and right arrows move between its columns.
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::RightArrow, Interface());
+        TapKey(Key::Space, Interface());
+        EXPECT_EQ(m_Sort, (TableSort{.Column = 1, .Direction = SortDirection::Ascending}));
+        TapKey(Key::Enter, Interface());
+        EXPECT_EQ(m_Sort, (TableSort{.Column = 1, .Direction = SortDirection::Descending}));
+        TapKey(Key::RightArrow, Interface());
+        TapKey(Key::RightArrow, Interface());
+        TapKey(Key::Space, Interface());
+        EXPECT_EQ(m_Sort.Column, 2);
+        EXPECT_EQ(m_Selected, -1) << "the rows did not have focus";
+
+        // The next stop is the rows.
+        TapKey(Key::Tab, Interface());
+        TapKey(Key::DownArrow, Interface());
+        EXPECT_EQ(m_Selected, 0);
     }
 
     TEST_F(TableTests, ManyColumnsScrollSideways)
