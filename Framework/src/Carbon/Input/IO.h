@@ -67,6 +67,17 @@ namespace Carbon
         /// Queues the end of a composition without any text: the user abandoned it.
         void AddCompositionCancelEvent();
 
+        /// Queues files dragged over the display area from outside the application (from the system's file
+        /// manager), at a position in points: call it whenever the drag moves. Carbon treats it as a drag of
+        /// FilesPayloadType (Carbon/Interaction/DragDrop.h), so that drop targets for files highlight under it.
+        /// Optional: a host that learns about files only when they are dropped calls AddFileDropEvent alone.
+        void AddFileDragEvent(float x, float y, std::span<const std::string_view> paths);
+        /// Queues the end of a drag of files without a drop: they left the display area, or the user cancelled.
+        void AddFileDragLeaveEvent();
+        /// Queues files dropped onto the display area at a position in points (UTF-8 paths). The drop target for
+        /// files under that position receives them during the frame after the next.
+        void AddFileDropEvent(float x, float y, std::span<const std::string_view> paths);
+
         /// The modifier used for shortcuts such as copy and paste. Ctrl by default; a host may choose Super.
         void SetShortcutModifier(KeyModifiers modifier) { m_ShortcutModifier = modifier; }
         KeyModifiers GetShortcutModifier() const { return m_ShortcutModifier; }
@@ -86,6 +97,9 @@ namespace Carbon
         /// focus: the pre-edit text was inserted as it stood. The host cancels the input method's composition so
         /// that it does not commit the same text again.
         bool WantsCompositionCancel() const { return m_WantsCompositionCancel; }
+
+    private:
+        void AddFileEvent(InputEventType type, Vec2 position, std::span<const std::string_view> paths);
 
     private:
         friend struct Internal::InputState;

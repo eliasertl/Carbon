@@ -105,6 +105,7 @@ namespace Carbon
         Internal::BeginLayout(context);
         Internal::BeginOverlays(context);
         Internal::BeginInteraction(context);
+        Internal::BeginDragDrop(context);
         context.IsInFrame = true;
     }
 
@@ -115,6 +116,7 @@ namespace Carbon
         if (!context.IsInFrame)
             return;
 
+        Internal::EndDragDrop(context);
         Internal::EndInteraction(context);
         Internal::EndLayout(context);
         Internal::EndOverlays(context);

@@ -728,6 +728,12 @@ bool IsRectHovered(const Rect& rect);   void SetLastItem(ID id, const Rect& rect
 void PushDisabled(bool disabled = true);   void PopDisabled();   bool IsDisabled();   void SetCursor(Cursor cursor);
 bool IsKeyPressed(Key key, bool repeat = true);   Vec2 GetMousePos();   // ... Input.h
 
+// Drag and drop (Interaction/DragDrop.h; Docs/DragAndDrop.md)
+bool BeginDragSource(const DragSourceOptions& = {});   bool BeginDragSource(ID id, const Rect& rect, ...);
+void SetDragPayload(std::string_view type, std::span<const std::byte> data);   void EndDragSource();
+Drop AcceptDrop(std::string_view type, ...);   Drop AcceptDrop(ID id, const Rect& rect, std::string_view type, ...);
+bool IsDragging();   DragPayload GetDragPayload();   ID GetDragSourceID();   void CancelDrag();
+
 // Focus
 void RegisterFocusable(ID id, const Rect& rect);
 bool IsFocused(ID id);   bool IsFocusVisible(ID id);   void SetFocus(ID id, bool showRing = false);   void ClearFocus();
@@ -983,6 +989,7 @@ is built from. Two CTest cases (`PublicApiBoundary.*`) scan the sources of `Exte
 | 142 | `BuildState::Begin()` looks the build state up afresh in each component's Begin call. A context created after another was destroyed can reuse its address and frame numbers, and the cached pointer was then stale. | Found by tests that create a context per test |
 | 143 | Table sorting is owned by the application: `TableOptions::Sort` points at its `TableSort` (declared column index and direction), which the table changes on header clicks and reports with `TableChanges::SortChanged`. A table that sorts makes its header a Tab stop of its own before the rows (arrows move between columns, Space or Enter sort, the shortcut modifier with the arrows moves a column), so that sorting works without a mouse while the rows keep their single stop. Tables that do not sort keep a single stop. | Carbon never sees the data, as with the selection; the header needs keyboard access, and a stop per column would bloat Tab navigation in wide tables |
 | 144 | A column is moved by dragging its header past a 4-point threshold (less is a click). The order changes live while the column follows the pointer, and every column that changes its place slides there from where it is drawn (a per-column offset, set with `SetAnimationValue` and animated to zero on a spring). The order is written to the application's storage and reported only on drop. While a column floats, the cells of the others are clipped out of its band so that it reads like the opaque column image macOS drags. | Cells keep their declared submission order, so moving columns needs no application code; reporting on drop gives the application one stable change |
+| 145 | Drag and drop is part of the core (`Carbon/Interaction/DragDrop.h`), since host file drops arrive through `IO` and scroll views auto-scroll during drags. A drag source is an item that holds the pointer (`BeginDragSource()` after it) or any rectangle (`BeginDragSource(id, rect)`, which takes a press no inner item took). Once past a 4-point threshold the drag holds the pointer under an ID of its own, so it outlives its source (a row scrolled away or collapsed) and nothing else reacts meanwhile. Payloads are a type string and copied bytes, kept in storage that is reused between drags. Targets compete during a frame (highest layer, then smallest visible area) and the winner gets the drag in the next frame, like hover; the drop is delivered to the target that was hovered when the button went up. Escape and losing focus cancel. The preview is a floating stack in the tooltip layer at 85 % opacity, placed so the pointer keeps the point where the source was grabbed. | Matches the immediate-mode hover model and needs no callbacks; typed payloads let targets filter without knowing sources; no per-frame allocations once dragging |
 
 HIG sources read for this plan (macOS guidance): Typography, Color, Dark Mode, Layout, Motion, Accessibility,
 Designing for macOS, Buttons, Toggles, Sliders, Text fields, Sidebars, Tab views, Segmented controls, Menus,

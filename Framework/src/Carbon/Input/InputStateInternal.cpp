@@ -1,5 +1,6 @@
 #include "Carbon/Input/InputStateInternal.h"
 
+#include <algorithm>
 #include <cmath>
 
 #include "Carbon/Core/UTF8.h"
@@ -37,6 +38,7 @@ namespace Carbon::Internal
         KeyReleased.fill(false);
         Characters.clear();
         CompositionChanged = false;
+        FileDrag.IsDropped = false;
 
         bool mouseMoved = false;
         bool textEntered = false;
@@ -161,6 +163,24 @@ namespace Carbon::Internal
                     textEntered = true;
                     break;
                 }
+                case InputEventType::FileDrag:
+                case InputEventType::FileDrop:
+                {
+                    // Files over the display bring the pointer with them: the host gets no mouse events meanwhile.
+                    HasMousePos = true;
+                    MousePos = event.Value;
+                    mouseMoved = true;
+                    FileDrag.IsOver = event.Type == InputEventType::FileDrag;
+                    FileDrag.IsDropped = event.Type == InputEventType::FileDrop;
+                    FileDrag.SetPaths(std::string_view(io.m_EventText).substr(event.TextStart, event.TextLength),
+                                      event.ClauseCount);
+                    break;
+                }
+                case InputEventType::FileDragLeave:
+                {
+                    FileDrag.IsOver = false;
+                    break;
+                }
                 case InputEventType::Focus:
                 {
                     Focused = event.Down;
@@ -212,6 +232,19 @@ namespace Carbon::Internal
         // Shift turns a plain wheel sideways, as macOS does for every application.
         if (HasModifiers(Modifiers, KeyModifiers::Shift) && MouseWheel.X == 0.0f)
             MouseWheel = Vec2(MouseWheel.Y, 0.0f);
+    }
+
+    void FileDragState::SetPaths(std::string_view text, size_t count)
+    {
+        Paths.assign(text);
+        Files.clear();
+        size_t start = 0;
+        for (size_t i = 0; i < count && start <= Paths.size(); i++)
+        {
+            const size_t end = std::min(Paths.find('\0', start), Paths.size());
+            Files.emplace_back(Paths.data() + start, end - start);
+            start = end + 1;
+        }
     }
 
     void CompositionState::Clear()

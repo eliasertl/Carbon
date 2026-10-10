@@ -169,6 +169,39 @@ namespace Carbon
         m_Events.push_back(event);
     }
 
+    void IO::AddFileDragEvent(float x, float y, std::span<const std::string_view> paths)
+    {
+        AddFileEvent(InputEventType::FileDrag, Vec2(x, y), paths);
+    }
+
+    void IO::AddFileDragLeaveEvent()
+    {
+        InputEvent event;
+        event.Type = InputEventType::FileDragLeave;
+        m_Events.push_back(event);
+    }
+
+    void IO::AddFileDropEvent(float x, float y, std::span<const std::string_view> paths)
+    {
+        AddFileEvent(InputEventType::FileDrop, Vec2(x, y), paths);
+    }
+
+    void IO::AddFileEvent(InputEventType type, Vec2 position, std::span<const std::string_view> paths)
+    {
+        InputEvent event;
+        event.Type = type;
+        event.Value = position;
+        event.TextStart = static_cast<uint32_t>(m_EventText.size());
+        for (const std::string_view path : paths)
+        {
+            m_EventText.append(path);
+            m_EventText.push_back('\0');
+        }
+        event.TextLength = static_cast<uint32_t>(m_EventText.size()) - event.TextStart;
+        event.ClauseCount = static_cast<uint32_t>(paths.size());
+        m_Events.push_back(event);
+    }
+
     IO& GetIO()
     {
         return Internal::GetContext().HostIO;

@@ -191,6 +191,11 @@ field can turn off its bezel (`IsBezeled`), take the keys for a while (`AcceptsI
 Check your arguments with `CB_VERIFY(condition, "message {}", value)`. It reports through the host's log and
 assert callbacks in every build type and lets the frame continue, so return early afterwards.
 
+## Drag and drop
+
+A component becomes a drag source with `BeginDragSource` and a drop target with `AcceptDrop`; see
+[Drag and drop](DragAndDrop.md). List and OutlineView in CarbonExtensions reorder their rows with nothing else.
+
 ## Overlays
 
 Components that open something above the interface (a menu, a picker) use the overlay functions:

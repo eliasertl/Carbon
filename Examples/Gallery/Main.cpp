@@ -43,6 +43,7 @@ namespace Gallery
             {Page::Progress, "Progress", "progress", Icons::CircleNotch},
             {Page::Lists, "Lists and Tables", "lists", Icons::Table},
             {Page::Hierarchies, "Outlines and Columns", "hierarchies", Icons::TreeStructure},
+            {Page::DragAndDrop, "Drag and Drop", "draganddrop", Icons::HandGrabbing},
             {Page::Navigation, "Tabs and Split Views", "navigation", Icons::Columns},
             {Page::Charts, "Charts", "charts", Icons::ChartBar},
 #if defined(CARBON_GALLERY_HAVE_REFLECTION)
@@ -134,6 +135,9 @@ namespace Gallery
                     break;
                 case Page::Hierarchies:
                     HierarchiesPage(state);
+                    break;
+                case Page::DragAndDrop:
+                    DragDropPage(state);
                     break;
                 case Page::Progress:
                     ProgressPage(state);

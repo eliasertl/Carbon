@@ -45,6 +45,8 @@ namespace Gallery
     void ProgressPage(GalleryState& state);
     void ListsPage(GalleryState& state);
     void HierarchiesPage(GalleryState& state);
+    // Drag and drop (DragDropPage.cpp).
+    void DragDropPage(GalleryState& state);
     void NavigationPage(GalleryState& state);
     void ChartsPage(GalleryState& state);
 #if defined(CARBON_GALLERY_HAVE_REFLECTION)

@@ -4,6 +4,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "Carbon/Core/Vec2.h"
@@ -35,6 +36,21 @@ namespace Carbon::Internal
 
         /// Ends the composition. Keeps the storage, so composing does not allocate once it has grown.
         void Clear();
+    };
+
+    /// Files from outside the application, dragged over the display or dropped onto it.
+    struct FileDragState
+    {
+        /// Files are being dragged over the display (FileDrag events), until they leave or are dropped.
+        bool IsOver = false;
+        /// Files were dropped this frame.
+        bool IsDropped = false;
+        /// The paths, one after the other with a zero byte after each, and views of them.
+        std::string Paths;
+        std::vector<std::string_view> Files;
+
+        /// Takes the paths of a FileDrag or FileDrop event from the IO object's queue.
+        void SetPaths(std::string_view text, size_t count);
     };
 
     /// The input state of one frame, built in NewFrame from the events the host queued on the IO object.
@@ -80,6 +96,8 @@ namespace Carbon::Internal
         CompositionState Composition;
         /// A composition event arrived this frame.
         bool CompositionChanged = false;
+        /// Files dragged in from outside the application.
+        FileDragState FileDrag;
         bool Focused = true;
     };
 } // namespace Carbon::Internal

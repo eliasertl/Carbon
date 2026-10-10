@@ -23,6 +23,9 @@ namespace Carbon
         constexpr float IndicatorMinLength = 24.0f;
         // How much wider the indicator gets while the pointer is over its lane.
         constexpr float IndicatorHoverGrowth = 4.0f;
+        // During a drag, the pointer this close to an edge scrolls the view, up to this fast in points per second.
+        constexpr float AutoScrollZone = 32.0f;
+        constexpr float AutoScrollSpeed = 900.0f;
 
         // Survives while the scroll view is hidden, so returning to a view finds it where it was left.
         struct ScrollState
@@ -117,6 +120,28 @@ namespace Carbon
         const Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
 
         const Rect viewport(frame.Origin, frame.ResolvedSize);
+        // Something dragged near an edge of the view under the pointer scrolls it, the faster the closer it gets.
+        if (Internal::IsDragActive(context) && context.Layout.HoveredScrollView == scrollID &&
+            context.Input.HasMousePos)
+        {
+            const float pointer = isVertical ? context.Input.MousePos.Y : context.Input.MousePos.X;
+            const float start = isVertical ? viewport.Y : viewport.X;
+            const float length = isVertical ? viewport.Height : viewport.Width;
+            const float zone = std::min(AutoScrollZone, length * 0.25f);
+            float depth = 0.0f;
+            if (zone > 0.0f && pointer < start + zone)
+                depth = -std::min((start + zone - pointer) / zone, 1.0f);
+            else if (zone > 0.0f && pointer > start + length - zone)
+                depth = std::min((pointer - (start + length - zone)) / zone, 1.0f);
+            float& offset = isVertical ? state.Offset.Y : state.Offset.X;
+            const float limit = isVertical ? state.MaxOffset.Y : state.MaxOffset.X;
+            if ((depth < 0.0f && offset > 0.0f) || (depth > 0.0f && offset < limit))
+            {
+                offset = std::clamp(offset + depth * AutoScrollSpeed * context.DeltaTime, 0.0f, limit);
+                state.IdleTime = 0.0f;
+                context.IsAnimatingThisFrame = true;
+            }
+        }
         context.Draw.PushClipRect(viewport);
         // A scroll view covered by an overlay gets neither the wheel nor the page keys.
         if (IsRectHovered(viewport))

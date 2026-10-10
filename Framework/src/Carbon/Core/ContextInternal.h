@@ -13,6 +13,7 @@
 #include "Carbon/Draw/DrawList.h"
 #include "Carbon/Input/IO.h"
 #include "Carbon/Input/InputStateInternal.h"
+#include "Carbon/Interaction/DragDropInternal.h"
 #include "Carbon/Interaction/InteractionInternal.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Overlay/OverlayInternal.h"
@@ -49,6 +50,7 @@ namespace Carbon
         Internal::LayoutState Layout;
         Internal::InteractionState Interaction;
         Internal::OverlayState Overlays;
+        Internal::DragDropState DragDrop;
         Internal::TextEditState TextEdit;
 
         /// Reused by widgets that have to compose a string, so steady-state frames do not allocate.

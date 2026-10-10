@@ -1,5 +1,6 @@
 set(gallery_sources
     CorePages.cpp
+    DragDropPage.cpp
     ExtensionPages.cpp
     GalleryState.h
     Main.cpp

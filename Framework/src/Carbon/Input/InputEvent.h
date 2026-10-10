@@ -22,7 +22,10 @@ namespace Carbon
         CompositionStart,
         CompositionUpdate,
         CompositionCommit,
-        CompositionCancel
+        CompositionCancel,
+        FileDrag,
+        FileDragLeave,
+        FileDrop
     };
 
     /// A clause of an input method's composition: a run of the pre-edit text that the input method converts as a
@@ -39,7 +42,7 @@ namespace Carbon
     struct InputEvent
     {
         InputEventType Type = InputEventType::MousePos;
-        /// MousePos: the position in points. MouseWheel: the scroll amount in lines.
+        /// MousePos, FileDrag and FileDrop: the position in points. MouseWheel: the scroll amount in lines.
         Vec2 Value;
         MouseButton Button = MouseButton::Left;
         Key KeyCode = Key::None;
@@ -47,7 +50,8 @@ namespace Carbon
         bool Down = false;
         char32_t Character = 0;
         /// CompositionUpdate and CompositionCommit: where the text, and the clauses of an update, are stored in
-        /// the IO object's queue, and the caret as a byte offset into the text.
+        /// the IO object's queue, and the caret as a byte offset into the text. FileDrag and FileDrop: where the
+        /// paths are stored, one after the other with a zero byte after each, and ClauseCount is their number.
         uint32_t TextStart = 0;
         uint32_t TextLength = 0;
         uint32_t ClauseStart = 0;

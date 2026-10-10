@@ -44,6 +44,7 @@ set(CARBON_PUBLIC_HEADERS
     src/Carbon/Input/InputEvent.h
     src/Carbon/Input/Key.h
     src/Carbon/Input/MouseButton.h
+    src/Carbon/Interaction/DragDrop.h
     src/Carbon/Interaction/Interaction.h
     src/Carbon/Layout/Grid.h
     src/Carbon/Layout/Layout.h
@@ -83,6 +84,7 @@ set(CARBON_INTERNAL_HEADERS
     src/Carbon/Core/ContextInternal.h
     src/Carbon/Core/StateStorageInternal.h
     src/Carbon/Input/InputStateInternal.h
+    src/Carbon/Interaction/DragDropInternal.h
     src/Carbon/Interaction/InteractionInternal.h
     src/Carbon/Layout/LayoutInternal.h
     src/Carbon/Overlay/OverlayInternal.h
@@ -113,6 +115,7 @@ set(CARBON_SOURCES
     src/Carbon/Input/IO.cpp
     src/Carbon/Input/Input.cpp
     src/Carbon/Input/InputStateInternal.cpp
+    src/Carbon/Interaction/DragDrop.cpp
     src/Carbon/Interaction/Interaction.cpp
     src/Carbon/Layout/Grid.cpp
     src/Carbon/Layout/Layout.cpp

@@ -32,6 +32,7 @@
 #include "Carbon/Input/Input.h"
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
+#include "Carbon/Interaction/DragDrop.h"
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Overlay/Overlay.h"
 

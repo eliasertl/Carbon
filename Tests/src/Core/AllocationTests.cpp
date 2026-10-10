@@ -313,6 +313,42 @@ namespace Carbon
         EXPECT_NE(notes.find("abc"), std::string::npos);
     }
 
+    TEST_F(AllocationTests, DraggingDoesNotAllocateInSteadyState)
+    {
+        int delivered = 0;
+        const auto build = [&]
+        {
+            if (BeginDragSource(GetID("card"), Rect(10.0f, 10.0f, 100.0f, 40.0f)))
+            {
+                SetDragPayload("Task", 7);
+                Text("Moving a task");
+                EndDragSource();
+            }
+            if (AcceptDrop(GetID("bin"), Rect(300.0f, 10.0f, 200.0f, 200.0f), "Task").IsDelivered)
+                delivered++;
+        };
+        MoveMouse(Vec2(50.0f, 30.0f), build);
+        GetIO().AddMouseButtonEvent(MouseButton::Left, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddMousePosEvent(400.0f, 100.0f);
+        CountAllocationsOfOneFrame(build, 5);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 10), 0u);
+        GetIO().AddMousePosEvent(420.0f, 120.0f);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 0), 0u) << "moving the drag";
+        GetIO().AddMouseButtonEvent(MouseButton::Left, false);
+        CountAllocationsOfOneFrame(build, 0);
+        EXPECT_EQ(delivered, 1);
+
+        // A second drag reuses the storage of the first.
+        GetIO().AddMousePosEvent(50.0f, 30.0f);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddMouseButtonEvent(MouseButton::Left, true);
+        CountAllocationsOfOneFrame(build, 1);
+        GetIO().AddMousePosEvent(400.0f, 100.0f);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 10), 0u);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
     TEST_F(AllocationTests, ComposingDoesNotAllocateInSteadyState)
     {
         std::string notes = "Some notes";

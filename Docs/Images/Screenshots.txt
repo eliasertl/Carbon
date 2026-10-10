@@ -16,6 +16,7 @@ Gallery-Dark.png                  WebGPU/Gallery  --page selection --theme dark
 Gallery-Lists-Light.png           WebGPU/Gallery  --page lists
 Gallery-Charts-Dark.png           WebGPU/Gallery  --page charts --theme dark
 WebGPUMinimal-Light.png           WebGPU/Minimal
+DragAndDrop-Light.png             WebGPU/Gallery  --page draganddrop --section draganddrop --pointer 60x60 --drag 400x110
 CustomComponent-Light.png         WebGPU/CustomComponent
 CustomTitleBar-Dark.png           WebGPU/CustomTitleBar  --theme dark --pointer 878x20
 InputMethod-Light.png             WebGPU/Gallery  --page textfields --section textfields --click 300x70 --compose '\u65E5\u672C\u8A9E|\u3092|\u5165\u529B\u3057\u307E\u3059'

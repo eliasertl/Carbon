@@ -30,6 +30,7 @@ namespace Gallery
         Progress,
         Lists,
         Hierarchies,
+        DragAndDrop,
         Navigation,
         Charts,
 #if defined(CARBON_GALLERY_HAVE_REFLECTION)
@@ -166,6 +167,9 @@ namespace Gallery
         std::array<int, 42> RainfallOrder = {};
         int RainfallArrangementChanges = 0;
         bool TaskDone[6] = {true, false, false, true, false, false};
+
+        // Drag and drop: the box each tag is in.
+        std::array<int, 6> TagBoxes = {0, 0, 1, 0, 1, 0};
 
         // Tabs and split views.
         int Tab = 0;
