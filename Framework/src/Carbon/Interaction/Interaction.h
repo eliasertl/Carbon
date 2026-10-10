@@ -39,7 +39,9 @@ namespace Carbon
         bool Focusable = true;
         /// Ignores all input.
         bool Disabled = false;
-        /// Activates when the button goes down instead of when it is released (menu items, steppers).
+        /// Activates when the button goes down instead of when it is released (menu items, steppers). With a finger
+        /// it activates when the finger lifts, unless it repeats, so that a touch that turns into a scroll activates
+        /// nothing.
         bool ActivateOnPress = false;
         /// While held, activates again and again like a held key (steppers).
         bool Repeat = false;
@@ -74,6 +76,10 @@ namespace Carbon
     {
         bool Focusable = true;
         bool Disabled = false;
+        /// With a finger, the drag begins only after a long press, and a finger that moves before that scrolls
+        /// instead (a table's column headers, which a finger also swipes to scroll sideways). Until then the item
+        /// is pressed but not Active; lifting the finger reports Ended, like a tap.
+        bool WaitsForLongPress = false;
     };
 
     /// Makes `rect` draggable: pressing it captures the pointer until the button is released, wherever the

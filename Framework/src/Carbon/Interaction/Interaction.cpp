@@ -283,6 +283,9 @@ namespace Carbon
             RegisterFocusable(id, rect);
 
         result.Hovered = Internal::UpdateHover(context, id, rect);
+        // With a finger, what activates on press with a mouse activates when the finger lifts: a touch that becomes
+        // a scroll must not have picked anything. Repeating buttons keep reacting at once.
+        const bool activatesOnPress = options.ActivateOnPress && (!input.IsPointerTouch || options.Repeat);
 
         if (result.Hovered && input.MousePressed[LeftButton] && !state.ActiveID.IsValid())
         {
@@ -292,7 +295,7 @@ namespace Carbon
             if (options.Focusable)
                 GiveFocus(context, id, false);
             result.DoubleClicked = input.MouseClickCount[LeftButton] == 2;
-            if (options.ActivateOnPress)
+            if (activatesOnPress)
                 result.Clicked = true;
             if (options.Repeat)
                 *GetState<float>(HashID("##repeat", id), StateLifetime::Transient) = 0.0f;
@@ -312,7 +315,7 @@ namespace Carbon
             {
                 // Released. Losing the host window's focus, or the system cancelling a touch, also releases the
                 // button, but must not activate.
-                if (isOver && !options.ActivateOnPress && input.MouseReleased[LeftButton] && input.Focused &&
+                if (isOver && !activatesOnPress && input.MouseReleased[LeftButton] && input.Focused &&
                     !input.IsPointerCancelled)
                     result.Clicked = true;
                 state.ActiveID = ID();
@@ -378,13 +381,30 @@ namespace Carbon
         if (result.Hovered && input.MousePressed[LeftButton] && !state.ActiveID.IsValid())
         {
             state.ActiveID = id;
-            state.IsActiveDrag = true;
+            // A finger that has to rest first holds the item without dragging it, and may still scroll.
+            state.IsActiveDrag = !(options.WaitsForLongPress && input.IsPointerTouch);
             if (options.Focusable)
                 GiveFocus(context, id, false);
-            result.Started = true;
+            result.Started = state.IsActiveDrag;
         }
 
-        if (state.ActiveID == id)
+        if (state.ActiveID == id && !state.IsActiveDrag)
+        {
+            state.IsActiveAlive = true;
+            result.Total = input.MousePos - input.MousePressedPos[LeftButton];
+            if (!input.MouseDown[LeftButton])
+            {
+                result.Ended = true;
+                state.ActiveID = ID();
+            }
+            else if (context.Gestures.IsLongPressed)
+            {
+                state.IsActiveDrag = true;
+                result.Started = true;
+                result.Active = true;
+            }
+        }
+        else if (state.ActiveID == id)
         {
             state.IsActiveAlive = true;
             result.Total = input.MousePos - input.MousePressedPos[LeftButton];

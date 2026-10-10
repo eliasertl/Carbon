@@ -364,7 +364,7 @@ namespace Carbon
         };
 
         bool isSubmitted = false;
-        if (interaction.Clicked && IsMousePressed())
+        if (interaction.Clicked && (IsMousePressed() || IsMouseReleased()))
         {
             // The element nearest to the click.
             int nearest = 0;
@@ -510,6 +510,7 @@ namespace Carbon
             overlay.DismissOnOutsideClick = false;
             overlay.DismissOnEscape = false;
             overlay.Padding = PopoverPadding;
+            overlay.PresentsAsSheetInCompactWidth = true;
             if (BeginOverlay(popover, overlay))
             {
                 state.Calendar = GetID("##calendar");

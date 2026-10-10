@@ -48,7 +48,7 @@ namespace Carbon
         if ((interaction.Clicked || isArrowPressed) && !IsOverlayOpen(menu))
         {
             OpenOverlay(menu);
-            state.FocusFirst = !IsMousePressed();
+            state.FocusFirst = !IsMousePressed() && !IsMouseReleased();
         }
 
         const ControlFeedback feedback = AnimateFeedback(id, interaction.Hovered, interaction.Pressed);
