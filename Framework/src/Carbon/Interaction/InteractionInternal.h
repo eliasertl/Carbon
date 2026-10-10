@@ -29,6 +29,18 @@ namespace Carbon::Internal
         /// claim replaces an earlier one unless the earlier one is on a higher layer.
         ID HoverCandidate;
         uint32_t HoverCandidateLayer = 0;
+        /// Squared distance from the pointer to the candidate's own rectangle (0 inside it).
+        float HoverCandidateDistance = 0.0f;
+
+        /// The hit areas of the items that took part in hit testing this frame, for tests that check touch
+        /// targets; recorded only while IsRecordingHitRects is set.
+        struct HitRect
+        {
+            ID Id;
+            Rect Area;
+        };
+        bool IsRecordingHitRects = false;
+        std::vector<HitRect> HitRects;
 
         /// The item holding the pointer between press and release.
         ID ActiveID;

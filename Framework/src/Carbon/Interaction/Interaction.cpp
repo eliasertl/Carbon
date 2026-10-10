@@ -113,6 +113,8 @@ namespace Carbon
             state.FocusOrder.clear();
             state.HoverCandidate = ID();
             state.HoverCandidateLayer = 0;
+            state.HoverCandidateDistance = 0.0f;
+            state.HitRects.clear();
             state.IsActiveAlive = false;
             if (!state.ActiveID.IsValid())
                 state.IsActiveDrag = false;
@@ -234,18 +236,27 @@ namespace Carbon
         bool UpdateHover(Context& context, ID id, const Rect& rect)
         {
             InteractionState& state = context.Interaction;
-            if (!IsRectHovered(rect))
+            const Rect hit = GetHitRect(rect);
+            if (state.IsRecordingHitRects)
+                state.HitRects.push_back({id, hit});
+            if (!IsRectHovered(hit))
                 return false;
             if (state.ActiveID.IsValid() && state.ActiveID != id)
                 return false;
 
             // Claim the pointer for the next frame. Later items are drawn on top and win, except against an
-            // item on a higher layer.
+            // item on a higher layer. Where the enlarged hit areas of touch mode overlap, the item the finger is
+            // closest to wins; inside an item the distance is zero, so this changes nothing for exact areas.
             const uint32_t layer = context.Draw.GetLayerOrder();
-            if (!state.HoverCandidate.IsValid() || layer >= state.HoverCandidateLayer)
+            const Vec2 pointer = context.Input.MousePos;
+            const Vec2 nearest = Max(rect.GetMin(), Min(pointer, rect.GetMax()));
+            const float distance = (pointer - nearest).GetLengthSquared();
+            if (!state.HoverCandidate.IsValid() || layer > state.HoverCandidateLayer ||
+                (layer == state.HoverCandidateLayer && distance <= state.HoverCandidateDistance))
             {
                 state.HoverCandidate = id;
                 state.HoverCandidateLayer = layer;
+                state.HoverCandidateDistance = distance;
             }
             return state.HoveredID == id;
         }
@@ -290,7 +301,7 @@ namespace Carbon
         if (state.ActiveID == id)
         {
             state.IsActiveAlive = true;
-            const bool isOver = IsRectHovered(rect);
+            const bool isOver = IsRectHovered(GetHitRect(rect));
             if (input.MouseDown[LeftButton])
             {
                 result.Pressed = isOver;
@@ -409,6 +420,16 @@ namespace Carbon
         const InputState& input = context.Input;
         return input.HasMousePos && rect.Contains(input.MousePos) &&
                context.Draw.GetClipRect().Contains(input.MousePos) && !Internal::IsPointerBlockedByOverlay(context);
+    }
+
+    Rect GetHitRect(const Rect& rect)
+    {
+        const Context& context = Internal::GetContext();
+        if (!context.IsTouchMode)
+            return rect;
+        const float growX = std::max(0.0f, MinimumTouchTarget - rect.Width) * 0.5f;
+        const float growY = std::max(0.0f, MinimumTouchTarget - rect.Height) * 0.5f;
+        return Rect(rect.X - growX, rect.Y - growY, rect.Width + growX * 2.0f, rect.Height + growY * 2.0f);
     }
 
     void RegisterFocusable(ID id, const Rect& rect)

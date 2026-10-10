@@ -247,8 +247,9 @@ namespace Carbon
             // The rows of the list: every item, or the items that match the text.
             const std::span<const int> matches = state.ShowsAll ? std::span<const int>() : GetMatches(id, items, *text);
             const int shown = state.ShowsAll ? count : static_cast<int>(matches.size());
+            const float rowHeight = GetAdaptiveRowHeight(RowHeight);
             BeginScrollView(
-                "##rows", {.Height = RowHeight * static_cast<float>(std::min(shown, MaxVisibleRows)), .Spacing = 0.0f});
+                "##rows", {.Height = rowHeight * static_cast<float>(std::min(shown, MaxVisibleRows)), .Spacing = 0.0f});
             const Vec2 delta = GetMouseDelta();
             const bool hasPointerMoved = delta.X != 0.0f || delta.Y != 0.0f;
             const TextSpec spec = GetTextSpec(TextStyle::Body);
@@ -266,23 +267,23 @@ namespace Carbon
                 if (highlightRow >= 0)
                 {
                     Vec2 offset = GetScrollOffset("##rows");
-                    const float top = RowHeight * static_cast<float>(highlightRow);
-                    const float visible = RowHeight * static_cast<float>(MaxVisibleRows);
-                    offset.Y = std::clamp(offset.Y, top + RowHeight - visible, top);
+                    const float top = rowHeight * static_cast<float>(highlightRow);
+                    const float visible = rowHeight * static_cast<float>(MaxVisibleRows);
+                    offset.Y = std::clamp(offset.Y, top + rowHeight - visible, top);
                     SetScrollOffset("##rows", offset, true);
                 }
             }
 
             // Only the rows in view are built; the others take their space in two pieces, before and after.
-            const RowRange visibleRows = Internal::GetVisibleRows(shown, RowHeight, 0.0f, GetDrawList().GetClipRect());
-            Internal::ReserveRows(visibleRows.First, RowHeight, 0.0f);
+            const RowRange visibleRows = Internal::GetVisibleRows(shown, rowHeight, 0.0f, GetDrawList().GetClipRect());
+            Internal::ReserveRows(visibleRows.First, rowHeight, 0.0f);
             for (int row = visibleRows.First; row < visibleRows.End; row++)
             {
                 const int i = state.ShowsAll ? row : matches[static_cast<size_t>(row)];
                 const std::string_view item = items[static_cast<size_t>(i)];
                 ItemOptions itemOptions;
                 itemOptions.Width = Size::Fill();
-                const Rect rowRect = AllocateItem(Vec2(0.0f, RowHeight), itemOptions);
+                const Rect rowRect = AllocateItem(Vec2(0.0f, rowHeight), itemOptions);
                 ButtonBehaviorOptions rowBehavior;
                 rowBehavior.Focusable = false;
                 const Interaction interaction = ButtonBehavior(HashID(i, list), rowRect, rowBehavior);
@@ -303,7 +304,7 @@ namespace Carbon
                 DrawLabel(GetDrawList(), rowRect, rowRect.X + RowPadding, item, rowSpec,
                           GetStyleColor(isHighlighted ? StyleColor::OnAccent : StyleColor::Label));
             }
-            Internal::ReserveRows(shown - visibleRows.End, RowHeight, 0.0f);
+            Internal::ReserveRows(shown - visibleRows.End, rowHeight, 0.0f);
             state.RevealHighlight = false;
             EndScrollView();
             EndOverlay();

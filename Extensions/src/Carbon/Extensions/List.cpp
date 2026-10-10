@@ -56,7 +56,7 @@ namespace Carbon
             description.HasBorder = true;
         }
         Internal::BeginSelectionList(id, description);
-        s_Build.Begin().RowHeight = options.RowHeight;
+        s_Build.Begin().RowHeight = GetAdaptiveRowHeight(options.RowHeight);
     }
 
     ListMove EndList()

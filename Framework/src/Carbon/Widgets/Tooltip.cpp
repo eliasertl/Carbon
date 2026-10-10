@@ -7,6 +7,8 @@
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Hash.h"
 #include "Carbon/Core/State.h"
+#include "Carbon/Interaction/Gesture.h"
+#include "Carbon/Interaction/GestureInternal.h"
 #include "Carbon/Style/Style.h"
 #include "Carbon/Text/TextStyle.h"
 
@@ -21,12 +23,18 @@ namespace Carbon
             /// Where the tooltip was placed when it appeared; it stays there while the pointer moves.
             Vec2 Anchor;
             bool IsPlaced;
+            /// Shown by a long press; stays while the finger is down and for a moment after.
+            bool IsShownByTouch;
+            float TouchReleasedTime;
         };
 
         constexpr Vec2 Padding(7.0f, 4.0f);
         // Below and slightly right of the pointer, clear of the cursor image.
         constexpr Vec2 PointerOffset(2.0f, 22.0f);
         constexpr float ScreenMargin = 4.0f;
+        // Above a finger, which covers what is below it; and how long it stays after the finger is lifted.
+        constexpr float FingerClearance = 36.0f;
+        constexpr float TouchLingerTime = 1.5f;
     } // namespace
 
     void Tooltip(std::string_view text)
@@ -49,7 +57,27 @@ namespace Carbon
         for (const bool down : context.Input.MouseDown)
             isAnyButtonDown = isAnyButtonDown || down;
 
-        if (item.Hovered && !isAnyButtonDown)
+        // A finger cannot hover: a long press shows the tooltip instead, and takes the touch, so that lifting the
+        // finger does not activate the item.
+        if (IsItemLongPressed())
+        {
+            state.IsShownByTouch = true;
+            state.TouchReleasedTime = 0.0f;
+            state.IsPlaced = false;
+            Internal::CancelPointerPress(context);
+        }
+        if (state.IsShownByTouch)
+        {
+            if (!isAnyButtonDown)
+                state.TouchReleasedTime += context.DeltaTime;
+            if (state.TouchReleasedTime >= TouchLingerTime ||
+                (!context.Input.IsPointerTouch && context.Input.HasMousePos))
+                state.IsShownByTouch = false;
+            else
+                RequestFrameAfter(TouchLingerTime - state.TouchReleasedTime);
+            state.HoverTime = state.IsShownByTouch ? TooltipDelay : 0.0f;
+        }
+        else if (item.Hovered && !isAnyButtonDown)
         {
             state.HoverTime += context.DeltaTime;
             if (state.HoverTime < TooltipDelay)
@@ -70,7 +98,9 @@ namespace Carbon
         const Vec2 size = MeasureText(text, spec) + Padding * 2.0f;
         if (isVisible && !state.IsPlaced)
         {
-            state.Anchor = context.Input.MousePos + PointerOffset;
+            state.Anchor = state.IsShownByTouch
+                               ? context.Gestures.LongPressPosition - Vec2(size.X * 0.5f, size.Y + FingerClearance)
+                               : context.Input.MousePos + PointerOffset;
             state.IsPlaced = true;
         }
 

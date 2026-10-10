@@ -134,7 +134,8 @@ namespace Carbon
                 behavior.Focusable = false;
                 interactions[i] = ButtonBehavior(HashID(i, id), components[i], behavior);
                 summary.Pressed = summary.Pressed || interactions[i].Pressed;
-                if (interactions[i].Hovered)
+                // A finger cannot hover: pressing a component shows its name as hovering does.
+                if (interactions[i].Hovered || interactions[i].Pressed)
                     hovered = i;
                 if (interactions[i].Clicked)
                 {
@@ -282,7 +283,8 @@ namespace Carbon
             // The menu lists the path from the selected item up to the root, the selected item over the button.
             int activated = -1;
             MenuOptions menuOptions;
-            const Vec2 origin(contentX - MenuLabelInset, rect.Y + (rect.Height - MenuRowHeight) * 0.5f - MenuPadding);
+            const Vec2 origin(contentX - MenuLabelInset,
+                              rect.Y + (rect.Height - GetAdaptiveRowHeight(MenuRowHeight)) * 0.5f - MenuPadding);
             menuOptions.Anchor = Rect(origin, Vec2());
             menuOptions.Gap = 0.0f;
             menuOptions.MinWidth = rect.GetRight() - origin.X + MenuPadding;

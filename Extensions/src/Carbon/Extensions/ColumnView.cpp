@@ -97,6 +97,7 @@ namespace Carbon
         ColumnViewBuild& build = s_Build.Begin();
         build = ColumnViewBuild();
         build.Options = options;
+        build.Options.RowHeight = GetAdaptiveRowHeight(options.RowHeight);
         build.IsOpen = true;
         for (int& ordinal : build.SelectedOrdinals)
             ordinal = -1;

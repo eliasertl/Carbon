@@ -1,6 +1,7 @@
 #include "Carbon/Style/Style.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "Carbon/Animation/Animation.h"
 #include "Carbon/Animation/Easing.h"
@@ -48,6 +49,15 @@ namespace Carbon
         {
             Colors = Current.Colors;
             Vars = Current.Vars;
+            // Touch mode: controls take the height of macOS's large size and stand further apart, so that 44-point
+            // hit areas barely overlap (30 + 14 points from one control to the next).
+            if (IsTouchMode)
+            {
+                float& height = Vars[static_cast<size_t>(StyleVar::ControlHeight)];
+                float& spacing = Vars[static_cast<size_t>(StyleVar::Spacing)];
+                height = std::round(height * TouchControlHeightFactor);
+                spacing = std::round(spacing * TouchSpacingFactor);
+            }
             Font = Current.Font;
             ColorStack.clear();
             VarStack.clear();

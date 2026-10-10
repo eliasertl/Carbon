@@ -108,6 +108,7 @@ if(CARBON_BUILD_EXTENSIONS)
         src/Extensions/NumberFieldTests.cpp
         src/Extensions/TokenFieldTests.cpp
         src/Extensions/ToolbarTests.cpp
+        src/Extensions/TouchTargetTests.cpp
     )
     target_link_libraries(CarbonTests PRIVATE Carbon::Extensions)
     target_compile_definitions(CarbonTests PRIVATE CARBON_TESTS_HAVE_EXTENSIONS=1)

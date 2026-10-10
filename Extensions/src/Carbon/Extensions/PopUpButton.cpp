@@ -84,9 +84,10 @@ namespace Carbon
         // The menu: its current item lies over the button, label over label.
         bool changed = false;
         MenuOptions menuOptions;
+        const float rowHeight = GetAdaptiveRowHeight(MenuRowHeight);
         const Vec2 origin(
             rect.X + metrics.Padding - MenuLabelInset,
-            rect.Y + (rect.Height - MenuRowHeight) * 0.5f - MenuPadding - MenuRowHeight * static_cast<float>(current));
+            rect.Y + (rect.Height - rowHeight) * 0.5f - MenuPadding - rowHeight * static_cast<float>(current));
         menuOptions.Anchor = Rect(origin, Vec2());
         menuOptions.Gap = 0.0f;
         menuOptions.MinWidth = rect.GetRight() - origin.X + MenuPadding;

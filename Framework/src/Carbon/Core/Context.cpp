@@ -99,6 +99,7 @@ namespace Carbon
         Internal::BeginRenderFrame(context);
 
         context.IsAnimatingThisFrame = context.Style.Advance(context.DeltaTime, context.ReduceMotion);
+        context.Style.IsTouchMode = context.IsTouchMode;
         context.NextFrameDelayThisFrame = std::numeric_limits<float>::infinity();
         context.Style.ResetWorkingValues();
 

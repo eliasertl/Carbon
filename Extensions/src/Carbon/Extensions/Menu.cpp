@@ -215,7 +215,8 @@ namespace Carbon
                 width += ChevronWidth;
 
             // Every row spans the menu, whose width is that of its widest row.
-            const Rect item = AllocateItem(Vec2(std::max(width, level.MinWidth - MenuPadding * 2.0f), RowHeight));
+            const Rect item = AllocateItem(
+                Vec2(std::max(width, level.MinWidth - MenuPadding * 2.0f), GetAdaptiveRowHeight(RowHeight)));
             const Rect content = GetContentRect();
             result.Row = Rect(content.X, item.Y, std::max(content.Width, item.Width), item.Height);
 

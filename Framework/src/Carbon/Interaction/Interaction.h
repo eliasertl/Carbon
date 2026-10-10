@@ -84,6 +84,11 @@ namespace Carbon
     /// Unlike an item's Hovered state, this ignores which item is on top.
     bool IsRectHovered(const Rect& rect);
 
+    /// The area that reacts to the pointer for an item drawn at `rect`: `rect` itself, and in touch mode at least
+    /// MinimumTouchTarget points in each direction, centered on it. ButtonBehavior and DragBehavior use it;
+    /// components that test the pointer with IsRectHovered pass their rectangles through it.
+    Rect GetHitRect(const Rect& rect);
+
     /// Registers an item for Tab navigation at this point of the order. ButtonBehavior and DragBehavior do this
     /// for focusable items; call it yourself only for components that handle focus on their own.
     void RegisterFocusable(ID id, const Rect& rect);

@@ -1,5 +1,7 @@
 #include "Carbon/Input/Adaptive.h"
 
+#include <algorithm>
+
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Input/AdaptiveInternal.h"
 
@@ -24,6 +26,11 @@ namespace Carbon
     bool IsTouchMode()
     {
         return Internal::GetContext().IsTouchMode;
+    }
+
+    float GetAdaptiveRowHeight(float rowHeight)
+    {
+        return Internal::GetContext().IsTouchMode ? std::max(rowHeight, MinimumTouchTarget) : rowHeight;
     }
 
     SizeClass GetSizeClass()

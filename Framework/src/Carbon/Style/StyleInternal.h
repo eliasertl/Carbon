@@ -23,7 +23,7 @@ namespace Carbon::Internal
         /// Advances a running transition. Returns true while it is still running.
         bool Advance(float deltaTime, bool reduceMotion);
 
-        /// Resets the working values to the current theme and empties the style stack.
+        /// Resets the working values to the current theme, adapted to touch mode, and empties the style stack.
         void ResetWorkingValues();
 
         Color GetColor(StyleColor color) const { return Colors[static_cast<size_t>(color)]; }
@@ -36,6 +36,9 @@ namespace Carbon::Internal
         bool PopVars(int count);
         void PushFont(Carbon::Font* font);
         bool PopFonts(int count);
+
+        /// Touch mode of the frame: controls and the spacing between them grow (see ResetWorkingValues).
+        bool IsTouchMode = false;
 
         Theme Current = Theme::Light();
         Theme Source = Theme::Light();

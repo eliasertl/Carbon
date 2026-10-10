@@ -666,7 +666,7 @@ namespace Carbon
         TableChanges changes;
         TableBuild& build = s_Build.Begin();
         build = TableBuild();
-        build.RowHeight = options.RowHeight;
+        build.RowHeight = GetAdaptiveRowHeight(options.RowHeight);
         build.ShowsAlternatingRows = options.ShowsAlternatingRows;
         build.MeasuredColumn = -1;
         build.PressedColumn = -1;

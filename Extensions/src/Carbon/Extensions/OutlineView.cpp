@@ -216,7 +216,7 @@ namespace Carbon
     {
         OutlineBuild& build = s_Build.Begin();
         build = OutlineBuild();
-        build.RowHeight = options.RowHeight;
+        build.RowHeight = GetAdaptiveRowHeight(options.RowHeight);
         build.ShowsAlternatingRows = options.ShowsAlternatingRows;
         build.HasColumns = !options.Columns.empty();
         build.ForceDepth = -1;

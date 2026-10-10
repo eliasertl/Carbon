@@ -53,7 +53,8 @@ namespace Carbon
         const std::string_view title = GetDisplayLabel(label);
 
         PushDisabled(options.Disabled);
-        const Internal::SelectionRow row = Internal::SelectionListRow(id, RowHeight, isSelected, options.Disabled);
+        const Internal::SelectionRow row =
+            Internal::SelectionListRow(id, GetAdaptiveRowHeight(RowHeight), isSelected, options.Disabled);
         if (!row.IsVisible)
         {
             PopDisabled();

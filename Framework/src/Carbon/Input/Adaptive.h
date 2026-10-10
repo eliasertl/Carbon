@@ -39,6 +39,10 @@ namespace Carbon
     /// The size class of the display width this frame.
     SizeClass GetSizeClass();
 
+    /// The height of a row of a list, table, sidebar or menu that is `rowHeight` tall with a mouse: in touch mode
+    /// at least MinimumTouchTarget, so that rows can be told apart with a finger.
+    float GetAdaptiveRowHeight(float rowHeight);
+
     /// True when the display width is compact.
     inline bool IsCompactWidth()
     {

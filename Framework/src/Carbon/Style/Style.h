@@ -21,6 +21,11 @@ namespace Carbon
     /// Duration of an animated theme switch, in seconds.
     inline constexpr float ThemeTransitionDuration = 0.35f;
 
+    /// In touch mode (Carbon/Input/Adaptive.h) the theme's ControlHeight and Spacing are multiplied by these:
+    /// 24-point controls become 30 points tall, as macOS's large size, and 8 points of spacing become 14.
+    inline constexpr float TouchControlHeightFactor = 1.25f;
+    inline constexpr float TouchSpacingFactor = 1.75f;
+
     /// Sets the theme of the current context. Carbon cannot detect the OS appearance; the host decides.
     /// When `animated`, every color and metric glides from its current value to the new theme's over
     /// ThemeTransitionDuration (a short cross-fade when reduced motion is on). The very first theme, set before
