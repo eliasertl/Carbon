@@ -23,6 +23,24 @@ CustomTitleBar-Dark.png           WebGPU/CustomTitleBar  --theme dark --pointer 
 Mobile-TouchMode-Light.png        WebGPU/Gallery  --page buttons --touch --size 1024x620
 InputMethod-Light.png             WebGPU/Gallery  --page textfields --section textfields --click 300x70 --compose '\u65E5\u672C\u8A9E|\u3092|\u5165\u529B\u3057\u307E\u3059'
 
+# ---- Phones and tablets: compact width, touch mode (iPhone portrait, 390 x 844 points) -----------------------------
+Mobile-Navigation-Light.png         WebGPU/Gallery  --touch --size 390x700
+Mobile-NavigationDetail-Light.png   WebGPU/Gallery  --page buttons --touch --size 390x700
+Mobile-Tablet-Light.png             WebGPU/Gallery  --page selection --touch --size 1024x768 --scale 1
+Components/NavigationSplitView.png  WebGPU/Gallery  --page navigation --touch --size 390x600 --theme dark
+Components/SplitView-Compact.png    WebGPU/Gallery  --page navigation --section splitview --touch --size 390x844
+Components/Menu-Compact.png         WebGPU/Gallery  --page menus --show menu --touch --size 390x844
+Components/Popover-Compact.png      WebGPU/Gallery  --page menus --show popover --touch --size 390x844 --theme dark
+Components/ContextMenu-Compact.png  WebGPU/Gallery  --page menus --section contextmenu --right-click 179x46 --touch --size 390x844 --extend 20,200,20,900
+Components/PopUpButton-Compact.png  WebGPU/Gallery  --page selection --section popupandpulldownbuttons --click 79x53 --touch --size 390x844 --extend 20,200,20,900
+Components/PullDownButton-Compact.png WebGPU/Gallery --page selection --section popupandpulldownbuttons --click 55x117 --touch --size 390x844 --extend 20,200,20,900
+Components/ComboBox-Compact.png     WebGPU/Gallery  --page selection --section combobox --click 200x50 --touch --size 390x844 --extend 20,200,20,900
+Components/DatePicker-Compact.png   WebGPU/Gallery  --page dates --show datepicker --touch --size 390x844
+Components/Sheet-Compact.png        WebGPU/Gallery  --page dialogs --show sheet --touch --size 390x844
+Components/MenuBar-Compact.png      WebGPU/Gallery  --page menus --section menubar --click 307x29 --touch --size 390x844 --extend 20,200,20,900
+Components/Toolbar-Compact.png      WebGPU/Gallery  --page toolbars --section overflow --show toolbaroverflow --touch --size 390x844 --extend 20,200,20,900
+Components/Table-Compact.png        WebGPU/Gallery  --page lists --section table --touch --size 390x844
+
 # ---- Core components --------------------------------------------------------------------------------------------
 Components/Text.png               WebGPU/Gallery  --page typography --section typography
 Components/Icon.png               WebGPU/Gallery  --page icons --section icons

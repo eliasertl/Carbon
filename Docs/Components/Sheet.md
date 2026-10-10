@@ -62,6 +62,13 @@ if (Carbon::BeginSheet("export", { .Width = 400.0f }))
 | Enter | Activate the sheet's `IsDefault` button |
 | Escape | Close the sheet (unless `DismissOnEscape` is off); focus returns to where it was |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) a sheet slides up from the bottom of the display
+across its width, as on iPhone, instead of standing in the middle. It stays modal: only its own buttons close it.
+
+![A sheet on a phone](../Images/Components/Sheet-Compact.png)
+
 ## Guidance from the HIG
 
 - Use a sheet for a task that needs the user's full attention before work continues: export settings, a form,

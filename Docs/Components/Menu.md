@@ -83,6 +83,14 @@ The leading column for checkmarks and icons exists only in menus that have any.
 | Left arrow | Close the submenu |
 | Escape | Close the innermost menu |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the menu slides up from the bottom of the display as a
+sheet across its width, with its rows 44 points tall and without the keyboard shortcuts, as an iPhone has no keyboard to press them on. A submenu opens as a sheet of its own. A tap above it or dragging it down by its grabber dismisses it. Nothing changes in
+the code.
+
+![A menu as a sheet on a phone](../Images/Components/Menu-Compact.png)
+
 ## Guidance from the HIG
 
 - Name items with verbs or verb phrases in title-style capitalization; append an ellipsis when the command needs

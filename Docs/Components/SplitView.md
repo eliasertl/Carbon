@@ -29,6 +29,16 @@ Carbon::SplitViewDivider();
 Carbon::EndSplitView();
 ```
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) a horizontal split view becomes a navigation
+stack, as split views do on iPhone: the first pane fills the area, choosing an item in a list or sidebar in it slides
+the second pane in, and the back button of its navigation bar, or a swipe from the leading edge, returns. In regular
+width, an iPad in full screen, the panes stay side by side. `ShowNavigationDetail` shows either pane from code
+([NavigationSplitView](NavigationSplitView.md)). Vertical split views do not change.
+
+![A split view collapsed on a phone: the list of mailboxes](../Images/Components/SplitView-Compact.png)
+
 ## Options
 
 | Field | Type | Default | Meaning |
@@ -38,6 +48,8 @@ Carbon::EndSplitView();
 | `MinSize` | `float` | 120 | Shortest length of the first pane |
 | `MinSecondSize` | `float` | 120 | Shortest length of the second pane |
 | `Width`, `Height` | `Size` | `Fill` | Size of the whole split view |
+| `CollapsesInCompactWidth` | `bool` | `true` | In compact width a horizontal split view is a navigation stack |
+| `Title`, `DetailTitle` | `string_view` | empty | In compact width, the titles of the first and second pane's navigation bars |
 
 ## Behaviour
 

@@ -55,6 +55,7 @@ it always draws above.
 | `Width`, `Height` | `Size` | `Fit` | `Fit` sizes the overlay to its content; `Fill` takes the display's full extent |
 | `ContentAlignment` | `Alignment` | `Leading` | Where items sit horizontally |
 | `CornerRadius` | `float` | theme's `OverlayCornerRadius` | |
+| `PresentsAsSheetInCompactWidth` | `bool` | `false` | In compact width, a sheet from the bottom instead (below) |
 
 ## Placement
 
@@ -66,6 +67,23 @@ The size used for placing is the one measured in the previous frame. A newly ope
 is laid out once invisibly, and fades in from the next frame on. Closing is immediate.
 
 `Center` and `Top` overlays settle into place from slightly above; with Reduce Motion they only fade.
+
+## Sheets in compact width
+
+On a phone popovers and menus do not fit next to the control that opens them, so iOS shows them as sheets. An overlay
+with `PresentsAsSheetInCompactWidth` does the same in compact width ([Phones and tablets](Mobile.md)):
+
+- it slides up from the bottom edge of the display, across its width, on a spring, with a grabber at its top, and
+  its surface reaches past the bottom edge, so only its top corners are rounded;
+- `Anchor`, `Placement`, `Alignment`, `Gap`, `ShowsArrow` and `Width` are ignored;
+- dragging it down by more than a third of its height, or throwing it down, dismisses it, and so does a tap beside
+  it; it slides out first. A modal overlay cannot be dragged away;
+- an overlay that holds the pointer dims what is beneath; one that leaves the keyboard to a field beneath (a combo
+  box's list) does not.
+
+`IsOverlayPresentedAsSheet()` tells the content, between `BeginOverlay` and `EndOverlay`, that it is on a sheet:
+menus then lay their rows out across the sheet and leave keyboard shortcuts out. Popover, Menu, ContextMenu,
+PopUpButton, PullDownButton, ComboBox, DatePicker and Sheet all present as sheets in compact width.
 
 ## Stacking
 

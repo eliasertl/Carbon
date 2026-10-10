@@ -52,6 +52,13 @@ Everything a [TextField](TextField.md#keyboard) does, plus:
 | Enter | Pick the highlighted item (with the list open); the field also reports it as submitted |
 | Escape | Close the list and keep editing |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the list of choices slides up from the bottom of
+the display across its width, with 44-point rows, while the field keeps the keyboard; a choice still closes it.
+
+![The list of a combo box as a sheet on a phone](../Images/Components/ComboBox-Compact.png)
+
 ## Guidance from the HIG
 
 - Put a label ending in a colon before the combo box, saying what kind of value is expected.

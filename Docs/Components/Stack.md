@@ -48,6 +48,20 @@ Carbon::BeginVStack({ .Padding = 16.0f,
 Carbon::EndVStack();
 ```
 
+### Wrapping
+
+`HStackOptions::Wraps` moves an item that does not fit onto a new line, `Spacing` below the previous one. Lines are as
+tall as the stack's tallest item, and `Alignment` places the others in them. A row of buttons on a phone, or labels
+that grow with a larger text size, then take more lines instead of running out of the stack. The stack needs a width
+(`Fixed` or `Fill`); a stack that fits its content has nothing to wrap at.
+
+```cpp
+Carbon::BeginHStack({ .Spacing = 12.0f, .Width = Carbon::Size::Fill(), .Wraps = true });
+for (const Tag& tag : tags)
+    TagButton(tag);
+Carbon::EndHStack();
+```
+
 ## Spacer
 
 ```cpp

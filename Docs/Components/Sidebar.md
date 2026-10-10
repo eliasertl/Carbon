@@ -31,6 +31,12 @@ when `SidebarItem` returns `true`.
 | `SidebarHeader(title)` | The title of a group of items |
 | `SidebarItem(label, isSelected, options)` | One destination. Returns `true` when the user picks it. |
 
+## On a phone
+
+Put the sidebar and its content in a [NavigationSplitView](NavigationSplitView.md): in compact width the sidebar then
+fills the display as a list with disclosure chevrons, and choosing an item slides the content in, as on iPhone. A
+sidebar on its own in an HStack stays a column.
+
 ## Sidebar options
 
 | Field | Type | Default | Meaning |

@@ -54,6 +54,14 @@ submitted last.
 | Tab / Shift+Tab | Cycle through the controls inside the popover (with `DismissOnOutsideClick` off, the normal Tab order) |
 | Escape | Close; focus returns to where it was (with `DismissOnOutsideClick` off the popover never took the focus, and it is not moved) |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the popover slides up from the bottom of the display as a
+sheet across its width, without its arrow, over the dimmed interface. A tap above it or dragging it down by its grabber dismisses it. Nothing changes in
+the code.
+
+![A popover as a sheet on a phone](../Images/Components/Popover-Compact.png)
+
 ## Guidance from the HIG
 
 - Use a popover for a small amount of content or controls related to what is on screen; for a task of its own,

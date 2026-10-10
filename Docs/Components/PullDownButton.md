@@ -48,6 +48,14 @@ Unlike a [PopUpButton](PopUpButton.md) it keeps its title: the items are things 
 | Menu keys | See [Menu](Menu.md#keyboard) |
 | Escape | Close; focus returns to the button |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the pull-down button's menu slides up from the bottom of the display as a
+sheet across its width, A tap above it or dragging it down by its grabber dismisses it. Nothing changes in
+the code.
+
+![A pull-down button's menu as a sheet on a phone](../Images/Components/PullDownButton-Compact.png)
+
 ## Guidance from the HIG
 
 - Use a pull-down button for commands that relate to the button's purpose ("Add", "Share", "More"), and name

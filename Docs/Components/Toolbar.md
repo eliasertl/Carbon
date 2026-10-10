@@ -80,6 +80,13 @@ to the trailing edge, and `ToolbarSeparator()` is a thin vertical line.
 | Space, Enter | Activate the focused item; open the overflow menu from the chevron |
 | Down arrow | Open the overflow menu from the focused chevron |
 
+## Compact width
+
+Items that do not fit already move into the overflow menu behind the chevron. On a phone (compact width, see
+[Phones and tablets](../Mobile.md)) that menu is a sheet from the bottom of the display.
+
+![A toolbar's overflow menu as a sheet on a phone](../Images/Components/Toolbar-Compact.png)
+
 ## Guidance from the HIG
 
 - Put navigation at the leading edge, the most important actions and a search field at the trailing edge.

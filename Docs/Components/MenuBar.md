@@ -61,6 +61,14 @@ that they work while the menu is closed.
 | Left / Right arrow | Open the previous / next menu, wrapping around. Inside a submenu, they close and open submenus first. |
 | Up / Down arrow, Enter, Escape | As in any [Menu](Menu.md) |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the menus whose titles do not fit move into a
+"more" button at the end of the bar. Its menu, a sheet there, lists them as submenus. In regular width a bar that is
+too narrow is cut off as before.
+
+![The menus that did not fit, in the "more" menu on a phone](../Images/Components/MenuBar-Compact.png)
+
 ## Guidance from the HIG
 
 - Keep the familiar order: File, Edit, Format, View, your own menus, Window, Help.

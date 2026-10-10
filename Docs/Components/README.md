@@ -38,6 +38,7 @@ These components are built only on Carbon's public extension API; see
 | Component | Purpose |
 | --- | --- |
 | [Sidebar](Sidebar.md) | Navigates between the areas of an app |
+| [NavigationSplitView](NavigationSplitView.md) | A sidebar and its content, which become a navigation stack on a phone |
 | [TabView](TabView.md) | Several panes in one place, switched by tabs |
 | [SplitView](SplitView.md) | Two panes with a movable divider |
 | [SegmentedControl](SegmentedControl.md) | One of a few closely related choices |

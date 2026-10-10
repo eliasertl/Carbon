@@ -189,6 +189,14 @@ so that the keyboard can move on from a selection that is not among the submitte
 | Up / Down arrow | Select the previous / next row |
 | Home / End | Select the first / last row |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) columns that share the width do not get narrower
+than 120 points: the table scrolls sideways instead of squeezing them, and a finger swipes it sideways. A long press
+on a column header picks the column up to move it; a swipe over the header scrolls.
+
+![A table on a phone, scrolled by its columns](../Images/Components/Table-Compact.png)
+
 ## Guidance from the HIG
 
 - Give every column a short noun as its title, and put the column that identifies the row first.

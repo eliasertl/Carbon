@@ -102,6 +102,30 @@ In touch mode (whatever the size class):
 
 ![The Gallery's buttons in touch mode: the same macOS controls, taller rows and controls](Images/Mobile-TouchMode-Light.png)
 
+## Compact width
+
+Where a macOS pattern does not work on a phone, Carbon switches to the iOS pattern in compact width, and only there:
+in regular width, an iPad in full screen or any desktop window wider than 600 points, everything looks and works as
+before.
+
+| Component | In compact width |
+| --- | --- |
+| [NavigationSplitView](Components/NavigationSplitView.md), horizontal [SplitView](Components/SplitView.md) | A navigation stack: the sidebar or first pane fills the display, choosing an item slides the content in, a back button or a swipe from the leading edge returns |
+| [Popover](Components/Popover.md), [Menu](Components/Menu.md), [ContextMenu](Components/ContextMenu.md), [PopUpButton](Components/PopUpButton.md), [PullDownButton](Components/PullDownButton.md), [ComboBox](Components/ComboBox.md), [DatePicker](Components/DatePicker.md), [Sheet](Components/Sheet.md) | A sheet that slides up from the bottom across the display, with a grabber that drags it down to dismiss it ([Overlays](Overlays.md#sheets-in-compact-width)) |
+| [MenuBar](Components/MenuBar.md) | Menus that do not fit move into a "more" button, whose menu is a sheet |
+| [Toolbar](Components/Toolbar.md) | The overflow menu is a sheet |
+| [Table](Components/Table.md) | Columns do not get narrower than 120 points; the table scrolls sideways instead |
+
+![The Gallery on a phone: the list of pages, and a page pushed over it](Images/Mobile-Navigation-Light.png)
+![A page of the Gallery on a phone](Images/Mobile-NavigationDetail-Light.png)
+
+Layouts of your own adapt with `IsCompactWidth()` ([Layout](Layout.md#adapting-to-the-device)). A wrapping
+`HStack` (`HStackOptions::Wraps`) lets a row of controls continue on a new line instead of running out of a narrow
+display. On an iPad, in regular width, sidebars stay beside their content and popovers stay anchored, as on iPadOS,
+while touch mode still sizes everything for fingers:
+
+![The Gallery on an iPad in landscape: regular width in touch mode](Images/Mobile-Tablet-Light.png)
+
 ## Forwarding touches
 
 A host that receives touches forwards each one with the finger's identifier and its position in points, from the

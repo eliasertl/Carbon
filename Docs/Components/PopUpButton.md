@@ -42,6 +42,14 @@ The label identifies the button and is not drawn. Items can also be passed as a
 | Enter, Space (menu open) | Choose |
 | Escape | Close without a change; focus returns to the button |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the pop-up button's menu slides up from the bottom of the display as a
+sheet across its width, with a checkmark at the current item. A tap above it or dragging it down by its grabber dismisses it. Nothing changes in
+the code.
+
+![A pop-up button's menu as a sheet on a phone](../Images/Components/PopUpButton-Compact.png)
+
 ## Guidance from the HIG
 
 - Use a pop-up button for a flat list of mutually exclusive values. For commands use a

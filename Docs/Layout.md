@@ -30,9 +30,13 @@ nest freely, and the area the host gives Carbon behaves like a vertical stack th
 | `Background` | Draws a squircle behind the stack (a grouped box) | none |
 | `CornerRadius` | Corner radius of the background | The theme's `GroupCornerRadius` |
 | `ID` | A stable identity; rarely needed, see [Identity](#identity) | call site |
+| `Wraps` | `HStack` only: items that do not fit move to a new line | `false` |
 
 A vertical stack aligns its items with `Alignment::Leading`, `Center` or `Trailing`; a horizontal stack with
 `VerticalAlignment::Top`, `Center` or `Bottom`. `Justify` uses the other of the two enums.
+
+A horizontal stack with `Wraps` set and a width that is not `Fit` starts a new line, `Spacing` below, when the
+next item does not fit; see [Stacks](Components/Stack.md#wrapping).
 
 ## Sizes
 

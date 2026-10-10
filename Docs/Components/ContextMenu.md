@@ -51,6 +51,14 @@ menu.
 Everything described for [Menu](Menu.md#behaviour) applies: the highlight, submenus, the arrow keys, Enter and
 Escape. A right click somewhere else closes the menu.
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the context menu, opened with a long press, slides up from the bottom of the display as a
+sheet across its width, A tap above it or dragging it down by its grabber dismisses it. Nothing changes in
+the code.
+
+![A context menu as a sheet on a phone](../Images/Components/ContextMenu-Compact.png)
+
 ## Guidance from the HIG
 
 - Offer only the commands that apply to the clicked item, the most likely ones first, and keep the list short.

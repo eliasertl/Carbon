@@ -96,6 +96,14 @@ in the interface; it does not allocate.
 | Enter | Apply what was typed and close the calendar; `IsItemSubmitted()` is true |
 | Escape | Discard what was typed and close the calendar |
 
+## Compact width
+
+On a phone (compact width, see [Phones and tablets](../Mobile.md)) the calendar slides up from the bottom of the display as a
+sheet across its width, while the field keeps the keyboard. A tap above it or dragging it down by its grabber dismisses it. Nothing changes in
+the code.
+
+![The calendar as a sheet on a phone](../Images/Components/DatePicker-Compact.png)
+
 ## Guidance from the HIG
 
 - macOS has two styles: textual, for limited space and people who know the date they want, and graphical, for
