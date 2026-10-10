@@ -1,0 +1,86 @@
+name: Pages
+
+# Builds the web app (Examples/WebApp: the start screen, the Gallery and the documentation reader) with Emscripten
+# and publishes it on GitHub Pages. It runs only when started by hand (Actions > Pages > Run workflow), to save
+# Actions minutes; there are deliberately no push, pull_request or schedule triggers. The repository's Pages source
+# must be "GitHub Actions" (Settings > Pages). Docs/Building.md, "The web app", has the details.
+on:
+  workflow_dispatch:
+
+# Deploying needs to write Pages and to prove its identity to the Pages service; reading the code is all else.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deployment at a time; a run started while another deploys waits instead of cancelling it.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  # The Emscripten SDK the web build uses. Keep in sync with CI.yml, whose cache this shares.
+  EMSDK_VERSION: 6.0.11
+
+jobs:
+  build:
+    name: Build the web app
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: Look for a cached Emscripten SDK
+        id: emsdk
+        uses: actions/cache@v6
+        with:
+          path: ~/emsdk
+          key: emsdk-${{ runner.os }}-${{ env.EMSDK_VERSION }}-v1
+
+      - name: Install Emscripten
+        if: steps.emsdk.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install ${{ env.EMSDK_VERSION }}
+          ~/emsdk/emsdk activate ${{ env.EMSDK_VERSION }}
+
+      - name: Install Ninja
+        run: command -v ninja || { sudo apt-get update && sudo apt-get install -y ninja-build; }
+
+      # Links to source files open this repository at the commit that was built.
+      - name: Configure
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          emcmake cmake -S . -B Build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCARBON_WARNINGS_AS_ERRORS=ON \
+            -DCARBON_BUILD_TESTS=OFF -DCARBON_BUILD_BENCHMARKS=OFF \
+            -DCARBON_WEBAPP_REPOSITORY_URL=${{ github.server_url }}/${{ github.repository }} \
+            -DCARBON_WEBAPP_SOURCE_REF=${{ github.sha }}
+
+      - name: Build
+        run: |
+          source ~/emsdk/emsdk_env.sh
+          cmake --build Build --target WebApp
+
+      - name: Collect the site
+        run: |
+          mkdir _site
+          cp Build/Examples/Web/index.html Build/Examples/Web/index.js Build/Examples/Web/index.wasm \
+            Build/Examples/Web/index.data _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: _site
+
+  deploy:
+    name: Deploy to GitHub Pages
+    needs: build
+    runs-on: ubuntu-24.04
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
