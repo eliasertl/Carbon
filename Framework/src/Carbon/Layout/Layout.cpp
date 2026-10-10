@@ -120,11 +120,27 @@ namespace Carbon::Internal
             return flow;
         }
 
+        // In a wrapping stack, starts a new line when an item of `size` does not fit on the current one.
+        void BreakLine(LayoutFrame& parent, Vec2 size)
+        {
+            if (!parent.Wraps || parent.HasCursorOverride || parent.ItemCount == 0)
+                return;
+            if (parent.Cursor <= parent.ContentStart || parent.Cursor + size.X <= parent.Inner.GetRight() + 0.5f)
+                return;
+            parent.LineTop += parent.LineHeight + parent.Spacing;
+            parent.Cursor = parent.ContentStart;
+        }
+
         // Where the next item of `size` goes. Origins are snapped to whole pixels so edges and text stay crisp.
         Vec2 PlaceItem(const Context& context, const LayoutFrame& parent, const GridFrame* grid, Vec2 size)
         {
             if (parent.HasCursorOverride)
                 return context.Scale.Snap(parent.CursorOverride);
+
+            // A line of a wrapping stack is as tall as the stack's tallest item; items are aligned in it.
+            if (parent.Wraps)
+                return context.Scale.Snap(
+                    Vec2(parent.Cursor, parent.LineTop + (parent.LineHeight - size.Y) * parent.CrossFactor));
 
             if (grid != nullptr)
             {
@@ -259,6 +275,14 @@ namespace Carbon::Internal
                 }
                 parent.HasCursorOverride = false;
             }
+            else if (parent.Wraps)
+            {
+                // The content is as wide as its longest line and as tall as its lines.
+                parent.MainExtent = std::max(parent.MainExtent, origin.X + measuredMain - parent.ContentStart);
+                if (!flow.FillsCross)
+                    parent.LineHeight = std::max(parent.LineHeight, flow.Size.Y);
+                parent.CrossExtent = std::max(parent.CrossExtent, parent.LineTop - parent.Inner.Y + parent.LineHeight);
+            }
             else
             {
                 if (parent.ItemCount > 0)
@@ -335,9 +359,11 @@ namespace Carbon::Internal
             const Vec2 content = MakeVec(frame.Axis, frame.MainExtent, frame.CrossExtent);
             const bool changed = std::abs(content.X - record.ContentSize.X) > SettleTolerance ||
                                  std::abs(content.Y - record.ContentSize.Y) > SettleTolerance ||
-                                 std::abs(frame.FlexWeight - record.FlexWeight) > SettleTolerance;
+                                 std::abs(frame.FlexWeight - record.FlexWeight) > SettleTolerance ||
+                                 std::abs(frame.LineHeight - record.LineHeight) > SettleTolerance;
             record.ContentSize = content;
             record.FlexWeight = frame.FlexWeight;
+            record.LineHeight = frame.LineHeight;
             return changed;
         }
     } // namespace
@@ -422,7 +448,7 @@ namespace Carbon::Internal
         }
         record->LastFrame = context.FrameCount;
 
-        const LayoutFrame& parent = layout.Frames.back();
+        LayoutFrame& parent = layout.Frames.back();
         const GridFrame* grid = FindGrid(layout, parent);
         const Vec2 padding(description.Padding.GetHorizontal(), description.Padding.GetVertical());
         ItemFlow flow;
@@ -455,7 +481,10 @@ namespace Carbon::Internal
         const bool hidesFirstFrame =
             created && !isParentAppearing && NeedsMeasurementsToDraw(description, parent, grid, flow);
         if (!description.IsFloating)
-            CheckFirstFramePlacement(layout.Frames.back(), grid, flow, !hidesFirstFrame);
+        {
+            CheckFirstFramePlacement(parent, grid, flow, !hidesFirstFrame);
+            BreakLine(parent, flow.Size);
+        }
 
         LayoutFrame frame;
         frame.Kind = description.Kind;
@@ -476,6 +505,10 @@ namespace Carbon::Internal
         frame.FillsParentCross = flow.FillsCross;
         frame.FillsParentCell = flow.FillsCell;
         StartFlow(frame, *record, description.JustifyFactor, description.IsScrolling, description.ScrollOffset);
+        // Wrapping needs a width to wrap at; a stack that fits its content has none.
+        frame.Wraps = description.Wraps && description.Axis == Axis::Horizontal && !frame.FitsWidth;
+        frame.LineTop = frame.Inner.Y;
+        frame.LineHeight = frame.Wraps ? record->LineHeight : 0.0f;
 
         // A container seen for the first time lays out with empty measurements. When that is known to put its
         // content in the wrong place, it is hidden for that frame and fades in afterwards; otherwise it is drawn
@@ -629,6 +662,7 @@ namespace Carbon
         Internal::GridFrame* grid = Internal::FindGrid(context.Layout, frame);
         const Internal::ItemFlow flow = Internal::ResolveItem(frame, grid, options.Width, options.Height, size);
         Internal::CheckFirstFramePlacement(frame, grid, flow, true);
+        Internal::BreakLine(frame, flow.Size);
         const Vec2 origin = Internal::PlaceItem(context, frame, grid, flow.Size);
         Internal::CommitItem(frame, grid, origin, flow);
         return Rect(origin, flow.Size);

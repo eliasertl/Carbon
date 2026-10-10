@@ -94,6 +94,43 @@ namespace Carbon
         EXPECT_EQ(stack, Rect(0.0f, 0.0f, 106.0f, 30.0f));
     }
 
+    TEST_F(LayoutTests, AWrappingHStackStartsNewLines)
+    {
+        Rect a, b, c, d, stack;
+        Settle(
+            [&]
+            {
+                BeginHStack({.Spacing = 10.0f, .Alignment = VerticalAlignment::Center, .Width = 200.0f, .Wraps = true});
+                a = Item(80.0f, 20.0f);
+                b = Item(80.0f, 30.0f);
+                c = Item(80.0f, 20.0f);  // 80 + 10 + 80 + 10 + 80 > 200: a new line
+                d = Item(150.0f, 20.0f); // does not fit after c either
+                EndHStack();
+                stack = GetLastItemRect();
+            });
+        // Lines are as tall as the tallest item (30) and items are centered in them.
+        EXPECT_EQ(a, Rect(0.0f, 5.0f, 80.0f, 20.0f));
+        EXPECT_EQ(b, Rect(90.0f, 0.0f, 80.0f, 30.0f));
+        EXPECT_EQ(c, Rect(0.0f, 45.0f, 80.0f, 20.0f));
+        EXPECT_EQ(d, Rect(0.0f, 85.0f, 150.0f, 20.0f));
+        EXPECT_EQ(stack, Rect(0.0f, 0.0f, 200.0f, 110.0f));
+    }
+
+    TEST_F(LayoutTests, AWrappingStackThatFitsItsContentDoesNotWrap)
+    {
+        Rect b;
+        Settle(
+            [&]
+            {
+                BeginHStack({.Spacing = 10.0f, .Wraps = true});
+                Item(500.0f, 20.0f);
+                b = Item(500.0f, 20.0f);
+                EndHStack();
+            });
+        EXPECT_FLOAT_EQ(b.X, 510.0f);
+        EXPECT_FLOAT_EQ(b.Y, 0.0f);
+    }
+
     TEST_F(LayoutTests, DefaultSpacingComesFromTheTheme)
     {
         Rect a, b;

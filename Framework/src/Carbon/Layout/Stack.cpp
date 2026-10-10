@@ -61,6 +61,7 @@ namespace Carbon
         description.Spacing = options.Spacing.value_or(context.Style.GetVar(StyleVar::Spacing));
         description.CrossFactor = Internal::GetAlignmentFactor(options.Alignment);
         description.JustifyFactor = Internal::GetAlignmentFactor(options.Justify);
+        description.Wraps = options.Wraps;
         Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
         AddBackground(context, frame, options.Background, options.CornerRadius);
     }

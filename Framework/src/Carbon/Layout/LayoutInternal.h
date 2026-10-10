@@ -40,6 +40,8 @@ namespace Carbon::Internal
         /// derives its ID from this count, so a loop of containers costs one more lookup each, not one per
         /// container before it.
         uint32_t Occurrences;
+        /// A stack that wraps: its tallest item, the height of each of its lines.
+        float LineHeight;
     };
 
     /// The most columns a grid can have.
@@ -82,6 +84,8 @@ namespace Carbon::Internal
         float CrossFactor = 0.0f;
         /// 0, 0.5 or 1: where the content sits along the axis when there is free space and nothing flexible.
         float JustifyFactor = 0.0f;
+        /// Items that do not fit along the axis move to a new line (horizontal stacks of given width only).
+        bool Wraps = false;
         /// The content may be larger than the container along the axis and is shifted by this offset.
         bool IsScrolling = false;
         Vec2 ScrollOffset;
@@ -124,6 +128,12 @@ namespace Carbon::Internal
 
         bool HasCursorOverride = false;
         Vec2 CursorOverride;
+
+        /// A wrapping stack: the top of the current line, the tallest item placed in the whole stack so far, and
+        /// whether the next item may still go on the line.
+        bool Wraps = false;
+        float LineTop = 0.0f;
+        float LineHeight = 0.0f;
 
         /// How this container takes part in its parent's flow.
         bool IsFlexible = false;

@@ -47,6 +47,11 @@ namespace Carbon
         std::optional<float> CornerRadius = {};
         /// A stable identity; see VStackOptions::ID.
         std::string_view ID = {};
+        /// Items that do not fit move to the next line, `Spacing` below, so that a row of controls grows
+        /// downwards on a narrow display or with large text instead of running out of the stack. Lines are as
+        /// tall as the tallest item, which `Alignment` positions the others against. Needs a width that is not
+        /// Fit; spacers and Fill items have no room to take in a wrapping stack.
+        bool Wraps = false;
     };
 
     /// Options of a spacer.
