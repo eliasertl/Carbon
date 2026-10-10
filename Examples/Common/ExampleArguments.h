@@ -43,6 +43,9 @@ namespace Example
         /// text field: '|' separates its clauses, the first of which is being converted, and \uXXXX or
         /// \UXXXXXXXX stands for a character.
         std::string Composition;
+        /// --touch: touch mode, as on a phone or a tablet. Scripted input (--click, --right-click, --drag) uses a
+        /// finger: a click is a tap and a right click a long press.
+        bool IsTouch = false;
         /// --crop <x>,<y>,<width>,<height>: in screenshot mode, saves only this area of the window, in points.
         float Crop[4] = {0.0f, 0.0f, 0.0f, 0.0f};
         /// --section <key>[,<key>...]: in screenshot mode, an example with sections (the Gallery) scrolls to them

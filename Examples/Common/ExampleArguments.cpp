@@ -84,6 +84,10 @@ namespace Example
                     std::fill(values, values + 4, 0.0f);
                 }
             }
+            else if (option == "--touch")
+            {
+                arguments.IsTouch = true;
+            }
             else if (option == "--compose" && hasValue)
             {
                 arguments.Composition = argv[++i];

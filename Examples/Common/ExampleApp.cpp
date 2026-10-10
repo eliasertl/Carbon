@@ -104,6 +104,8 @@ namespace Example
         m_IsBackendReady = m_Host.GetDevice().InitCarbon();
 
         Carbon::SetTheme(GetArguments().IsDark ? Carbon::Theme::Dark() : Carbon::Theme::Light());
+        if (GetArguments().IsTouch)
+            Carbon::GetIO().SetTouchModeOverride(true);
     }
 
     App::~App()
@@ -141,7 +143,30 @@ namespace Example
             else
                 io.AddFileDragEvent(x, y, files);
         }
-        if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f)
+        if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f && arguments.IsTouch)
+        {
+            // A finger: a tap for a click, a long press for a right click, or a drag that stays down.
+            const int frame = m_Host.GetFrameIndex();
+            const float x = m_Host.GetPointerOriginX() + arguments.PointerX;
+            const float y = m_Host.GetPointerOriginY() + arguments.PointerY;
+            const bool isDrag = arguments.DragX >= 0.0f;
+            if (frame == 6 && (arguments.ClickButton >= 0 || isDrag))
+                io.AddTouchEvent(Carbon::TouchPhase::Began, 1, x, y);
+            if (frame == 8 && arguments.ClickButton == 0 && !isDrag)
+                io.AddTouchEvent(Carbon::TouchPhase::Ended, 1, x, y);
+            if (frame == 10 && arguments.ClickButton == 1)
+                io.AddTouchEvent(Carbon::TouchPhase::Ended, 1, x, y);
+            if (frame == 11 && !arguments.Composition.empty())
+                ComposeScripted(arguments.Composition);
+            if (isDrag && frame >= 9 && frame <= 10)
+            {
+                const float t = frame == 9 ? 0.5f : 1.0f;
+                io.AddTouchEvent(Carbon::TouchPhase::Moved, 1,
+                                 x + (m_Host.GetPointerOriginX() + arguments.DragX - x) * t,
+                                 y + (m_Host.GetPointerOriginY() + arguments.DragY - y) * t);
+            }
+        }
+        else if (m_Host.IsScreenshotMode() && arguments.PointerX >= 0.0f)
         {
             const int frame = m_Host.GetFrameIndex();
             const Carbon::MouseButton button =
