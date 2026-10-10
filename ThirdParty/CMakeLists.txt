@@ -138,6 +138,22 @@ if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME} AND NOT CARBON_DEPS_HARFBUZZ_B
     carbon_add_package_dependency(
         "if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})\n    add_library(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} INTERFACE IMPORTED)\n    target_link_libraries(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} INTERFACE harfbuzz::harfbuzz-raster)\nendif()")
 endif()
+# Meson-built HarfBuzz packages (vcpkg's, Linux distributions') install the raster library without a CMake target;
+# it is then taken from the folder of HarfBuzz's library, here and again by the installed CarbonConfig.cmake.
+if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME} AND NOT CARBON_DEPS_HARFBUZZ_BUILD)
+    include("${PROJECT_SOURCE_DIR}/Framework/CMake/CarbonHarfBuzzRaster.cmake")
+    set(carbon_harfbuzz_package_target ${CARBON_DEPS_HARFBUZZ_NAME})
+    if(TARGET harfbuzz::harfbuzz)
+        set(carbon_harfbuzz_package_target harfbuzz::harfbuzz)
+    endif()
+    carbon_import_harfbuzz_raster(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} ${carbon_harfbuzz_package_target} GLOBAL)
+    if(TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
+        message(STATUS "Carbon: using HarfBuzz's raster library next to HarfBuzz: "
+                       "${CARBON_DEPS_HARFBUZZ_RASTER_NAME}")
+        carbon_add_package_dependency(
+            "carbon_import_harfbuzz_raster(${CARBON_DEPS_HARFBUZZ_RASTER_NAME} ${carbon_harfbuzz_package_target})\nif(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})\n    set(Carbon_FOUND FALSE)\n    set(Carbon_NOT_FOUND_MESSAGE \"HarfBuzz's raster library, which Carbon was built with, was not found next to HarfBuzz\")\n    return()\nendif()")
+    endif()
+endif()
 if(NOT TARGET ${CARBON_DEPS_HARFBUZZ_RASTER_NAME})
     message(STATUS "Carbon: HarfBuzz's raster library '${CARBON_DEPS_HARFBUZZ_RASTER_NAME}' was not found; "
                    "COLR color glyphs will be drawn without their colors")

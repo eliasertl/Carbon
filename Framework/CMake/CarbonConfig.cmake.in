@@ -10,6 +10,8 @@
 # WebGPU (CMAKE_PREFIX_PATH or Dawn_DIR), unless the consuming project already defines its target.
 
 include(CMakeFindDependencyMacro)
+# carbon_import_harfbuzz_raster(): HarfBuzz's raster library from a HarfBuzz package without a target for it.
+include("${CMAKE_CURRENT_LIST_DIR}/CarbonHarfBuzzRaster.cmake")
 
 set(Carbon_BACKENDS "@CARBON_ENABLED_BACKENDS@")
 

@@ -369,6 +369,7 @@ if(CARBON_INSTALL)
         "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfigVersion.cmake"
         "${CMAKE_CURRENT_SOURCE_DIR}/CMake/CarbonDawnRuntime.cmake"
+        "${CMAKE_CURRENT_SOURCE_DIR}/CMake/CarbonHarfBuzzRaster.cmake"
         DESTINATION "${CARBON_INSTALL_CMAKEDIR}"
     )
     install(FILES "${PROJECT_SOURCE_DIR}/LICENSE" "${PROJECT_SOURCE_DIR}/THIRD_PARTY_NOTICES.md"

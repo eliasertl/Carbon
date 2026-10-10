@@ -139,7 +139,10 @@ Rules:
   that FreeType target, with its raster library (`harfbuzz-raster`, which paints COLR color glyphs) and without
   libpng. Dependencies are built statically with their tests, examples, docs and install rules disabled.
 - `CARBON_DEPS_HARFBUZZ_RASTER_NAME` (default `harfbuzz-raster`) is the target of HarfBuzz's raster library. A
-  HarfBuzz found on the system is used with `harfbuzz::harfbuzz-raster` when its package has it. Without the
+  HarfBuzz found on the system is used with `harfbuzz::harfbuzz-raster` when its package has that target;
+  Meson-built packages (vcpkg's, Linux distributions') install the library without one, so Carbon then takes
+  `harfbuzz-raster` from the folder of HarfBuzz's library (and the installed `CarbonConfig.cmake` does the same
+  for the application). Without the
   library Carbon still builds; COLR color glyphs (Segoe UI Emoji, Noto Color Emoji's COLRv1 version) are then drawn
   in the text color, while CBDT and sbix ones keep their colors, since Carbon decodes their PNG images itself.
 - Public Sans, JetBrains Mono and Phosphor are assets, not libraries, and have no switches.
