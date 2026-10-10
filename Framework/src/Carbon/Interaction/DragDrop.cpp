@@ -1,5 +1,6 @@
 #include "Carbon/Interaction/DragDrop.h"
 
+#include "Carbon/Animation/Animation.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Interaction/DragDropInternal.h"
@@ -22,6 +23,7 @@ namespace Carbon
         // The highlight of a drop target under the drag.
         constexpr float HighlightWidth = 2.0f;
         constexpr float HighlightFill = 0.12f;
+        constexpr float HighlightFadeDuration = 0.15f;
 
         DragPayload MakePayload(const DragDropState& state)
         {
@@ -126,36 +128,48 @@ namespace Carbon
             DragDropState& state = context.DragDrop;
             if (!state.IsActive || state.Type != type || !id.IsValid() || context.Interaction.DisabledDepth > 0)
                 return result;
-            if (!IsRectHovered(rect))
-                return result;
 
             // Competing for the next frame: the highest layer, then the smallest visible area.
             DrawList& drawList = context.Draw;
-            const uint32_t layer = drawList.GetLayerOrder();
-            const Rect visible = rect.GetIntersection(drawList.GetClipRect());
-            const float area = visible.Width * visible.Height;
-            if (!state.TargetCandidate.IsValid() || layer > state.CandidateLayer ||
-                (layer == state.CandidateLayer && area <= state.CandidateArea))
+            if (IsRectHovered(rect))
             {
-                state.TargetCandidate = id;
-                state.CandidateLayer = layer;
-                state.CandidateArea = area;
+                const uint32_t layer = drawList.GetLayerOrder();
+                const Rect visible = rect.GetIntersection(drawList.GetClipRect());
+                const float area = visible.Width * visible.Height;
+                if (!state.TargetCandidate.IsValid() || layer > state.CandidateLayer ||
+                    (layer == state.CandidateLayer && area <= state.CandidateArea))
+                {
+                    state.TargetCandidate = id;
+                    state.CandidateLayer = layer;
+                    state.CandidateArea = area;
+                }
+                result.IsHovered = state.HoveredTarget == id;
             }
 
-            result.IsHovered = state.HoveredTarget == id;
+            // The highlight fades in when the drag arrives and out when it leaves, while the drag goes on; a drop
+            // ends it at once, as in macOS.
+            if (options.ShowsHighlight)
+            {
+                const bool isShown = result.IsHovered && !state.IsDelivering;
+                const float opacity = Animate(HashID("##drophighlight", id), isShown ? 1.0f : 0.0f,
+                                              AnimationSpec::Fade(HighlightFadeDuration));
+                if (opacity > 0.0f && !state.IsDelivering)
+                {
+                    const Color accent = context.Style.GetColor(StyleColor::Accent);
+                    const float smoothing = context.Style.GetVar(StyleVar::CornerSmoothing);
+                    drawList.AddSquircle(rect, accent.WithOpacity(HighlightFill * opacity), options.CornerRadius,
+                                         smoothing);
+                    drawList.AddSquircleStroke(rect.Inset(EdgeInsets(HighlightWidth * 0.5f)),
+                                               accent.WithOpacity(opacity), options.CornerRadius, HighlightWidth,
+                                               smoothing);
+                }
+            }
+
             if (!result.IsHovered)
                 return result;
             result.IsDelivered = state.IsDelivering;
             result.Position = context.Input.MousePos;
             result.Payload = MakePayload(state);
-            if (options.ShowsHighlight && !result.IsDelivered)
-            {
-                const Color accent = context.Style.GetColor(StyleColor::Accent);
-                const float smoothing = context.Style.GetVar(StyleVar::CornerSmoothing);
-                drawList.AddSquircle(rect, accent.WithOpacity(HighlightFill), options.CornerRadius, smoothing);
-                drawList.AddSquircleStroke(rect.Inset(EdgeInsets(HighlightWidth * 0.5f)), accent, options.CornerRadius,
-                                           HighlightWidth, smoothing);
-            }
             return result;
         }
     } // namespace

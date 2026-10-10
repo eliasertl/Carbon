@@ -64,7 +64,7 @@ if (drop.IsDelivered)
 ```
 
 While a drag it accepts is over it, the target shows the macOS drop highlight, an accent outline with a light
-tint. A component that shows where a drop would land, such as an insertion line, turns it off with
+tint, which fades in as the drag arrives and out as it leaves. A component that shows where a drop would land, such as an insertion line, turns it off with
 `DropTargetOptions::ShowsHighlight = false` and draws its own indicator from `drop.Position`.
 
 Where targets overlap, one gets the drag: the one on the highest layer (an overlay above the page), and among
@@ -110,7 +110,10 @@ if (drop.IsDelivered)
 The host forwards the system's drop through the IO object, `io.AddFileDropEvent(x, y, paths)`; the target under
 the position receives the files in the next frame. A host that also learns about the drag while it moves over the
 window forwards it with `io.AddFileDragEvent` and `io.AddFileDragLeaveEvent`, and the targets highlight before
-the drop. The examples forward GLFW's drop; [Integration](Integration.md#files-from-the-system) shows the code.
+the drop. The examples do both on Windows and in a browser, where dropped files are copied into the in-memory file
+system under `/dropped`; [Integration](Integration.md#files-from-the-system) shows how. While files are over a
+target, `drop.Payload.Files` holds their paths when the host knows them (a browser reveals them only at the drop),
+so a target can say what a drop would do, as the Gallery's drop zone does.
 Dragging between windows or applications other than receiving files is not supported.
 
 ## While something is dragged

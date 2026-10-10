@@ -180,6 +180,8 @@ namespace Gallery
         std::string LastFileMove = "nothing yet";
         /// The paths of the files dropped from the system, most recent first.
         std::vector<std::string> DroppedFiles;
+        /// Files were over the drop zone during the last frame.
+        bool IsDropZoneHovered = false;
 
         // Tabs and split views.
         int Tab = 0;

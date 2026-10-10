@@ -200,6 +200,18 @@ namespace Gallery
         BeginSection("Files from the system",
                      "Drop files from the file manager onto the box. The host forwards the system's drop through "
                      "the IO object, and any item can accept files.");
+        // While files from the system are over the window, the box shows that it takes them; with them over it,
+        // its icon lifts on a spring and the label says what a drop does.
+        const ID zone = GetID("dropzone");
+        const DragPayload dragged = GetDragPayload();
+        const bool areFilesDragged = dragged.Type == FilesPayloadType;
+        const bool isHovered = areFilesDragged && state.IsDropZoneHovered;
+        const float lift =
+            Animate(HashID("##lift", zone), isHovered ? 1.0f : 0.0f, AnimationSpec::Spring(0.35f, 0.55f));
+        const Color iconColor =
+            Animate(HashID("##iconcolor", zone),
+                    GetStyleColor(areFilesDragged ? StyleColor::Accent : StyleColor::SecondaryLabel),
+                    AnimationSpec::Fade(0.2f));
         BeginVStack({.Spacing = 6.0f,
                      .Padding = EdgeInsets(16.0f),
                      .Alignment = Alignment::Center,
@@ -207,19 +219,35 @@ namespace Gallery
                      .Background = GetStyleColor(StyleColor::ControlBackground),
                      .CornerRadius = 8.0f,
                      .ID = "dropzone"});
-        Icon(Icons::FileArrowDown, {.Size = 32.0f, .Color = GetStyleColor(StyleColor::SecondaryLabel)});
-        Text(state.DroppedFiles.empty() ? "Drop files here" : "Drop more files here", {.Secondary = true});
+        // The icon has a square of its own, so that growing does not move the rest.
+        const Rect iconArea = AllocateItem(Vec2(48.0f, 44.0f));
+        DrawIcon(GetDrawList(), iconArea.GetCenter() - Vec2(0.0f, 5.0f * lift), Icons::FileArrowDown,
+                 32.0f + 8.0f * lift, iconColor);
+        const size_t count = dragged.Files.size();
+        if (isHovered && count == 1)
+            Text(std::format("Release to add {}", dragged.Files[0]), {.Color = iconColor});
+        else if (isHovered && count > 1)
+            Text(std::format("Release to add {} files", count), {.Color = iconColor});
+        else if (isHovered)
+            Text("Release to add the files", {.Color = iconColor});
+        else if (areFilesDragged)
+            Text("Drop the files here", {.Secondary = true});
+        else
+            Text(state.DroppedFiles.empty() ? "Drop files here" : "Drop more files here", {.Secondary = true});
         for (const std::string& path : state.DroppedFiles)
         {
+            PushID(path);
             BeginHStack({.Spacing = 6.0f});
             Icon(Icons::File, {.Size = 15.0f, .Color = GetStyleColor(StyleColor::Accent)});
             Text(path);
             EndHStack();
+            PopID();
         }
         EndVStack();
         GetDrawList().AddSquircleStroke(GetLastItemRect(), GetStyleColor(StyleColor::ControlBorder), 8.0f,
                                         GetContentScale().GetPixelSize());
-        const Drop files = AcceptDrop(GetID("dropzone"), GetLastItemRect(), FilesPayloadType, {.CornerRadius = 8.0f});
+        const Drop files = AcceptDrop(zone, GetLastItemRect(), FilesPayloadType, {.CornerRadius = 8.0f});
+        state.IsDropZoneHovered = files.IsHovered;
         if (files.IsDelivered)
         {
             state.DroppedFiles.insert(state.DroppedFiles.begin(), files.Payload.Files.begin(),
