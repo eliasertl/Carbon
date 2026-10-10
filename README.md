@@ -177,11 +177,17 @@ More backends are picked up when their tools are installed at the first configur
 app, and how to use Carbon from your own project, as a subdirectory or as an installed package
 (`find_package(Carbon)`).
 
+Carbon 1.0.0 can also be installed with a package manager: [Packaging/](Packaging) has a vcpkg port
+(`vcpkg install carbon --overlay-ports=Packaging/vcpkg`) and a Conan 2 recipe
+(`conan create Packaging/conan -s:a compiler.cppstd=20`). Both take FreeType and HarfBuzz from the package manager
+and need no Dawn; the backends are features and options
+([Building](Docs/Building.md#package-managers-vcpkg-and-conan)).
+
 ## Documentation
 
 - [Getting started](Docs/GettingStarted.md) — from a clone to your first interface
 - [Architecture](Docs/Architecture.md) — modules, frame lifecycle, draw list, layout, animation, styling
-- [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn, the web build and the web app
+- [Building](Docs/Building.md) — CMake options, dependency switches, installing Dawn, vcpkg and Conan, the web build and the web app
 - [Integration](Docs/Integration.md) — creating a context, forwarding input, the render pass, DPI, fonts
 - [Renderer backends](Docs/Backends.md) — the graphics APIs, choosing one, writing your own backend
 - [Layout](Docs/Layout.md) — stacks, sizes, spacers, scroll views

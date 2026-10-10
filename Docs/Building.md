@@ -490,6 +490,108 @@ version (1.x).
 [Tests/Package](../Tests/Package) is a small project that uses an installed Carbon; CI's Linux Clang job builds
 it against the installed package.
 
+## Package managers: vcpkg and Conan
+
+[Packaging/](../Packaging) has a vcpkg port and a Conan 2 recipe for the released version (1.0.0). Both download
+the `v1.0.0` tag from GitHub, build it with Carbon's own CMake (without examples, tests and benchmarks) and install
+the same package as `cmake --install`, so an application uses it exactly as described in
+[Installing Carbon](#installing-carbon). FreeType, HarfBuzz and stb come from the package manager through the
+[dependency switches](#dependency-switches), not from `ThirdParty/`. GitHub's archive of a tag has no submodules,
+so both also download the embedded fonts and icons (Public Sans, JetBrains Mono, Phosphor) from the commits the
+submodules pin, each checked against its hash. Neither is in the official registries yet; use them from this
+repository as an overlay port and a local recipe.
+
+The renderer backends are vcpkg features and Conan options. The default is OpenGL 3.3 and OpenGL ES 3.0, which need
+nothing; Dawn is never required.
+
+| Backend | vcpkg feature | Conan option | Needs |
+| --- | --- | --- | --- |
+| OpenGL 3.3 | `opengl` (default) | `with_opengl` (default `True`) | nothing |
+| OpenGL ES 3.0 | `opengles` (default) | `with_opengles` (default `True`) | nothing |
+| Vulkan | `vulkan` | `with_vulkan` | vcpkg: the `vulkan` and `shaderc` ports; Conan: `vulkan-loader`, `vulkan-headers`, `shaderc` |
+| Direct3D 11 | `dx11` (Windows) | `with_dx11` (Windows) | `fxc` from the Windows SDK |
+| Direct3D 9 | `dx9` (Windows) | `with_dx9` (Windows) | `fxc` from the Windows SDK |
+| WebGPU | `webgpu` | not available | vcpkg: the `dawn` port. ConanCenter has no Dawn |
+
+### vcpkg
+
+Classic mode, from a vcpkg checkout:
+
+```sh
+vcpkg install carbon --overlay-ports=<carbon-repository>/Packaging/vcpkg
+vcpkg install "carbon[vulkan,dx11]" --overlay-ports=<carbon-repository>/Packaging/vcpkg   # with more backends
+```
+
+In manifest mode, list `carbon` (or `{ "name": "carbon", "features": ["vulkan"] }`) in your `vcpkg.json` and give
+the overlay in `vcpkg-configuration.json`:
+
+```json
+{ "overlay-ports": ["<carbon-repository>/Packaging/vcpkg"] }
+```
+
+Then configure your project with vcpkg's toolchain file and use the package:
+
+```sh
+cmake -S . -B Build -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake
+```
+
+```cmake
+find_package(Carbon CONFIG REQUIRED)
+target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Reflection)
+```
+
+Carbon is always a static library (`vcpkg_check_linkage(ONLY_STATIC_LIBRARY)`); its dependencies follow the
+triplet. The licenses of the embedded fonts are installed in `share/carbon/Licenses`; ship them with your
+application. vcpkg's HarfBuzz has the raster library, so COLR emoji keep their colors.
+
+### Conan
+
+Create the package from the recipe once, then require it from your project. Carbon needs C++20, and the Vulkan
+option builds shaderc, which needs C++17, so pass `compiler.cppstd=20` for all contexts (or set it in your profiles):
+
+```sh
+conan create <carbon-repository>/Packaging/conan -s:a compiler.cppstd=20 --build=missing
+conan create <carbon-repository>/Packaging/conan -s:a compiler.cppstd=20 --build=missing -o "carbon/*:with_vulkan=True"
+```
+
+A `conanfile.txt` for an application:
+
+```ini
+[requires]
+carbon/1.0.0
+
+[generators]
+CMakeDeps
+CMakeToolchain
+
+[layout]
+cmake_layout
+```
+
+```sh
+conan install . -s:a compiler.cppstd=20 --build=missing
+cmake --preset conan-default          # Linux and single-configuration generators: conan-release
+cmake --build --preset conan-release
+```
+
+The recipe uses Carbon's own `CarbonConfig.cmake` rather than generated CMake files, so `find_package(Carbon)`,
+the components, `Carbon_BACKENDS` and `carbon_copy_dawn_runtime` work as with an installed Carbon; FreeType and
+HarfBuzz are found again from the files Conan generates for them. ConanCenter's HarfBuzz (12.3.0) predates the
+raster library, so with Conan COLR emoji (Segoe UI Emoji) are drawn in the text color; CBDT and sbix emoji keep
+their colors.
+
+### How the packages were checked
+
+On Windows (MSVC, `x64-windows` and Conan's default profile with C++20), [Tests/Package](../Tests/Package) was
+built against the package each one installed, in Release and Debug, and ran: built-in widgets, extension
+components, a custom component and a custom renderer backend, compiled against nothing but the installed headers.
+The Vulkan and Direct3D backends were checked the same way with both (Release); vcpkg's `webgpu` feature, which
+builds Dawn, was not.
+
+With Visual Studio 2026, some ConanCenter recipes (`vulkan-loader`, for the Vulkan option) build with CMake 3.31,
+which has no generator for it. Run Conan from a developer prompt with
+`-c tools.cmake.cmaketoolchain:generator=Ninja`.
+
 ## Continuous integration
 
 > **CI is currently disabled** to keep GitHub Actions usage costs down. The workflow no longer runs on pushes and
