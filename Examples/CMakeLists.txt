@@ -74,6 +74,10 @@ if(CARBON_BUILD_EXTENSIONS)
 else()
     message(STATUS "Carbon: skipping the Gallery and CustomTitleBar examples because CARBON_BUILD_EXTENSIONS is OFF")
 endif()
+# The web app (start screen, Gallery and documentation reader) exists only in a browser.
+if(EMSCRIPTEN AND TARGET CarbonGallery)
+    add_subdirectory(WebApp)
+endif()
 # The Reflection example needs CarbonReflection. It runs on the first backend of CARBON_EXAMPLE_BACKENDS.
 if(TARGET CarbonReflection AND CARBON_EXAMPLE_BACKENDS)
     add_subdirectory(Reflection)
