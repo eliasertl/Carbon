@@ -44,6 +44,8 @@ namespace Gallery
     struct GalleryState
     {
         Page CurrentPage = Page::Buttons;
+        /// In compact width, show the current page rather than the list of pages once (--page, an address).
+        bool ShowsPage = false;
         /// From --show: something a page opens once, so that screenshots can capture menus and dialogs.
         std::string Show;
         bool IsDark = false;

@@ -62,6 +62,12 @@ namespace Gallery
         s_CapturedArea = Rect();
     }
 
+    namespace
+    {
+        // The row being built has its label above its content (compact width).
+        bool s_IsRowStacked = false;
+    } // namespace
+
     void BeginSection(std::string_view title, std::string_view description)
     {
         s_IsCapturing = !s_CapturedSections.empty() && IsCaptured(title);
@@ -95,7 +101,17 @@ namespace Gallery
 
     void BeginRow(std::string_view label)
     {
+        // On a phone the label goes above the content, and the content wraps onto further lines.
+        s_IsRowStacked = IsCompactWidth();
         PushID(label);
+        if (s_IsRowStacked)
+        {
+            BeginVStack({.Spacing = 8.0f, .Width = Size::Fill()});
+            Text(label, {.Style = TextStyle::Subheadline, .Secondary = true});
+            BeginHStack({.Spacing = 12.0f, .Width = Size::Fill(), .Wraps = true});
+            PopID();
+            return;
+        }
         BeginHStack({.Spacing = 12.0f, .Width = Size::Fill()});
         PopID();
         Text(label, {.Secondary = true, .Width = LabelColumn});
@@ -104,6 +120,8 @@ namespace Gallery
     void EndRow()
     {
         EndHStack();
+        if (s_IsRowStacked)
+            EndVStack();
     }
 
     void TypographyPage(const GalleryState& state)
@@ -113,6 +131,7 @@ namespace Gallery
                                          "Human Interface Guidelines. Emoji come from the system's emoji font."
                                        : "The macOS type ramp, set in Public Sans. Sizes and line heights follow the "
                                          "Human Interface Guidelines.");
+        const bool isCompact = IsCompactWidth();
         struct Entry
         {
             TextStyle Style;
@@ -132,10 +151,16 @@ namespace Gallery
             PushID(entry.Name);
             BeginHStack({.Spacing = 12.0f, .Alignment = VerticalAlignment::Center, .Width = Size::Fill()});
             Text(std::format("{} / {}", spec.Size, spec.LineHeight),
-                 {.Style = TextStyle::Caption1, .Secondary = true, .Width = LabelColumn});
+                 {.Style = TextStyle::Caption1,
+                  .Secondary = true,
+                  .Width = isCompact ? CompactLabelColumn : LabelColumn});
             Text(entry.Name, {.Style = entry.Style});
-            Spacer();
-            Text(entry.Name, {.Style = entry.Style, .Emphasized = true});
+            // On a phone there is room for the regular weight only.
+            if (!isCompact)
+            {
+                Spacer();
+                Text(entry.Name, {.Style = entry.Style, .Emphasized = true});
+            }
             EndHStack();
             PopID();
         }
@@ -150,10 +175,15 @@ namespace Gallery
                 "\xF0\x9F\x8C\x8D \xF0\x9F\x9A\x80";
             BeginHStack(
                 {.Spacing = 12.0f, .Alignment = VerticalAlignment::Center, .Width = Size::Fill(), .ID = "Emoji"});
-            Text("Emoji", {.Style = TextStyle::Caption1, .Secondary = true, .Width = LabelColumn});
-            Text(Emoji, {.Style = TextStyle::Title1});
-            Spacer();
-            Text(Emoji, {.Style = TextStyle::Body});
+            Text("Emoji", {.Style = TextStyle::Caption1,
+                           .Secondary = true,
+                           .Width = isCompact ? CompactLabelColumn : LabelColumn});
+            Text(Emoji, {.Style = isCompact ? TextStyle::Title3 : TextStyle::Title1});
+            if (!isCompact)
+            {
+                Spacer();
+                Text(Emoji, {.Style = TextStyle::Body});
+            }
             EndHStack();
         }
         EndSection();
@@ -368,24 +398,41 @@ namespace Gallery
                      "Several lines of plain text. Lines wrap at the edge and longer text scrolls; Return starts a "
                      "new line.");
         // The label sits on the first line of the text, as macOS aligns labels of multi-line controls.
-        const auto beginTopRow = [](std::string_view label)
+        // On a phone the label goes above the text area, which takes the width.
+        const bool isCompact = IsCompactWidth();
+        const Size areaWidth = isCompact ? Size::Fill() : Size::Fixed(360.0f);
+        const auto beginTopRow = [isCompact](std::string_view label)
         {
             PushID(label);
+            if (isCompact)
+            {
+                BeginVStack({.Spacing = 8.0f, .Width = Size::Fill()});
+                PopID();
+                Text(label, {.Style = TextStyle::Subheadline, .Secondary = true});
+                return;
+            }
             BeginHStack({.Spacing = 12.0f, .Alignment = VerticalAlignment::Top, .Width = Size::Fill()});
             PopID();
             BeginVStack({.Padding = EdgeInsets(0.0f, 4.0f, 0.0f, 0.0f)});
             Text(label, {.Secondary = true, .Width = LabelColumn});
             EndVStack();
         };
+        const auto endTopRow = [isCompact]
+        {
+            if (isCompact)
+                EndVStack();
+            else
+                EndHStack();
+        };
         beginTopRow("Notes");
-        TextArea("Notes", &state.Notes, {.Width = 360.0f, .Height = 96.0f});
-        EndHStack();
+        TextArea("Notes", &state.Notes, {.Width = areaWidth, .Height = 96.0f});
+        endTopRow();
         beginTopRow("Grows, takes Tab");
-        TextArea("Outline", &state.Outline, {.Width = 360.0f, .Height = Size::Fit(), .AcceptsTab = true});
-        EndHStack();
+        TextArea("Outline", &state.Outline, {.Width = areaWidth, .Height = Size::Fit(), .AcceptsTab = true});
+        endTopRow();
         beginTopRow("Disabled");
-        TextArea("Disabled notes", &state.Notes, {.Width = 360.0f, .Height = 52.0f, .Disabled = true});
-        EndHStack();
+        TextArea("Disabled notes", &state.Notes, {.Width = areaWidth, .Height = 52.0f, .Disabled = true});
+        endTopRow();
         EndSection();
     }
 
@@ -394,13 +441,19 @@ namespace Gallery
         BeginSection("Images and separators",
                      "Image shows any texture view of the host, optionally with squircle "
                      "corners. Separators adapt to the direction of their stack.");
-        BeginHStack({.Spacing = 16.0f, .Alignment = VerticalAlignment::Center});
+        const bool isCompact = IsCompactWidth();
+        BeginHStack({.Spacing = 16.0f,
+                     .Alignment = VerticalAlignment::Center,
+                     .Width = isCompact ? Size::Fill() : Size::Fit(),
+                     .Wraps = isCompact});
         Image(state.Artwork, Vec2(72.0f, 72.0f));
         Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f});
         Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 36.0f});
-        Separator();
+        if (!isCompact)
+            Separator();
         Image(state.Artwork, Vec2(128.0f, 72.0f), {.CornerRadius = 10.0f, .UV = Rect(0.0f, 0.25f, 1.0f, 0.5f)});
-        Separator();
+        if (!isCompact)
+            Separator();
         Image(state.Artwork, Vec2(72.0f, 72.0f), {.CornerRadius = 16.0f, .Tint = GetStyleColor(StyleColor::Accent)});
         EndHStack();
         EndSection();
@@ -450,7 +503,8 @@ namespace Gallery
         BeginGrid({.HorizontalSpacing = 8.0f, .VerticalSpacing = 10.0f, .ColumnAlignments = FormColumns});
         BeginGridRow();
         Text("Name:");
-        TextField("Name##form", &state.FormName, {.Width = 220.0f});
+        const float formWidth = IsCompactWidth() ? 150.0f : 220.0f;
+        TextField("Name##form", &state.FormName, {.Width = formWidth});
         EndGridRow();
         BeginGridRow();
         Text("Software updates:");
@@ -462,7 +516,7 @@ namespace Gallery
         EndGridRow();
         BeginGridRow();
         Text("Alert volume:");
-        Slider("Alert volume##form", &state.FormVolume, 0.0f, 1.0f, {.Width = 220.0f});
+        Slider("Alert volume##form", &state.FormVolume, 0.0f, 1.0f, {.Width = formWidth});
         EndGridRow();
         EndGrid();
 

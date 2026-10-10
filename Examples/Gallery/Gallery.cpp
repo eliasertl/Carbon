@@ -132,31 +132,38 @@ namespace Gallery
     {
         bool isBackClicked = false;
 
-        // The whole display: the sidebar, and next to it a header above the scrolling page.
-        BeginHStack(
-            {.Spacing = 0.0f, .Alignment = VerticalAlignment::Top, .Width = Size::Fill(), .Height = Size::Fill()});
+        // The whole display: the sidebar, and next to it a header above the scrolling page. On a phone (compact
+        // width) the sidebar is the list of pages, and a page slides in over it with a back button.
+        const PageInfo& page = GetPageInfo(state.CurrentPage);
+        if (state.ShowsPage)
+        {
+            ShowNavigationDetail("gallery", true, false);
+            state.ShowsPage = false;
+        }
+        BeginNavigationSplitView("gallery", {.Title = "Gallery", .DetailTitle = page.Title});
 
         BeginSidebar("pages", {.Width = 210.0f});
         SidebarHeader("Carbon");
-        for (const PageInfo& page : Pages)
+        for (const PageInfo& entry : Pages)
         {
-            if (page.Id == FirstExtensionPage)
+            if (entry.Id == FirstExtensionPage)
                 SidebarHeader("Extensions");
-            if (SidebarItem(page.Title, page.Id == state.CurrentPage, {.Icon = page.Icon}))
-                state.CurrentPage = page.Id;
+            if (SidebarItem(entry.Title, entry.Id == state.CurrentPage, {.Icon = entry.Icon}))
+                state.CurrentPage = entry.Id;
         }
         EndSidebar();
 
-        BeginVStack({.Spacing = 0.0f, .Width = Size::Fill(), .Height = Size::Fill()});
-        const PageInfo& page = GetPageInfo(state.CurrentPage);
-
-        BeginHStack({.Spacing = 16.0f, .Padding = EdgeInsets(24.0f, 14.0f), .Width = Size::Fill()});
-        if (options.HasBackButton)
+        NavigationSplitViewDetail();
+        const bool isCompact = IsCompactWidth();
+        BeginHStack({.Spacing = 16.0f, .Padding = EdgeInsets(isCompact ? 16.0f : 24.0f, 14.0f), .Width = Size::Fill()});
+        if (options.HasBackButton && !isCompact)
         {
             isBackClicked = Button("##back", {.Role = ButtonRole::Plain, .Icon = Icons::CaretLeft});
             Tooltip("Back to the start");
         }
-        Text(page.Title, {.Style = TextStyle::Title2, .Emphasized = true});
+        // In compact width the navigation bar shows the title.
+        if (!isCompact)
+            Text(page.Title, {.Style = TextStyle::Title2, .Emphasized = true});
         Spacer();
         if (Toggle("Reduce Motion", &state.ReduceMotion, {.ControlSize = ControlSize::Small}))
             SetReduceMotion(state.ReduceMotion);
@@ -166,7 +173,7 @@ namespace Gallery
         Separator();
 
         // Every page has its own scroll view, so each one remembers how far it was scrolled.
-        BeginScrollView(page.Key, {.Spacing = 24.0f, .Padding = 24.0f});
+        BeginScrollView(page.Key, {.Spacing = 24.0f, .Padding = isCompact ? 16.0f : 24.0f});
         BuildPage(state);
         EndScrollView();
         // A screenshot of single sections (--section) scrolls them to the top, leaving room for a menu above.
@@ -177,8 +184,7 @@ namespace Gallery
             SetScrollOffset(page.Key, Vec2(0.0f, GetScrollOffset(page.Key).Y + captured.Y - top));
         }
 
-        EndVStack();
-        EndHStack();
+        EndNavigationSplitView();
 
         // Notifications float above everything, wherever they were posted from.
         ShowGalleryNotifications(state);

@@ -6,8 +6,9 @@
 
 namespace Gallery
 {
-    /// Width of the column of row labels in a section.
+    /// Width of the column of row labels in a section, and of a narrow column of labels on a phone.
     inline constexpr float LabelColumn = 150.0f;
+    inline constexpr float CompactLabelColumn = 56.0f;
 
     /// A titled group: a headline above a rounded box, like a section of System Settings.
     void BeginSection(std::string_view title, std::string_view description = {});

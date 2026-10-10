@@ -31,7 +31,10 @@ int main(int argc, char** argv)
     if (!requested.empty())
     {
         if (const std::optional<Gallery::Page> page = Gallery::FindPage(requested))
+        {
             state.CurrentPage = *page;
+            state.ShowsPage = true;
+        }
         else
             std::fprintf(stderr, "Unknown page '%s'\n", requested.c_str());
     }

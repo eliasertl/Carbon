@@ -263,26 +263,44 @@ namespace Gallery
         BeginSection("Radio buttons",
                      "Two to five mutually exclusive choices. The group is one stop for Tab; the arrow keys move "
                      "the selection.");
-        // A grid with top-aligned rows keeps each label on the line of the group's first button.
-        BeginGrid({.HorizontalSpacing = 12.0f, .VerticalSpacing = 14.0f, .VerticalAlignment = VerticalAlignment::Top});
-        BeginGridRow();
-        Text("Appearance", {.Secondary = true, .Width = LabelColumn});
+        // A grid with top-aligned rows keeps each label on the line of the group's first button. On a phone the
+        // labels go above the groups.
+        const bool isCompact = IsCompactWidth();
+        const auto beginRadioRow = [isCompact](std::string_view label)
+        {
+            if (isCompact)
+            {
+                BeginRow(label);
+                return;
+            }
+            BeginGridRow();
+            Text(label, {.Secondary = true, .Width = LabelColumn});
+        };
+        const auto endRadioRow = [isCompact]
+        {
+            if (isCompact)
+                EndRow();
+            else
+                EndGridRow();
+        };
+        if (!isCompact)
+            BeginGrid(
+                {.HorizontalSpacing = 12.0f, .VerticalSpacing = 14.0f, .VerticalAlignment = VerticalAlignment::Top});
+        beginRadioRow("Appearance");
         RadioGroup("Appearance", &state.Appearance, {"Light", "Dark", "Automatic"});
-        EndGridRow();
-        BeginGridRow();
-        Text("Icon size", {.Secondary = true, .Width = LabelColumn});
+        endRadioRow();
+        beginRadioRow("Icon size");
         RadioGroup("Icon size", &state.IconSize, {"Small", "Medium", "Large"}, {.Orientation = Axis::Horizontal});
-        EndGridRow();
-        BeginGridRow();
-        Text("Nothing selected yet", {.Secondary = true, .Width = LabelColumn});
+        endRadioRow();
+        beginRadioRow("Nothing selected yet");
         RadioGroup("Start with", &state.StartWith, {"A new window", "The last session"});
-        EndGridRow();
-        BeginGridRow();
-        Text("Disabled", {.Secondary = true, .Width = LabelColumn});
+        endRadioRow();
+        beginRadioRow("Disabled");
         RadioGroup("Disabled##radio", &state.IconSize, {"Small", "Medium", "Large"},
                    {.Orientation = Axis::Horizontal, .Disabled = true});
-        EndGridRow();
-        EndGrid();
+        endRadioRow();
+        if (!isCompact)
+            EndGrid();
         EndSection();
 
         BeginSection("Pop-up and pull-down buttons",
@@ -472,7 +490,10 @@ namespace Gallery
         BeginSection("Calendar",
                      "The graphical date picker. Click a day, or use the arrow keys while it has focus; Page Up and "
                      "Page Down change the month, with Shift the year. Today is marked in the accent color.");
-        BeginHStack({.Spacing = 40.0f, .Alignment = VerticalAlignment::Top});
+        BeginHStack({.Spacing = 40.0f,
+                     .Alignment = VerticalAlignment::Top,
+                     .Width = IsCompactWidth() ? Size::Fill() : Size::Fit(),
+                     .Wraps = IsCompactWidth()});
         BeginVStack({.Spacing = 8.0f});
         Text("Weeks start on Monday", {.Style = TextStyle::Subheadline, .Secondary = true});
         DatePickerCalendar("Calendar", &state.CalendarDate, {.Today = state.Today});
@@ -568,6 +589,21 @@ namespace Gallery
             if (MenuItem("Zoom"))
                 state.MenuBarAction = "Zoom";
             EndMenuBarMenu();
+        }
+        // On a phone two more menus make the bar overflow into its "more" menu.
+        if (IsCompactWidth())
+        {
+            for (const char* title : {"Format", "Arrange"})
+            {
+                if (BeginMenuBarMenu(title))
+                {
+                    if (MenuItem("Bring to Front"))
+                        state.MenuBarAction = "Bring to Front";
+                    if (MenuItem("Send to Back"))
+                        state.MenuBarAction = "Send to Back";
+                    EndMenuBarMenu();
+                }
+            }
         }
         if (BeginMenuBarMenu("Help"))
         {
@@ -777,7 +813,7 @@ namespace Gallery
         PushID("narrow");
         if (TakeShow(state, "toolbaroverflow"))
             OpenOverlay(HashID("##overflowmenu", GetID("Toolbar")));
-        DemoToolbar(state, ToolbarDisplayMode::IconAndLabel, 380.0f);
+        DemoToolbar(state, ToolbarDisplayMode::IconAndLabel, IsCompactWidth() ? Size::Fill() : Size::Fixed(380.0f));
         PopID();
         EndSection();
     }
@@ -868,7 +904,8 @@ namespace Gallery
         PopUpButton("Position", &state.NotificationPosition, PositionNames);
         EndRow();
         BeginRow("Example");
-        SegmentedControl("Example", &state.NotificationStyle, {"Message", "Success", "Warning", "Error", "Info"});
+        SegmentedControl("Example", &state.NotificationStyle, {"Message", "Success", "Warning", "Error", "Info"},
+                         {.Width = IsCompactWidth() ? Size::Fill() : Size::Fit()});
         EndRow();
         BeginRow("Options");
         Toggle("Image", &state.NotificationHasImage, {.Kind = ToggleKind::Checkbox});
