@@ -176,7 +176,10 @@ namespace Carbon::Internal
         }
         build.Depth++;
 
-        // The root: it fills the area and moves aside while the detail slides over it.
+        // The root: it fills the area and moves aside while the detail slides over it. Only the part the detail
+        // leaves uncovered is drawn and takes the pointer.
+        const float detailX = GetContentScale().Snap(area.X + (1.0f - progress) * area.Width);
+        GetDrawList().PushClipRect(Rect(area.X, area.Y, std::max(detailX - area.X, 0.0f), area.Height));
         SetCursorPos(Vec2(area.X - progress * area.Width * Parallax, area.Y));
         BeginVStack({.Spacing = 0.0f, .Width = area.Width, .Height = area.Height});
         if (!rootTitle.empty())
@@ -193,6 +196,7 @@ namespace Carbon::Internal
         NavigationLevel& level = build.Levels[build.Depth - 1];
         level.IsInRoot = false;
         EndVStack();
+        GetDrawList().PopClipRect();
 
         const Rect& area = level.Area;
         const float progress = level.Progress;

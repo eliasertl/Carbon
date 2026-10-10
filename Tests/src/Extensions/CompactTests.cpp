@@ -100,6 +100,17 @@ namespace Carbon
         EXPECT_FLOAT_EQ(m_Content.X, 0.0f);
     }
 
+    TEST_F(CompactTests, TheListUnderTheContentTakesNoTaps)
+    {
+        ShowNavigationDetail("main", true, false);
+        Settle(Navigation(), 30);
+        // Empty space of the content, where the list lies beneath, moved aside.
+        Tap(Vec2(150.0f, m_Rows[1].GetCenter().Y), Navigation());
+        Tap(Vec2(150.0f, m_Rows[2].GetCenter().Y), Navigation());
+        EXPECT_EQ(m_Page, 0);
+        EXPECT_TRUE(IsNavigationDetailShown("main"));
+    }
+
     TEST_F(CompactTests, InRegularWidthTheSidebarStandsNextToTheContent)
     {
         GetIO().SetDisplaySize(1024.0f, 768.0f);
