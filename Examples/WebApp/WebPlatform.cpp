@@ -7,6 +7,10 @@
 // EM_ASM's JavaScript refers to its arguments as $0, $1, ..., which pedantic C++ warns about.
 #pragma clang diagnostic ignored "-Wdollar-in-identifier-extension"
 
+// clang-format reads the JavaScript in EM_ASM as C++ and would break it (it splits "!==" into "!= ="), so this file
+// is left as written.
+// clang-format off
+
 namespace WebApp
 {
     std::string GetRoute()
@@ -26,7 +30,7 @@ namespace WebApp
         EM_ASM(
             {
                 const hash = '#' + encodeURI(UTF8ToString($0));
-                if (window.location.hash != = hash)
+                if (window.location.hash !== hash)
                     window.history.pushState(null, "", hash);
             },
             text.c_str());
@@ -67,3 +71,4 @@ namespace WebApp
                }) != 0;
     }
 } // namespace WebApp
+// clang-format on
