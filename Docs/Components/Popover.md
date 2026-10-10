@@ -52,7 +52,7 @@ submitted last.
 | Key | Effect |
 | --- | --- |
 | Tab / Shift+Tab | Cycle through the controls inside the popover (with `DismissOnOutsideClick` off, the normal Tab order) |
-| Escape | Close; focus returns to where it was |
+| Escape | Close; focus returns to where it was (with `DismissOnOutsideClick` off the popover never took the focus, and it is not moved) |
 
 ## Guidance from the HIG
 
