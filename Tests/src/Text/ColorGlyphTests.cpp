@@ -11,8 +11,8 @@
 
 namespace Carbon
 {
-    // Color glyphs: COLR glyphs painted in their palette's colors and the PNG images of CBDT fonts, in an atlas of
-    // their own, drawn without the text color. The test fonts are built in memory (Support/TestFonts).
+    // Color glyphs: COLR glyphs painted in their palette's colors and the PNG images of CBDT and sbix fonts, in an
+    // atlas of their own, drawn without the text color. The test fonts are built in memory (Support/TestFonts).
     class ColorGlyphTests : public ContextTest
     {
     protected:
@@ -177,6 +177,28 @@ namespace Carbon
             // The image stands on the baseline, as the font's metrics say.
             const float baseline = 10.0f + GetFontMetrics(spec).Baseline;
             EXPECT_NEAR(quads[0].GetBottom(), baseline, 1.0f / scale) << "scale " << scale;
+        }
+    }
+
+    TEST_F(ColorGlyphTests, SbixImagesAreScaledUprightOntoTheBaseline)
+    {
+        m_FontData = TestFonts::MakeSbixFont(64);
+        m_Font = AddFontFromMemory(m_FontData, {.Name = "Sbix"});
+        ASSERT_NE(m_Font, nullptr) << "a font of sbix bitmaps only is accepted for its color images";
+        TextSpec spec;
+        spec.Size = 20.0f;
+        spec.Font = m_Font;
+        for (const float scale : {1.0f, 2.0f})
+        {
+            GetIO().SetContentScale(scale);
+            const std::vector<Rect> quads = DrawText(ToUTF8(TestFonts::ColorCodepoint), 20.0f);
+            ASSERT_EQ(quads.size(), 1u) << "scale " << scale;
+            // The 64-pixel image is scaled to an em of 20 points, upright, and stands on the baseline.
+            EXPECT_NEAR(quads[0].Width, 20.0f, 1.0f / scale) << "scale " << scale;
+            EXPECT_NEAR(quads[0].Height, 20.0f, 1.0f / scale) << "scale " << scale;
+            EXPECT_NEAR(quads[0].GetBottom(), 10.0f + GetFontMetrics(spec).Baseline, 1.0f / scale) << "scale " << scale;
+            EXPECT_EQ(SampleColorGlyph(0.5f, 0.25f), Opaque(TestFonts::OuterColor)) << "scale " << scale;
+            EXPECT_EQ(SampleColorGlyph(0.5f, 0.75f), Opaque(TestFonts::InnerColor)) << "scale " << scale;
         }
     }
 

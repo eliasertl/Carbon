@@ -29,6 +29,10 @@ namespace Carbon::TestFonts
     /// em, whose color glyphs are PNG images of a square, OuterColor above InnerColor. It has no plain glyph.
     std::vector<uint8_t> MakeCbdtFont(uint8_t ppem = 64);
 
+    /// A font of bitmaps only in Apple's format: an sbix table with one strike of `ppem` pixels per em, whose color
+    /// glyphs are the PNG images of MakeCbdtFont, standing on the baseline. It has no plain glyph.
+    std::vector<uint8_t> MakeSbixFont(uint16_t ppem = 64);
+
     /// A TrueType font without color: squares for ColorCodepoint and PlainCodepoint and an empty joiner, so that
     /// it competes with the color fonts in fallback selection, as text fonts with a few emoji-like symbols do.
     std::vector<uint8_t> MakePlainFont();

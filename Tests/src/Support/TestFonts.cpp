@@ -464,6 +464,53 @@ namespace Carbon::TestFonts
         return Assemble(tables);
     }
 
+    std::vector<uint8_t> MakeSbixFont(uint16_t ppem)
+    {
+        // The glyphs of the CBDT font: 0 .notdef, 1 and 2 the color glyphs, 3 the joiner. No outlines.
+        std::vector<TestGlyph> glyphs(4);
+        glyphs[1].Codepoint = ColorCodepoint;
+        glyphs[2].Codepoint = SecondColorCodepoint;
+        glyphs[3] = {0, false, {}, ZwjCodepoint};
+        const uint16_t count = static_cast<uint16_t>(glyphs.size());
+
+        std::map<uint32_t, std::vector<uint8_t>> tables;
+        tables[Tag("head")] = MakeHead(false);
+        tables[Tag("hhea")] = MakeHhea(count);
+        tables[Tag("maxp")] = MakeMaxp(count);
+        tables[Tag("OS/2")] = MakeOs2();
+        tables[Tag("post")] = MakePost();
+        tables[Tag("name")] = MakeName();
+        tables[Tag("cmap")] = MakeCmap(glyphs);
+        tables[Tag("hmtx")] = MakeHmtx(glyphs);
+
+        // sbix: the header with one strike, then the strike: its size, a data offset per glyph and one past the
+        // last, and the data of glyphs 1 and 2 (origin, graphic type and the PNG). Glyphs 0 and 3 have no image.
+        const std::vector<uint8_t> png = MakePng(ppem, OuterColor, InnerColor);
+        const uint32_t imageSize = 4 + 4 + static_cast<uint32_t>(png.size());
+        const uint32_t firstImage = 4 + 4 * (count + 1u);
+        Writer sbix;
+        sbix.U16(1); // version
+        sbix.U16(1); // flags: bit 0 is always set
+        sbix.U32(1);
+        sbix.U32(12); // the strike, after this header
+        sbix.U16(ppem);
+        sbix.U16(72); // pixels per inch
+        sbix.U32(firstImage);
+        sbix.U32(firstImage);
+        sbix.U32(firstImage + imageSize);
+        sbix.U32(firstImage + 2 * imageSize);
+        sbix.U32(firstImage + 2 * imageSize);
+        for (int glyph = 0; glyph < 2; glyph++)
+        {
+            sbix.I16(0); // origin: the image's bottom left on the baseline
+            sbix.I16(0);
+            sbix.U32(Tag("png "));
+            sbix.Append(png);
+        }
+        tables[Tag("sbix")] = sbix.Bytes;
+        return Assemble(tables);
+    }
+
     std::vector<uint8_t> MakePlainFont()
     {
         std::vector<TestGlyph> glyphs(5);
