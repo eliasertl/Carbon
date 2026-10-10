@@ -41,6 +41,7 @@ namespace Carbon::Internal
             float Progress;
             bool IsInRoot;
             std::string_view RootTitle;
+            bool IsRootBackPressed;
         };
 
         struct NavigationBuild
@@ -83,13 +84,21 @@ namespace Carbon::Internal
             drawList.AddRect(Rect(bar.X, bar.GetBottom() - pixel, bar.Width, pixel),
                              GetStyleColor(StyleColor::Separator));
 
+            // The title is centered; the back button's label gives way to it, as in UIKit: the previous title,
+            // else "Back", else the chevron alone.
+            TextSpec titleSpec = GetTextSpec(TextStyle::Headline);
+            titleSpec.Wraps = false;
+            const float titleWidth = title.empty() ? 0.0f : MeasureText(title, titleSpec).X;
             bool isBackPressed = false;
             float backWidth = 0.0f;
             if (hasBack)
             {
                 const TextSpec spec = GetTextSpec(TextStyle::Body);
-                const std::string_view label = backTitle.empty() ? std::string_view("Back") : backTitle;
-                const float labelWidth = std::min(MeasureText(label, spec).X, bar.Width * 0.3f);
+                const float room = (bar.Width - titleWidth) * 0.5f - BarPadding * 3.0f - BackIconSize - BackGap;
+                std::string_view label = backTitle.empty() ? std::string_view("Back") : backTitle;
+                if (MeasureText(label, spec).X > room)
+                    label = MeasureText("Back", spec).X <= room ? std::string_view("Back") : std::string_view();
+                const float labelWidth = label.empty() ? 0.0f : std::min(MeasureText(label, spec).X, bar.Width * 0.3f);
                 backWidth = BackIconSize + BackGap + labelWidth + BarPadding;
                 const Rect button(bar.X, bar.Y, backWidth + BarPadding, bar.Height);
                 ButtonBehaviorOptions behavior;
@@ -113,18 +122,17 @@ namespace Carbon::Internal
 
             if (!title.empty())
             {
-                TextSpec spec = GetTextSpec(TextStyle::Headline);
-                spec.MaxWidth = std::max(bar.Width - (backWidth + BarPadding) * 2.0f, 1.0f);
-                spec.Wraps = false;
-                const float width = std::min(MeasureText(title, spec).X, spec.MaxWidth);
-                DrawLabel(drawList, bar, bar.GetCenter().X - width * 0.5f, title, spec,
+                titleSpec.MaxWidth = std::max(bar.Width - (backWidth + BarPadding) * 2.0f, 1.0f);
+                const float width = std::min(titleWidth, titleSpec.MaxWidth);
+                DrawLabel(drawList, bar, bar.GetCenter().X - width * 0.5f, title, titleSpec,
                           GetStyleColor(StyleColor::Label));
             }
             return isBackPressed;
         }
     } // namespace
 
-    void BeginCollapsedNavigation(ID id, std::string_view rootTitle, Size width, Size height)
+    void BeginCollapsedNavigation(ID id, std::string_view rootTitle, Size width, Size height,
+                                  std::string_view rootBackTitle)
     {
         NavigationBuild& build = GetBuild();
         const bool hasRoom = build.Depth < MaxDepth;
@@ -173,6 +181,7 @@ namespace Carbon::Internal
             level.Progress = progress;
             level.IsInRoot = true;
             level.RootTitle = rootTitle;
+            level.IsRootBackPressed = false;
         }
         build.Depth++;
 
@@ -182,8 +191,13 @@ namespace Carbon::Internal
         GetDrawList().PushClipRect(Rect(area.X, area.Y, std::max(detailX - area.X, 0.0f), area.Height));
         SetCursorPos(Vec2(area.X - progress * area.Width * Parallax, area.Y));
         BeginVStack({.Spacing = 0.0f, .Width = area.Width, .Height = area.Height});
-        if (!rootTitle.empty())
-            NavigationBar(id, rootTitle, {}, false);
+        if (!rootTitle.empty() || !rootBackTitle.empty())
+        {
+            const bool isBackPressed =
+                NavigationBar(HashID("##root", id), rootTitle, rootBackTitle, !rootBackTitle.empty());
+            if (hasRoom)
+                build.Levels[build.Depth - 1].IsRootBackPressed = isBackPressed;
+        }
     }
 
     void CollapsedNavigationDetail(std::string_view detailTitle)
@@ -221,13 +235,13 @@ namespace Carbon::Internal
             GetNavigationState(level.Id).IsDetailShown = false;
     }
 
-    void EndCollapsedNavigation()
+    bool EndCollapsedNavigation()
     {
         NavigationBuild& build = GetBuild();
         const bool isOpen = build.Depth > 0;
         CB_VERIFY(isOpen, "EndCollapsedNavigation without BeginCollapsedNavigation");
         if (!isOpen)
-            return;
+            return false;
         build.Depth--;
         const NavigationLevel level = build.Levels[std::min(build.Depth, MaxDepth - 1)];
         EndVStack();
@@ -242,6 +256,7 @@ namespace Carbon::Internal
         }
         GetDrawList().PopClipRect();
         EndVStack();
+        return level.IsRootBackPressed;
     }
 
     bool IsInCollapsedNavigationRoot()

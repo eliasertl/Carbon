@@ -15,6 +15,10 @@ namespace Carbon
         /// In compact width, the title in the middle of the detail's navigation bar: usually the name of what the
         /// sidebar selected.
         std::string_view DetailTitle = {};
+        /// In compact width, a back button with this title at the leading end of the sidebar's navigation bar, for
+        /// a split view the application opened from somewhere else (a start screen). EndNavigationSplitView
+        /// reports that it was pressed. In regular width, show a button of your own.
+        std::string_view RootBackTitle = {};
         Size Width = Size::Fill();
         Size Height = Size::Fill();
     };
@@ -37,7 +41,8 @@ namespace Carbon
     void BeginNavigationSplitView(std::string_view id, const NavigationSplitViewOptions& options = {});
     /// Ends the sidebar and starts the content.
     void NavigationSplitViewDetail();
-    void EndNavigationSplitView();
+    /// Returns true in the frame the back button of RootBackTitle was pressed.
+    bool EndNavigationSplitView();
 
     /// Shows the content (`true`) or the sidebar (`false`) of a collapsed navigation split view or split view `id`,
     /// for example when the application navigates from code or from an address; `animated` slides it. Picking an

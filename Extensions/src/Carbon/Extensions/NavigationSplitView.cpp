@@ -45,7 +45,8 @@ namespace Carbon
 
         if (isCollapsed)
         {
-            Internal::BeginCollapsedNavigation(GetID(id), options.Title, options.Width, options.Height);
+            Internal::BeginCollapsedNavigation(GetID(id), options.Title, options.Width, options.Height,
+                                               options.RootBackTitle);
             return;
         }
         BeginHStack({.Spacing = 0.0f,
@@ -70,21 +71,19 @@ namespace Carbon
             BeginVStack({.Spacing = 0.0f, .Width = Size::Fill(), .Height = Size::Fill()});
     }
 
-    void EndNavigationSplitView()
+    bool EndNavigationSplitView()
     {
         NavigationSplitStack& stack = GetStack();
         const bool isOpen = stack.Depth > 0;
         CB_VERIFY(isOpen, "EndNavigationSplitView called without BeginNavigationSplitView");
         if (!isOpen)
-            return;
+            return false;
         stack.Depth--;
         if (stack.Depth < MaxDepth && stack.IsCollapsed[stack.Depth])
-        {
-            Internal::EndCollapsedNavigation();
-            return;
-        }
+            return Internal::EndCollapsedNavigation();
         EndVStack();
         EndHStack();
+        return false;
     }
 
     void ShowNavigationDetail(std::string_view id, bool isShown, bool animated)

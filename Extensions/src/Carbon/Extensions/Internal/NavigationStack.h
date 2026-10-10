@@ -17,9 +17,13 @@ namespace Carbon::Internal
     ///     CollapsedNavigationDetail("Songs");                        // the detail pane begins
     ///     ...
     ///     EndCollapsedNavigation();
-    void BeginCollapsedNavigation(ID id, std::string_view rootTitle, Size width, Size height);
+    /// `rootBackTitle` gives the root's navigation bar a back button of its own, for a navigation that was opened
+    /// from somewhere else; EndCollapsedNavigation reports that it was pressed.
+    void BeginCollapsedNavigation(ID id, std::string_view rootTitle, Size width, Size height,
+                                  std::string_view rootBackTitle = {});
     void CollapsedNavigationDetail(std::string_view detailTitle);
-    void EndCollapsedNavigation();
+    /// Returns true in the frame the root's back button was pressed.
+    bool EndCollapsedNavigation();
 
     /// True while the root pane of a collapsed navigation is being built: components that fill the width there
     /// (a sidebar becomes a full-width list with disclosure chevrons).
