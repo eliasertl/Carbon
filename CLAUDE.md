@@ -26,7 +26,8 @@ read it before changing public API.
 - All folder names are `PascalCase`, except `src`.
 - Every public function and type gets a short `///` comment.
 - Internal headers end in `Internal.h` or live in an `Internal/` folder, and are not listed as public headers in
-  CMake. `Extensions/` and `Examples/CustomComponent` may include public Carbon headers only.
+  CMake. `Extensions/` and `Examples/CustomComponent` may include public Carbon headers only; `Reflection/` public
+  Carbon and CarbonExtensions headers only.
 - Only `Framework/src/Carbon/Backends/` calls graphics APIs; each backend keeps its public header, implementation
   and shaders in `Backends/<Name>/`. Everything else (core, `Renderer/`, extensions, reflection) includes no
   graphics header and must stay GPU-free and unit-testable; the `BackendIsolation` test checks this.
@@ -53,8 +54,9 @@ read it before changing public API.
   Throwaway files go in the gitignored `Scratch/` folder.
 - When a new file establishes a better name or pattern, rename older files with `git mv` and update includes,
   CMake and docs in the same commit.
-- Documentation images are rendered from `Docs/Images/Screenshots.txt` by `Scripts/Screenshots.py` (CI commits
-  them after pushes to `main`). Never edit or hand-crop an image; change the list. Every component page shows one.
+- Documentation images are rendered from `Docs/Images/Screenshots.txt` by `Scripts/Screenshots.py`. CI is off
+  (manual dispatch only, to save Actions costs), so render them locally and commit them. Never edit or hand-crop
+  an image; change the list. Every component page shows one.
 - Check visuals yourself: every example accepts `--screenshot <file.png>`, `--theme light|dark` and
   `--scale <factor>`. Look at the result and compare it with the HIG (macOS flavor) before calling it done.
 - Documentation is part of every milestone. New components get `Docs/Components/<Name>.md`.

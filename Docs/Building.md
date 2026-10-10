@@ -4,13 +4,16 @@
 
 - CMake 3.25 or newer
 - A C++20 compiler with `std::format`: MSVC 2022, GCC 13+ or Clang 17+
-- For the WebGPU renderer backend, which the examples use: an installed [Dawn](https://dawn.googlesource.com/dawn)
-  (see [Installing Dawn](#installing-dawn)). Without Dawn, Carbon builds without that backend (headless library and
-  tests only); see [Renderer backends](Backends.md)
-- For the Vulkan renderer backend: the Vulkan headers and loader, and `glslc`. The
+- Nothing else for the OpenGL 3.3 and OpenGL ES 3.0 backends, which have no build dependency: a clone builds the
+  library, the tests and the examples without installing anything
+- Optional, for the WebGPU renderer backend: an installed [Dawn](https://dawn.googlesource.com/dawn) (see
+  [Installing Dawn](#installing-dawn)). Without Dawn, Carbon builds without that backend; the other backends and
+  the examples are not affected. See [Renderer backends](Backends.md)
+- Optional, for the Vulkan renderer backend: the Vulkan headers and loader, and `glslc`. The
   [Vulkan SDK](https://vulkan.lunarg.com) has all of them (its installer sets `VULKAN_SDK`, which CMake finds); on
   Ubuntu, install `libvulkan-dev glslc`. The validation layers (`vulkan-validationlayers`, part of the SDK) make
   the Vulkan tests check every call
+- For the Direct3D 11 and 9 backends (Windows): `fxc` from the Windows SDK, which Visual Studio installs
 - The git submodules: `git submodule update --init --recursive`
 - Linux, for the examples and the OpenGL backend's tests: the X11 and Wayland development packages GLFW needs (on Ubuntu:
   `libx11-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev libwayland-dev libxkbcommon-dev wayland-protocols`)
@@ -20,18 +23,22 @@
 ```sh
 git clone --recurse-submodules https://github.com/eliasertl/Carbon.git
 cd Carbon
-cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install>
-cmake --build Build
-ctest --test-dir Build
+cmake -S . -B Build -DCMAKE_BUILD_TYPE=Release
+cmake --build Build --config Release --parallel
+ctest --test-dir Build -C Release --parallel 8
+Build/Examples/OpenGL/Gallery
 ```
 
-With a multi-configuration generator (Visual Studio) pick the configuration at build time:
-`cmake --build Build --config Release` and `ctest --test-dir Build -C Release`.
+This needs no Dawn: Carbon builds every backend whose dependencies it finds (OpenGL and OpenGL ES always, Vulkan
+and Direct3D when their tools are installed) and prints them (`Carbon: renderer backends: ...`). With a
+multi-configuration generator (Visual Studio) the configuration is picked at build time, by `--config` and `-C`,
+and the executables are in a configuration subfolder: `Build\Examples\OpenGL\Release\Gallery.exe`. For the
+WebGPU backend, install Dawn and add `-DCMAKE_PREFIX_PATH=<dawn-install>` to the configure command.
 
 ## Installing Dawn
 
-The WebGPU backend renders with Dawn, and the main examples use it. Carbon never builds Dawn. Build and install it
-once, following Dawn's
+The WebGPU backend renders with Dawn. It is optional: without Dawn, Carbon and the examples build with the other
+backends. Carbon never builds Dawn. To use WebGPU, build and install it once, following Dawn's
 [CMake quickstart](https://github.com/google/dawn/blob/main/docs/quickstart-cmake.md):
 
 ```sh
@@ -43,7 +50,8 @@ cmake --build out/Release
 cmake --install out/Release --prefix install/Release
 ```
 
-Dawn takes a while to build. These options leave out what Carbon does not need and are what Carbon's CI uses:
+Dawn takes a while to build. These options leave out what Carbon does not need and are what Carbon's CI workflow
+uses:
 `-DDAWN_BUILD_SAMPLES=OFF -DDAWN_BUILD_TESTS=OFF -DDAWN_USE_GLFW=OFF -DDAWN_ENABLE_DESKTOP_GL=OFF
 -DDAWN_ENABLE_OPENGLES=OFF -DTINT_BUILD_TESTS=OFF -DTINT_BUILD_CMD_TOOLS=OFF`. On Linux, Dawn needs the X11
 development packages (`libx11-dev libx11-xcb-dev libxrandr-dev libxinerama-dev libxcursor-dev libxi-dev
@@ -53,7 +61,7 @@ libxext-dev`); add `-DDAWN_USE_WAYLAND=ON` if your application creates Wayland s
 `operator==` in `dawn::native`). Build Dawn with Clang (`CC=clang CXX=clang++`); Carbon itself can then be built
 with GCC or Clang, since both use libstdc++ and Dawn is a static library. If configuring Dawn fails with an
 error about `dawncpp_module`, also pass `-DDAWN_SUPPORTS_CXX_MODULES=OFF`: Dawn detected C++ module support that
-CMake cannot use with your compiler. This is what Carbon's CI does.
+CMake cannot use with your compiler. This is what Carbon's CI workflow does.
 
 Then point Carbon at the install prefix with `-DCMAKE_PREFIX_PATH=<dawn>/install/Release`, or set `Dawn_DIR` to
 `<prefix>/lib/cmake/Dawn`. Dawn's API changes often; other commits may need small adjustments in
@@ -89,7 +97,7 @@ Carbon warns at configure time when it detects this mismatch.
 | `CARBON_INSTALL` | `ON` when Carbon is the top-level project | Generate install rules and the `CarbonConfig.cmake` package |
 | `CARBON_WARNINGS_AS_ERRORS` | `OFF` | Treat warnings in Carbon targets as errors; used by CI |
 | `CARBON_FORCE_ASSERTS` | `OFF` | Keep `CB_ASSERT` checks active in optimized builds |
-| `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. The main examples need it |
+| `CARBON_BACKEND_WEBGPU` | `ON` when Dawn is found | Compile the WebGPU renderer backend into `Carbon`. `ON` without Dawn stops the configuration with an explanation. Optional: the examples run on any backend |
 | `CARBON_BACKEND_OPENGL` | `ON` | Compile the OpenGL 3.3 renderer backend into `Carbon`. It has no build dependency; its tests create their context with GLFW, which is then built for the tests as well |
 | `CARBON_BACKEND_OPENGLES` | `ON` | Compile the OpenGL ES 3.0 / WebGL 2 renderer backend into `Carbon`. It has no build dependency; it shares its renderer with the OpenGL backend |
 | `CARBON_BACKEND_VULKAN` | `ON` when the Vulkan headers, loader and `glslc` are found | Compile the Vulkan renderer backend into `Carbon`; `ON` without them, or without `glslc`, stops the configuration with an explanation. `Vulkan_GLSLC_EXECUTABLE` points CMake at a `glslc` elsewhere |
@@ -196,8 +204,8 @@ Every example accepts `--screenshot <file.png>` (render a settled frame offscree
 `--theme light|dark`, `--scale <factor>` and `--size <width>x<height>`:
 
 ```sh
-Build/Examples/WebGPU/Minimal --theme dark
-Build/Examples/WebGPU/Minimal --screenshot shot.png --scale 2
+Build/Examples/OpenGL/Minimal --theme dark
+Build/Examples/OpenGL/Minimal --screenshot shot.png --scale 2
 ```
 
 For screenshots of states that need input, and of parts of a window, there are more options:
@@ -230,9 +238,10 @@ python Scripts/Screenshots.py --check            # fail if an image is out of da
 ```
 
 An image is replaced only when it looks different: renderings on different GPUs differ by a level or two in
-antialiased edges, which the script ignores (it compares pixels with Pillow, `pip install pillow`). After every
-push to `main`, CI renders the screenshots on Windows and commits the images that changed, so the documentation
-follows the code. To add a screenshot, add a line to the list and reference the image from the page.
+antialiased edges, which the script ignores (it compares pixels with Pillow, `pip install pillow`). While CI is
+disabled (see [Continuous integration](#continuous-integration)), run the script locally after every change that
+affects an image and commit the images it replaced. To add a screenshot, add a line to the list and reference the
+image from the page.
 
 `ctest` runs headless, and `ctest --parallel <n>` runs it several times faster: starting the test executable
 costs more than most tests. Most tests need no GPU at all and are CTest entries of their own. The renderer tests
@@ -278,10 +287,12 @@ output directories, and its warning flags apply only to its own targets.
 Carbon can also be installed and then found with `find_package`:
 
 ```sh
-cmake -S . -B Build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=<dawn-install> -DCARBON_BUILD_EXAMPLES=OFF -DCARBON_BUILD_TESTS=OFF
-cmake --build Build
-cmake --install Build --prefix <carbon-install>
+cmake -S . -B Build -DCMAKE_BUILD_TYPE=Release -DCARBON_BUILD_EXAMPLES=OFF -DCARBON_BUILD_TESTS=OFF
+cmake --build Build --config Release
+cmake --install Build --config Release --prefix <carbon-install>
 ```
+
+Add `-DCMAKE_PREFIX_PATH=<dawn-install>` to the first command to include the WebGPU backend.
 
 ```cmake
 find_package(Carbon CONFIG REQUIRED)            # add COMPONENTS Extensions Reflection to require them
@@ -289,7 +300,8 @@ target_link_libraries(MyApp PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Re
 carbon_copy_dawn_runtime(MyApp)                # Windows: copies d3dcompiler_47.dll next to the executable
 ```
 
-Configure the application with both prefixes: `-DCMAKE_PREFIX_PATH="<carbon-install>;<dawn-install>"`.
+Configure the application with `-DCMAKE_PREFIX_PATH=<carbon-install>`, or with both prefixes when the package
+includes the WebGPU backend: `-DCMAKE_PREFIX_PATH="<carbon-install>;<dawn-install>"`.
 
 What gets installed:
 
@@ -310,15 +322,19 @@ Vulkan loader for Vulkan. With
 MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one minor
 version (0.1.x).
 
-[Tests/Package](../Tests/Package) is a small project that uses an installed Carbon; CI builds it on every
-platform.
+[Tests/Package](../Tests/Package) is a small project that uses an installed Carbon; CI's Linux Clang job builds
+it against the installed package.
 
 ## Continuous integration
 
-[.github/workflows/CI.yml](../.github/workflows/CI.yml) runs on every push and pull request. (It is paused at the
-moment to save Actions minutes and runs only when started by hand; the comment at the top of the workflow says how
-to turn it back on. While it is paused, the documentation screenshots are not updated by CI either: run
-`python Scripts/Screenshots.py` after a change that affects them.)
+> **CI is currently disabled** to keep GitHub Actions usage costs down. The workflow no longer runs on pushes and
+> pull requests, only when started by hand (Actions > CI > Run workflow); the comment at the top of the workflow
+> says how to turn the triggers back on. Until then, build and test locally before pushing (Debug and Release,
+> `ctest`, `Scripts/Format.ps1 -Check` or `Scripts/Format.sh --check`), and render the documentation screenshots
+> yourself with `python Scripts/Screenshots.py`. The last automatic run was on 2026-10-06.
+
+When it is enabled, [.github/workflows/CI.yml](../.github/workflows/CI.yml) runs on every push to `main` and on
+every pull request:
 
 - `clang-format` checks the formatting with the pinned clang-format version.
 - **Dawn** is built once per platform at the pinned commit and stored in the Actions cache, keyed by the
@@ -336,7 +352,7 @@ to turn it back on. While it is paused, the documentation screenshots are not up
   library, `glslc` and loader to build the Vulkan backend; it has no Vulkan or OpenGL 3.3 driver, so those tests
   skip there.
 - After a push to `main`, the Windows job also renders the documentation screenshots and commits the ones that
-  changed (see [Documentation screenshots](#documentation-screenshots)).
+  changed (see [Documentation screenshots](#documentation-screenshots)). A run started by hand does not.
 
 ## Formatting
 

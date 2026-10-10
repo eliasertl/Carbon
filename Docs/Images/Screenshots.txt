@@ -1,12 +1,12 @@
-# The screenshots of the documentation. Scripts/Screenshots.py renders them, and CI runs it after every push to
-# main, so the images follow the code. Change a line here, not an image.
+# The screenshots of the documentation. Scripts/Screenshots.py renders them; CI runs it after every push to main
+# when it is enabled, and while it is disabled it is run locally. Change a line here, not an image.
 #
 #   <image>  <example>  <options>
 #
 # Examples are named <Backend>/<Example>, their path under Examples in the build tree; the documentation shows the
 # WebGPU builds. Options are those of the examples (Docs/Building.md): --page, --show, --theme, --size, --pointer,
-# --click, --right-click, --drag, --crop, and for the Gallery --section <key>[,<key>...] with
-# --extend <left>,<top>,<right>,<bottom>.
+# --click, --right-click, --drag, --file-drag, --file-drop, --compose, --crop, and for the Gallery
+# --section <key>[,<key>...] with --extend <left>,<top>,<right>,<bottom>.
 # A section's key is its title in lower case without spaces or punctuation. With --section, pointer positions are
 # relative to the section's box. The scale is 2 unless --scale is given.
 

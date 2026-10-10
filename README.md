@@ -1,16 +1,13 @@
 # Carbon
 
-[![CI](https://github.com/eliasertl/Carbon/actions/workflows/CI.yml/badge.svg)](https://github.com/eliasertl/Carbon/actions/workflows/CI.yml)
-
 *“Persistence refines the miserable piece of carbon in you into the purest form of diamond.”* ― Tobi Delly
 
 Carbon is an immediate-mode C++20 UI framework for tools, editors and applications on Windows and Linux, and in
-web browsers through Emscripten. It has
-the productivity of an immediate-mode API and the look and feel of macOS: calm, minimal, precise, with smooth
-spring-driven motion. Carbon renders into a target your application owns through a renderer backend, chosen at
-run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan, OpenGL 3.3, OpenGL ES 3.0, Direct3D 11 or Direct3D 9, or a backend
-of your own for any other API. It
-never creates windows, devices or OS hooks.
+web browsers through Emscripten. It has the productivity of an immediate-mode API and the look and feel of macOS:
+calm, minimal, precise, with smooth spring-driven motion. Carbon renders into a target your application owns
+through a renderer backend, chosen at run time: WebGPU ([Dawn](https://dawn.googlesource.com/dawn)), Vulkan,
+OpenGL 3.3, OpenGL ES 3.0 (WebGL 2 in a browser), Direct3D 11 or Direct3D 9, or a backend of your own for any
+other API. It never creates windows, devices or OS hooks.
 
 | Light | Dark |
 | --- | --- |
@@ -33,7 +30,7 @@ Carbon::BeginVStack({ .Spacing = 12.0f, .Padding = 20.0f });
 Carbon::EndVStack();
 
 Carbon::EndFrame();
-Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGPUInit({ .Device = device })
+Carbon::OpenGLRender(); // or WebGPURender(pass), VulkanRender(commandBuffer), DX11Render(), ...
 ```
 
 ![The WebGPUMinimal example: Carbon's controls next to a triangle drawn by the host](Docs/Images/WebGPUMinimal-Light.png)
@@ -41,18 +38,33 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
 > **Status: version 0.1.** Everything described below is implemented, documented and tested on Windows (MSVC)
 > and Linux (GCC, Clang). The API may still change before 1.0. Not in scope: windows and docking, translucency
 > and blur, right-to-left text and screen-reader accessibility.
+>
+> **Continuous integration is currently disabled** to keep GitHub Actions usage costs down: the workflow runs
+> only when started by hand. Changes are built and tested locally on Windows before they are pushed; Linux was
+> last checked by CI on 2026-10-06. See [Building](Docs/Building.md#continuous-integration).
 
 ## Features
 
-- **Components**: Text, Icon, Button, Toggle (switch and checkbox), Slider (also vertical and logarithmic),
-  TextField, TextArea (multi-line, wrapping, scrolling), Image, Separator, Tooltip, stacks, Grid, Spacer and
-  ScrollView, each with hover, pressed, focused and disabled states that animate.
-- **Extension components** (`CarbonExtensions`): Sidebar with a sliding selection, TabView, SegmentedControl, line
-  and bar charts, Popover, Menu with submenus, ContextMenu, MenuBar, Toolbar, PopUpButton, PullDownButton, ComboBox,
-  TokenField, RadioGroup, DatePicker, DatePickerCalendar, Stepper, NumberField, ScrubField (drag to change a
-  number), ProgressIndicator (bar and spinner), SearchField,
-  List, Table, OutlineView (trees, such as a file browser), ColumnView, PathControl, SplitView, Alert, Sheet,
-  ColorWell and notifications at any edge or corner.
+- **Core components** (`Carbon`), each with hover, pressed, focused and disabled states that animate:
+  - Content: Text, Icon, Image, Separator, Tooltip.
+  - Controls: Button (with roles and a default button), Toggle (switch and checkbox), Slider (horizontal or
+    vertical, linear or logarithmic, with tick marks), TextField (bound to a `std::string`, a fixed `char`
+    buffer or a callback; secure entry and a clear button), TextArea (multi-line, wrapping, scrolling).
+  - Layout: VStack, HStack and Spacer, Grid (rows of cells whose columns line up) and ScrollView.
+- **Extension components** (`CarbonExtensions`):
+  - Navigation: Sidebar with a sliding selection, TabView, SplitView, Toolbar (with an overflow menu), MenuBar,
+    PathControl.
+  - Selection: SegmentedControl, PopUpButton, PullDownButton, ComboBox, RadioGroup, TokenField (text that turns
+    into tokens, such as mail recipients), ColorWell.
+  - Numbers, dates and search: Stepper, NumberField (formatted, with a range and arrow-key steps), ScrubField
+    (drag across a number to change it), DatePicker (date, time or both, with a calendar popover),
+    DatePickerCalendar (a month of days), SearchField.
+  - Data: List, Table, OutlineView (trees, such as a file browser), ColumnView (a hierarchy as columns), line and
+    bar charts, ProgressIndicator (bar and spinner).
+  - Overlays and feedback: Popover, Menu with submenus, ContextMenu, Alert, Sheet, and notifications at any edge
+    or corner.
+- **Reflection component** (`CarbonReflection`): `Reflect`, which draws the controls for an enum value or for
+  every field of a struct.
 - **Data tables**: any number of columns that the user sorts, resizes, fits to their content and rearranges by
   dragging their headers, with sideways scrolling; the application owns the sort, the widths and the order.
 - **Drag and drop**: any item can be a drag source with a typed payload and any rectangle a drop target, with a
@@ -91,9 +103,9 @@ Carbon::WebGPURender(pass); // your wgpu::RenderPassEncoder, after Carbon::WebGP
 ## Examples
 
 Every example is built once per renderer backend that is compiled in, into a folder named after the backend:
-`Build/Examples/WebGPU/Gallery`, `Build/Examples/Vulkan/Gallery`, ..., `Build/Examples/DX9/Gallery`, and so on. The `*Minimal` examples spell out one
-backend's integration each; the others are written once against `Examples/Common`, whose graphics device for
-each backend is the only difference between the builds.
+`Build/Examples/OpenGL/Gallery`, `Build/Examples/Vulkan/Gallery`, ..., `Build/Examples/DX9/Gallery`. The `Minimal`
+examples spell out one backend's integration each; the others are written once against `Examples/Common`, whose
+graphics device for each backend is the only difference between the builds.
 
 | Example | Shows |
 | --- | --- |
@@ -106,31 +118,46 @@ each backend is the only difference between the builds.
 | [`<Backend>/Gallery`](Examples/Gallery/Main.cpp) | Every component in both themes, a page per group, with a reduce-motion switch |
 | [`<Backend>/CustomComponent`](Examples/CustomComponent/StarRating.cpp) | A star rating control that is not part of Carbon, built from the public extension API |
 | [`<Backend>/CustomTitleBar`](Examples/CustomTitleBar/Main.cpp) | A window without the system's title bar: Carbon draws the header with a toolbar and caption buttons, the host moves, resizes, maximizes and closes the window |
-| [`<Backend>/Reflection`](Examples/Reflection/Main.cpp) | A settings window generated from one `AppSettings` struct: a sidebar of sections, each drawn by a single `Carbon::Reflect` call (built once, on the first backend) |
+| [`<Backend>/Reflection`](Examples/Reflection/Main.cpp) | A settings window generated from one `AppSettings` struct: a sidebar of sections, each drawn by a single `Carbon::Reflect` call (built once, for the first backend of WebGPU, Vulkan, OpenGL, OpenGL ES, DX11, DX9 that is compiled in) |
 
 Every example accepts `--theme light|dark`, `--scale <factor>`, `--size <width>x<height>` and
 `--screenshot <file.png>`.
 
 ## Building
 
-Requirements: CMake 3.25+, a C++20 compiler (MSVC 2022, GCC 13+ or Clang 17+) and, for the WebGPU backend that
-the examples use, an installed Dawn.
+Requirements: CMake 3.25+ and a C++20 compiler (MSVC 2022, GCC 13+ or Clang 17+). Nothing else needs to be
+installed to try Carbon: the OpenGL 3.3 backend has no build dependency, and every other dependency is a git
+submodule. On Linux, install the X11 and Wayland development packages GLFW needs (listed in
+[Building](Docs/Building.md#requirements)).
 
 ```sh
 git clone --recurse-submodules https://github.com/eliasertl/Carbon.git
 cd Carbon
-cmake -S . -B Build -DCMAKE_PREFIX_PATH=<dawn-install>
-cmake --build Build
-ctest --test-dir Build
-Build/Examples/WebGPU/Gallery
+cmake -S . -B Build -DCMAKE_BUILD_TYPE=Release
+cmake --build Build --config Release --parallel
+ctest --test-dir Build -C Release --parallel 8
+Build/Examples/OpenGL/Gallery
 ```
 
-With Visual Studio generators, add `--config Release` (or the configuration your Dawn install was built for) to
-the build command and `-C Release` to `ctest`; the Gallery is then at `Build/Examples/WebGPU/Release/Gallery.exe`.
-[Docs/Building.md](Docs/Building.md) explains how to install Dawn, documents every CMake option and shows how to
-use Carbon from your own project, as a subdirectory or as an installed package (`find_package(Carbon)`).
+With a Visual Studio generator the executables are in a configuration folder:
+`Build\Examples\OpenGL\Release\Gallery.exe`. CMake prints the renderer backends it found
+(`Carbon: renderer backends: ...`) and builds every example once per backend, into
+`Build/Examples/<Backend>/`.
 
-Developed and tested against Dawn commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b`.
+More backends are picked up when their tools are installed at the first configuration (later, pass
+`-DCARBON_BACKEND_<NAME>=ON`):
+
+- **Vulkan**: install the [Vulkan SDK](https://vulkan.lunarg.com) (on Ubuntu: `libvulkan-dev glslc`); the
+  Gallery is then also at `Build/Examples/Vulkan/Gallery`.
+- **Direct3D 11 and 9** (Windows): found automatically with the Windows SDK, into `Build/Examples/DX11/` and
+  `Build/Examples/DX9/`.
+- **WebGPU** (optional): needs an installed [Dawn](https://dawn.googlesource.com/dawn), which Carbon never
+  builds. Install it once as described in [Installing Dawn](Docs/Building.md#installing-dawn), then add
+  `-DCMAKE_PREFIX_PATH=<dawn-install>` to the configure command. Carbon is developed and tested against Dawn
+  commit `91158020c0b1cb0ddb4dc1c2c29e5a4669374f0b`.
+
+[Docs/Building.md](Docs/Building.md) documents every CMake option, the web build with Emscripten, and how to use
+Carbon from your own project, as a subdirectory or as an installed package (`find_package(Carbon)`).
 
 ## Documentation
 
