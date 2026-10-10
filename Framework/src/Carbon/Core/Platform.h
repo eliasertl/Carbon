@@ -8,6 +8,8 @@
 #define CB_PLATFORM_WEB 1
 #elif defined(__APPLE__)
 #define CB_PLATFORM_MACOS 1
+#elif defined(__ANDROID__)
+#define CB_PLATFORM_ANDROID 1
 #elif defined(__linux__)
 #define CB_PLATFORM_LINUX 1
 #else

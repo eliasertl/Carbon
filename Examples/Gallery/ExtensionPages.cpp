@@ -135,9 +135,13 @@ namespace Gallery
             const char* Kind;
             const char* Size;
             const char* Icon;
-            std::span<const FileNode> Children = {};
+            // A pointer and a count rather than a span: libc++ 18 (the Android NDK) cannot declare the copy
+            // constructor of a class holding a span of itself.
+            const FileNode* ChildData = nullptr;
+            size_t ChildCount = 0;
 
-            bool IsFolder() const { return !Children.empty(); }
+            std::span<const FileNode> GetChildren() const { return {ChildData, ChildCount}; }
+            bool IsFolder() const { return ChildCount > 0; }
         };
 
         const FileNode Sources[] = {
@@ -150,8 +154,8 @@ namespace Gallery
             {"Theme.css", "Style sheet", "12 KB", Icons::FileCss},
         };
         const FileNode Project[] = {
-            {"Sources", "Folder", "--", Icons::Folder, Sources},
-            {"Assets", "Folder", "--", Icons::Folder, Assets},
+            {"Sources", "Folder", "--", Icons::Folder, Sources, std::size(Sources)},
+            {"Assets", "Folder", "--", Icons::Folder, Assets, std::size(Assets)},
             {"README.md", "Markdown", "2 KB", Icons::FileMd},
         };
         const FileNode Photos[] = {
@@ -159,13 +163,13 @@ namespace Gallery
             {"Mountains.jpg", "JPEG image", "4.6 MB", Icons::FileImage},
         };
         const FileNode Documents[] = {
-            {"Carbon", "Folder", "--", Icons::Folder, Project},
+            {"Carbon", "Folder", "--", Icons::Folder, Project, std::size(Project)},
             {"Annual Report.pdf", "PDF document", "2.4 MB", Icons::FilePdf},
             {"Budget.xlsx", "Spreadsheet", "184 KB", Icons::FileXls},
         };
         const FileNode Root[] = {
-            {"Documents", "Folder", "--", Icons::Folder, Documents},
-            {"Pictures", "Folder", "--", Icons::Folder, Photos},
+            {"Documents", "Folder", "--", Icons::Folder, Documents, std::size(Documents)},
+            {"Pictures", "Folder", "--", Icons::Folder, Photos, std::size(Photos)},
             {"Notes.txt", "Plain text", "1 KB", Icons::FileText},
         };
 
@@ -190,7 +194,7 @@ namespace Gallery
                 state.OutlineAction = std::format("Opened \"{}\"", node.Name);
             if (item.IsExpanded)
             {
-                for (const FileNode& child : node.Children)
+                for (const FileNode& child : node.GetChildren())
                     BuildOutlineNode(state, child);
             }
             EndOutlineItem();
@@ -1090,7 +1094,7 @@ namespace Gallery
                 if (isSelected)
                 {
                     selected = &node;
-                    next = node.Children;
+                    next = node.GetChildren();
                 }
             }
             EndColumnViewColumn();
@@ -1123,7 +1127,7 @@ namespace Gallery
                 break;
             const FileNode& node = nodes[static_cast<size_t>(index)];
             path[length++] = {.Label = node.Name, .Icon = node.Icon};
-            nodes = node.Children;
+            nodes = node.GetChildren();
         }
         const std::span<const PathControlItem> components(path, length);
         const auto goTo = [&](int component)

@@ -1,8 +1,11 @@
 #include "Carbon/Extensions/NumberField.h"
 
 #include <algorithm>
+#include <cctype>
+#include <cerrno>
 #include <charconv>
 #include <cmath>
+#include <cstdlib>
 #include <cstring>
 
 #include "Carbon/Extensions/Internal/NumberEditing.h"
@@ -106,9 +109,23 @@ namespace Carbon
 
         double parsed = 0.0;
         const char* const last = local + text.size();
+#if defined(__cpp_lib_to_chars)
         const std::from_chars_result result = std::from_chars(local, last, parsed, std::chars_format::general);
         if (result.ec != std::errc() || result.ptr != last || !std::isfinite(parsed))
             return false;
+#else
+        // libc++ before LLVM 20 (the Android NDK) has no std::from_chars for floating point. strtod reads the
+        // same numbers once what only it accepts is ruled out: leading spaces, a plus sign and hexadecimal.
+        local[text.size()] = '\0';
+        if (std::isspace(static_cast<unsigned char>(local[0])) || local[0] == '+' ||
+            text.find_first_of("xX") != std::string_view::npos)
+            return false;
+        char* end = nullptr;
+        errno = 0;
+        parsed = std::strtod(local, &end);
+        if (errno == ERANGE || end != last || !std::isfinite(parsed))
+            return false;
+#endif
         *value = parsed;
         return true;
     }
