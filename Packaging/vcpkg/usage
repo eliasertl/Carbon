@@ -1,0 +1,8 @@
+carbon provides CMake targets:
+
+    find_package(Carbon CONFIG REQUIRED)
+    target_link_libraries(main PRIVATE Carbon::Carbon Carbon::Extensions Carbon::Reflection)
+
+Carbon_BACKENDS lists the renderer backends the package was built with (features opengl and opengles by
+default; dx11, dx9, vulkan and webgpu on request). Ship the font licenses in share/carbon/Licenses with your
+application.

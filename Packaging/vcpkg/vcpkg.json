@@ -1,0 +1,67 @@
+{
+  "name": "carbon",
+  "version": "1.0.0",
+  "description": "Immediate-mode C++20 UI framework with a macOS look, rendered through WebGPU, Vulkan, OpenGL, OpenGL ES, Direct3D 11 or Direct3D 9",
+  "homepage": "https://github.com/eliasertl/Carbon",
+  "documentation": "https://eliasertl.github.io/Carbon/",
+  "license": "MIT AND OFL-1.1",
+  "supports": "!uwp & !xbox",
+  "dependencies": [
+    {
+      "name": "freetype",
+      "default-features": false
+    },
+    {
+      "name": "harfbuzz",
+      "default-features": false,
+      "features": [
+        "freetype"
+      ]
+    },
+    "stb",
+    {
+      "name": "vcpkg-cmake",
+      "host": true
+    },
+    {
+      "name": "vcpkg-cmake-config",
+      "host": true
+    }
+  ],
+  "default-features": [
+    "opengl",
+    "opengles"
+  ],
+  "features": {
+    "dx11": {
+      "description": "Direct3D 11 renderer backend (needs fxc from the Windows SDK)",
+      "supports": "windows"
+    },
+    "dx9": {
+      "description": "Direct3D 9 renderer backend (needs fxc from the Windows SDK)",
+      "supports": "windows"
+    },
+    "opengl": {
+      "description": "OpenGL 3.3 renderer backend (no dependency: the host loads OpenGL)"
+    },
+    "opengles": {
+      "description": "OpenGL ES 3.0 / WebGL 2 renderer backend (no dependency: the host loads OpenGL ES)"
+    },
+    "vulkan": {
+      "description": "Vulkan renderer backend",
+      "dependencies": [
+        {
+          "name": "shaderc",
+          "host": true
+        },
+        "vulkan"
+      ]
+    },
+    "webgpu": {
+      "description": "WebGPU renderer backend on Dawn",
+      "dependencies": [
+        "dawn"
+      ]
+    }
+  }
+}
