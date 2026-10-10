@@ -92,10 +92,11 @@ if (interaction.Focused && Carbon::IsKeyPressed(Carbon::Key::RightArrow))
     current = std::min(current + 1, options.Count);
 ```
 
-`ButtonBehavior` and `DragBehavior` already make the item a stop for Tab and activate it with Space and Enter.
-A component made of several parts that should be **one** stop (a segmented control, a list) calls
-`RegisterFocusable(id, rect)` for the whole and gives its parts `Focusable = false`; it moves focus to itself
-with `SetFocus(id)` when a part is clicked. `FocusNext()` and `FocusPrevious()` step focus like Tab does, which
+`ButtonBehavior` and `DragBehavior` already make the item a stop for Tab, and `ButtonBehavior` activates it with
+Space and Enter; the arrow keys of a dragged control (a slider) are the component's own. A component made of
+several parts that should be **one** stop (a segmented control, a list) calls `RegisterFocusable(id, rect)` for
+the whole and gives its parts `Focusable = false`; it moves focus to itself with `SetFocus(id)` when a part is
+clicked. `FocusNext()` and `FocusPrevious()` step focus like Tab does, which
 is how menus implement the arrow keys.
 
 Draw the ring last:
@@ -123,7 +124,7 @@ antialiased analytically at any content scale. `PushClipRect` restricts drawing,
 Measure text with `MeasureText(text, spec)`, where `spec` comes from `GetTextSpec(TextStyle::Body)`.
 `GetControlMetrics(ControlSize)` gives the height, padding, corner radius and text style of the three control
 sizes, so your controls line up with the built-in ones. `GetContentScale().Snap(...)` puts edges on whole
-pixels and `GetPixelSize()` is the width of a hairline.
+pixels and `GetContentScale().GetPixelSize()` is the width of a hairline.
 
 ## 6. Styling
 

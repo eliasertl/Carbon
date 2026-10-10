@@ -116,8 +116,8 @@ else
 - `IsAnimating()` is true when anything was still moving in the last frame: a spring or ease, a theme transition,
   a container fading in, or layout that needs one more frame to settle. `GetNextFrameDelay()` is 0 then.
 - Otherwise `GetNextFrameDelay()` is the time until something changes without moving in between: the caret of a
-  focused text field appears or disappears (every half second), a scroll indicator starts to fade (one second
-  after the last scroll). It is infinity when nothing is due.
+  text field or text area being edited appears or disappears (every half second), a scroll indicator starts to
+  fade (one second after the last scroll). It is infinity when nothing is due.
 
 Set the delta time of the next frame to the time that really passed, as always: the caret and the indicator
 count it. An animation that starts in the first frame after a sleep is not cut short by that: when nothing moved
@@ -126,5 +126,5 @@ idle seconds still shows its animation from the beginning. A component that chan
 schedule of its own calls `RequestFrameAfter(seconds)` in every frame in which it waits; one that animates from the
 clock, like a spinner, calls `RequestAnimationFrame()`.
 
-A focused text field used to keep `IsAnimating()` true for its caret, at 60 frames per second for a change twice
-a second; a host that only looks at `IsAnimating()` would now see a caret that stops blinking.
+A blinking caret does not keep `IsAnimating()` true, so a host must honor `GetNextFrameDelay()`: one that only
+looks at `IsAnimating()` sees a caret that stops blinking.

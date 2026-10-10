@@ -67,22 +67,22 @@ shadows and scroll indicators. Primary and secondary text meet the HIG's 4.5 : 1
 background colors. `StyleColor` also contains the control, selection, overlay and focus-ring
 roles and the system palette (`Red` … `Gray`) for charts and status colors; see `Carbon/Style/StyleColor.h`.
 
-``cpp
+```cpp
 Carbon::SetTheme(Carbon::Theme::Dark());             // the host chooses; Carbon cannot detect the OS setting
 
 Carbon::Theme theme = Carbon::Theme::Dark();          // customize: start from a built-in theme
 theme.SetColor(Carbon::StyleColor::Accent, Carbon::Color::FromHex(0xFF9F0A));
 theme.SetVar(Carbon::StyleVar::CornerRadius, 8.0f);
 Carbon::SetTheme(theme);
-``
+```
 
 Switching themes is animated: every color and metric glides to its new value (see
 [Animation](Animation.md#theme-switches)). Components read the current values each frame:
 
-``cpp
+```cpp
 Carbon::Color label = Carbon::GetStyleColor(Carbon::StyleColor::Label);
 float radius = Carbon::GetStyleVar(Carbon::StyleVar::CornerRadius);
-``
+```
 
 ### Metrics
 
@@ -141,7 +141,8 @@ Carbon::GetDrawList().AddText(Carbon::Vec2(20, 20), "Settings", title, Carbon::C
 ```
 
 A `TextSpec` can also be filled in by hand: font, size, weight (any value on the 100–900 axis, for example
-`Carbon::FontWeight(450)`), italic, line height, tracking and the icon variant.
+`Carbon::FontWeight(450)`), italic, line height, tracking, the icon variant, and a `MaxWidth` within which the
+text wraps between words (`Wraps`, the default) or is cut off with an ellipsis, its lines placed by `Alignment`.
 
 ### Public Sans compared with SF Pro
 
@@ -165,7 +166,10 @@ wider than SF Pro; allow a little more room for labels than a macOS mock-up sugg
 - Glyphs are not hinted, like on macOS: letter shapes and spacing stay faithful to the design at every size.
 - Each glyph is placed on whole pixels vertically and at quarter-pixel steps horizontally, which keeps spacing
   even at small sizes without blurring stems.
-- Lines are separated by `'\n'`. The glyphs are centered vertically in the line height.
+- Lines are separated by `'\n'`, and wrap at `MaxWidth` when one is set. The glyphs are centered vertically in
+  the line height.
+- Emoji are drawn in color from a color font the host added (COLR, CBDT or sbix); Carbon embeds none. See
+  [Integration](Integration.md#emoji).
 
 ## Icons
 

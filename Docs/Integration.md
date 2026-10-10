@@ -28,8 +28,8 @@ Carbon::Context* context = Carbon::CreateContext(description);
 Carbon::DestroyContext(context);
 ```
 
-- Carbon has **one current context**. The first context you create becomes current; use
-  `Carbon::SetCurrentContext` to switch between several.
+- Carbon has **one current context**. A context you create becomes current when none is (destroying the
+  current one leaves none current); use `Carbon::SetCurrentContext` to switch between several.
 - Every callback is optional. Without `Log`, messages are dropped; Carbon never prints on its own. Without the
   clipboard callbacks, copy and paste do nothing.
 - A new context is *headless*: it builds draw data (`Carbon::GetDrawData()`) but cannot render. Connect it to your

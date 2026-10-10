@@ -52,7 +52,7 @@ it always draws above.
 | `ShowsArrow` | `bool` | `false` | An arrow pointing at the anchor |
 | `Padding` | `EdgeInsets` | 12 | Space around the content |
 | `Spacing` | `float` | theme's `Spacing` | Distance between items |
-| `Width`, `Height` | `Size` | `Fit` | `Fit` sizes the overlay to its content |
+| `Width`, `Height` | `Size` | `Fit` | `Fit` sizes the overlay to its content; `Fill` takes the display's full extent |
 | `ContentAlignment` | `Alignment` | `Leading` | Where items sit horizontally |
 | `CornerRadius` | `float` | theme's `OverlayCornerRadius` | |
 

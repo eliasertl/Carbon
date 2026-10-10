@@ -10,7 +10,7 @@ Access turned on: every control is a Tab stop.
 | Tab / Shift+Tab | Move focus to the next / previous control, wrapping around at the ends. Held keys repeat. In a text area that accepts tabs, Tab types one and Ctrl+Tab moves on. |
 | Space | Activate the focused control: press a button, flip a toggle. |
 | Enter | Activate the focused button. With no button focused, activate the default button (`IsDefault`). In a text field, submit; in a text area, start a new line. |
-| Arrow keys | Act inside the focused control: move a slider, the caret, the selected segment, the selection of a list, the highlight of a menu, a split view's divider. |
+| Arrow keys | Act inside the focused control: move a slider, the caret, the selected segment, the selection of a list, the highlight of a menu, a split view's divider; step a number field (up and down). |
 | Home / End | Jump to the ends: a slider's minimum and maximum, the start and end of a text field or of a line in a text area. |
 | Page Up / Page Down | Scroll the scroll view under the pointer, or the outermost one. In a text area, move the caret by a page. |
 | Escape | Close the topmost popover, menu or sheet; cancel an alert; give up editing a text field or text area. |
@@ -51,8 +51,10 @@ the keyboard.
 Some components are a single stop for Tab and use the arrow keys inside: a segmented control (left and right), a
 radio group (all four arrows), a path control (left, right, Home, End), a calendar (arrows, Page Up, Page Down,
 Home, End), a stepper (up and down), a sidebar, list or table (up, down, Home, End), an outline view (also left and
-right to collapse and expand). A column view has one stop per column; left and right move between them. Clicking one
-of them gives it focus, so the arrow keys continue from the click.
+right to collapse and expand). A column view has one stop per column; left and right move between them. The
+header of a table that sorts is a stop of its own: left and right move between its columns, Space or Enter sorts,
+and with the shortcut modifier the arrow keys move a column. Clicking one of them gives it focus, so the arrow keys
+continue from the click.
 
 ## The focus ring
 
@@ -61,7 +63,8 @@ animates in (a fade, settling inwards onto the control; just a fade with reduced
 
 - The ring appears when focus arrives **by keyboard**. Clicking a control focuses it without showing the ring,
   so that Tab continues from where you clicked; the ring appears as soon as a key is pressed.
-- **Text fields** always show the ring while they have focus, as on macOS.
+- **Text fields and text areas** (and the token field and date picker) always show the ring while they have
+  focus, as on macOS.
 - The ring hides while the host window is inactive.
 
 Its look comes from the theme: `StyleColor::FocusRing`, `StyleVar::FocusRingWidth` and
@@ -80,8 +83,10 @@ Forward key events and text input (see [Integration](Integration.md#forwarding-i
 ordinary key events, and do not forward the OS's key repeat: Carbon repeats held keys itself, 0.4 s after the
 press and then every 50 ms.
 
-`io.WantsKeyboard()` is true while a Carbon control has focus and `io.WantsTextInput()` while a text field is
-being edited, so the host can keep those keys away from its own shortcuts.
+`io.WantsKeyboard()` is true while a Carbon control has focus and `io.WantsTextInput()` while a text field or
+text area is being edited, so the host can keep those keys away from its own shortcuts. For Japanese, Chinese,
+Korean and similar input, the host also forwards the input method's composition and places its candidate window
+at `io.GetCaretRect()`; see [Input methods](Integration.md#input-methods).
 
 ## From code
 

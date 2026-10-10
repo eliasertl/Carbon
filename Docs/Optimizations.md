@@ -559,8 +559,8 @@ Findings of the survey that the baseline did not confirm as a cost worth changin
 - **Faster font embedding (`EmbedAsset.cmake`).** All generated assets together are 18 build steps and 11 of the
   1,680 CPU seconds of a clean Release build.
 - **Parallel clang-format in `Scripts/Format.sh`.** The check over all sources takes 1.0 s, and the CI job 7 to 8
-  s, most of it installing clang-format. On Windows the script had to learn to format in batches for another
-  reason: the command line was too long.
+  s, most of it installing clang-format. On Windows, `Scripts/Format.ps1` had to learn to format in batches for
+  another reason: the command line was too long.
 - **Caching apt packages in CI.** Installing them takes 17 to 18 s in each Linux job. Caching them needs a
   third-party action; not done.
 - **The effect of the CI caches.** ccache on Linux, the cached Emscripten SDK and the cached Vulkan SDK files only

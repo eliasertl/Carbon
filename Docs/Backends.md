@@ -237,7 +237,7 @@ Carbon::OpenGLImage(sceneTexture, Carbon::Vec2(320, 180));
 Carbon::OpenGLShutdown();                                // with the context still current
 ```
 
-**The loader.** Carbon includes no OpenGL header and links no loader. `OpenGLInit` resolves the 54 functions it
+**The loader.** Carbon includes no OpenGL header and links no loader. `OpenGLInit` resolves the 53 functions it
 uses through the host's `GetProcAddress` into a private table, and fails with the name of the first one that is
 missing. The function must return OpenGL 1.0 and 1.1 functions too, which `glfwGetProcAddress`,
 `SDL_GL_GetProcAddress` and `eglGetProcAddress` (EGL 1.5) do; plain `wglGetProcAddress` does not. Carbon is a
@@ -249,10 +249,11 @@ backend is shut down (`OpenGLShutdown`, `RemoveRendererBackend`, `DestroyContext
 from the thread it is current on. Carbon calls OpenGL nowhere else: not from `NewFrame` or `EndFrame`.
 
 **State.** `OpenGLRender` saves every piece of state it changes and restores it before it returns, so the host's
-rendering before and after is not disturbed: the program, vertex array, array buffer, active texture, the
-texture (2D and buffer) and sampler bindings of units 0 and 1, blend enable, equations and functions, scissor test
-and box, culling, depth test and mask, stencil test, color mask, viewport, polygon mode, primitive restart, logic
-op and `GL_FRAMEBUFFER_SRGB`, plus the pixel-unpack state while the glyph atlas is uploaded. The element buffer
+rendering before and after is not disturbed: the program, vertex array, array buffer, active texture, the 2D
+texture and sampler bindings of units 0 and 1, blend enable, equations and functions, scissor test and box,
+culling, depth test, stencil test, color mask, viewport, polygon mode, primitive restart, logic op and
+`GL_FRAMEBUFFER_SRGB`, plus the pixel-unpack state while the glyph atlas is uploaded. It never changes the depth
+or stencil masks. The element buffer
 binding belongs to Carbon's own vertex array. Carbon's tests check the restoration after every frame.
 
 **Coordinates.** OpenGL's window coordinates start at the bottom left; Carbon flips its clip space and scissor

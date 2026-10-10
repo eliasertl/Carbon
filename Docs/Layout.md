@@ -88,8 +88,11 @@ to `Fill`; inside a stack that fits its content, give the scrolling axis a fixed
 
 - The mouse wheel scrolls the innermost scroll view under the pointer. The view glides to its new offset; with
   reduced motion it jumps.
+- Page Up and Page Down scroll the view under the pointer (or the outermost one), and so do Home and End when no
+  control has focus; see [Keyboard navigation](KeyboardNavigation.md).
 - The overlay scroll indicator appears while scrolling and when the view first appears, then fades out, as on
-  macOS. `ShowsIndicator = false` hides it.
+  macOS. It widens under the pointer and can be dragged. `ShowsIndicator = false` hides it.
+- During a [drag](DragAndDrop.md), holding the pointer near an edge of the view scrolls it.
 - The offset is kept per ID and survives while the view is not shown. `GetScrollOffset` and `SetScrollOffset`
   read and change it.
 - Rows that are scrolled out of view cost no drawing: shapes and text outside the clip rectangle are dropped
@@ -161,7 +164,7 @@ size when it ends, and its background is drawn with it. Only these placements ca
 | `Spacer` or `Fill` along an axis of given length (`Fixed` or `Fill`) | Always: the free space is measured |
 | `Justify` other than leading along an axis of given length | Always |
 | A new fitting stack placed off-leading across its parent's axis (centered in an `HStack`, for instance) | Always: it is aligned by its own size, which is known only at its end |
-| A new grid or grid row; an overlay | Always: column widths and overlay sizes are measured |
+| A new grid or grid row, a new stack in a grid cell; an overlay | Always: column widths and overlay sizes are measured |
 
 When nothing was wrong the stack stays as drawn, with no fade. When something was, everything it drew is made
 transparent at its end, and it fades in from the next frame as before; a new stack inside one that is drawn is
@@ -238,4 +241,4 @@ Carbon::Rect rect = Carbon::AllocateItem(Carbon::Vec2(width, height), { .Width =
 
 It passes the size its content needs and lets the caller override either axis with a fixed or fill size. Item
 origins are snapped to whole pixels, so shapes and text stay crisp at fractional content scales.
-[Custom components](CustomComponents.md) covers the rest of the extension API (milestone 5).
+[Custom components](CustomComponents.md) covers the rest of the extension API.
