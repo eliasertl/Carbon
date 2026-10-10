@@ -31,7 +31,7 @@ The label identifies the control and is not drawn. Segments can also be passed a
   Motion).
 - An unselected segment under the pointer is tinted. A segment is selected when the mouse button goes down on
   it.
-- An index outside the range is treated as the nearest segment.
+- An index outside the range is treated as the nearest segment and written back, without returning `true`.
 
 ## Keyboard
 

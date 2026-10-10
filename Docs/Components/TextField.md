@@ -3,7 +3,7 @@
 Edits a single line of text.
 HIG: [Text fields](https://developer.apple.com/design/human-interface-guidelines/text-fields)
 
-![Text fields: plain, with a placeholder, secure and a search field](../Images/Components/TextField.png)
+![Text fields: plain, with a placeholder, secure, a search field and a disabled one](../Images/Components/TextField.png)
 
 ```cpp
 std::string name;
@@ -99,7 +99,7 @@ gets stronger.
 | Tab / Shift+Tab | Focus the field and select all of its text |
 | Left / Right | Move the caret; with Shift, extend the selection |
 | Ctrl+Left / Ctrl+Right (or Alt) | Move by word |
-| Home / End, Up / Down | Start / end of the text |
+| Home / End, Up / Down | Start / end of the text; with Shift, extend the selection |
 | Backspace / Delete | Delete the selection, or the character before / after the caret; with Ctrl, a word |
 | Ctrl+A | Select all |
 | Ctrl+C, Ctrl+X, Ctrl+V | Copy, cut, paste through the host's clipboard callbacks |

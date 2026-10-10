@@ -23,7 +23,7 @@ Carbon::ProgressIndicator(0.4f, { .Kind = Carbon::ProgressKind::Spinner });    /
 | `IsIndeterminate` | `bool` | `false` | The length of the task is unknown; `value` is ignored |
 | `Width` | `Size` | 180 | Length of a bar. Spinners have a fixed size. |
 | `ControlSize` | `ControlSize` | `Regular` | Bars are 4, 6 and 8 points thick; spinners 12, 16 and 32 points wide |
-| `Tint` | `Color` | theme's `Accent` | The filled part. An indeterminate spinner uses the secondary label color. |
+| `Tint` | `Color` | theme's `Accent` | The filled part. An indeterminate spinner defaults to the secondary label color instead. |
 
 ## Behaviour
 

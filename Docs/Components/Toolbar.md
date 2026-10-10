@@ -38,7 +38,7 @@ Its label names the control's entry in the overflow menu and, with labels shown,
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `Width` | `Size` | `Fill` | Usually the window's width |
-| `Height` | `float` | 52 with labels, 38 without | Height of the bar |
+| `Height` | `float` | 52 for `IconAndLabel`, 38 otherwise | Height of the bar |
 | `Background` | `Color` | theme's `SecondaryBackground` | `Color::Transparent()` for a toolbar in a custom title bar |
 | `HasSeparator` | `bool` | `true` | A hairline along the bottom edge |
 | `DisplayMode` | `ToolbarDisplayMode` | `IconAndLabel` | `IconAndLabel`, `IconOnly` or `LabelOnly`, for the whole toolbar |

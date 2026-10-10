@@ -71,7 +71,7 @@ Everything a [TextField](TextField.md#keyboard) does with the text, plus:
 | Left arrow at the start of the text | Select the last token |
 | Left / Right with tokens selected | Select the previous / next token; with Shift, extend the selection. Right past the last token returns to the text |
 | Backspace, Delete with tokens selected | Remove the selected tokens |
-| Ctrl+A with no text | Select all tokens |
+| Ctrl+A with no text, or with tokens selected | Select all tokens (the shortcut modifier, which a host may set to Command) |
 | Escape with tokens selected | Deselect |
 
 ## Guidance from the HIG

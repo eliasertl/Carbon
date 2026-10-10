@@ -69,7 +69,8 @@ These components are built only on Carbon's public extension API; see
 | [DatePicker](DatePicker.md) | A compact field for a date, a time or both, with a calendar in a popover |
 | [TokenField](TokenField.md) | Text that turns into tokens, such as the recipients of a mail |
 
-Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
+Popovers, menus, alerts and sheets are [overlays](../Overlays.md). Dragging rows, files and values of your own
+between components is [drag and drop](../DragAndDrop.md).
 
 ## Conventions shared by all components
 
@@ -91,10 +92,15 @@ Popovers, menus, alerts and sheets are [overlays](../Overlays.md).
   dims them and makes them ignore input and Tab.
 - **After the call.** `IsItemHovered()`, `IsItemFocused()`, `IsItemActive()`, `GetItemRect()` and `Tooltip()`
   refer to the component submitted last.
-- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginGrid`, `BeginGridRow`, `BeginScrollView`, `BeginSidebar`, `BeginList`,
-  `BeginTable`, `BeginTabView`, `BeginSplitView` and `BeginToolbar` always need their `End`. Pairs that can be closed return a
-  `bool` from `Begin` (`BeginPopover`, `BeginMenu`, `BeginSubmenu`, `BeginContextMenu`, `BeginPullDownButton`,
-  `BeginSheet`, `BeginOverlay`): call `End` only when it returned `true`.
-- **Open at the same ID scope.** `OpenPopover("name")`, `OpenMenu`, `OpenAlert` and `OpenSheet` find their
-  component by name, so call them where the matching `Begin` is called: not inside another `PushID`, and not
-  from inside the overlay itself.
+- **Begin and End.** Containers come as a pair. `BeginVStack`, `BeginHStack`, `BeginGrid`, `BeginGridRow`,
+  `BeginScrollView`, `BeginSidebar`, `BeginTabView`, `BeginSplitView`, `BeginList`, `BeginTable`,
+  `BeginTableCell`, `BeginOutlineView`, `BeginOutlineItem`, `BeginColumnView`, `BeginColumnViewColumn`,
+  `BeginColumnViewPreview`, `BeginToolbar` and `BeginMenuBar` always need their `End`, whatever they return
+  (`BeginTable` returns the `TableChanges` of its header, `BeginOutlineItem` an `OutlineItem`). Pairs that can be
+  closed return a `bool` from `Begin` (`BeginPopover`, `BeginMenu`, `BeginSubmenu`, `BeginContextMenu`,
+  `BeginPullDownButton`, `BeginSheet`, `BeginOverlay`, `BeginMenuBarMenu`, `BeginToolbarControl`,
+  `BeginTokenFieldMenu`, `BeginDragSource`): call `End` only when it returned `true`.
+- **Open at the same ID scope.** `OpenPopover("name")`, `OpenMenu`, `OpenAlert` and `OpenSheet` (and
+  `ClosePopover`, `CloseSheet`) find their component by name, so call them where the matching `Begin` (for an
+  alert, `Alert`) is called: not inside another `PushID`, and not from inside the overlay itself, which pushes its
+  own ID.

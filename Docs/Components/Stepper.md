@@ -14,8 +14,9 @@ Carbon::Stepper("Copies", &copies, { .Min = 1.0, .Max = 99.0 });
 Carbon::EndHStack();
 ```
 
-`Stepper` binds to a `double` or an `int` and returns `true` on the frame the value changed. A stepper does not
-show its value: put a `Text` or a `TextField` next to it. The label identifies the stepper and is not drawn.
+`Stepper` binds to a `double` or an `int` (rounded to the nearest whole number) and returns `true` on the frame
+the value changed. A stepper does not show its value: put a `Text` or a `TextField` next to it. The label
+identifies the stepper and is not drawn.
 
 ## Options
 

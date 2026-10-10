@@ -25,7 +25,7 @@ offset and is pushed on the ID stack.
 | --- | --- | --- | --- |
 | `Axis` | `Axis` | `Vertical` | The direction the content scrolls and is laid out in |
 | `Width`, `Height` | `Size` | `Fill` | Size of the visible area. Inside a stack that fits its content, give the scrolling axis a fixed size. |
-| `Spacing` | `float` | theme's `Spacing` | Distance between items |
+| `Spacing` | `float` | theme's `Spacing` (8) | Distance between items |
 | `Padding` | `EdgeInsets` | 0 | Space around the content; scrolls with it |
 | `Alignment` | `Alignment` | `Leading` | Where items sit across the scrolling axis |
 | `ShowsIndicator` | `bool` | `true` | The overlay scroll indicator |
@@ -39,8 +39,11 @@ offset and is pushed on the ID stack.
   lane at the trailing edge, then fades out after about a second, as on macOS. It takes no space, grows slightly
   under the pointer and can be dragged.
 - The offset is clamped to the content, survives while the view is not shown, and can be read and set with
-  `GetScrollOffset(id)` and `SetScrollOffset(id, offset, animated)`.
+  `GetScrollOffset(id)` and `SetScrollOffset(id, offset, animated = false)`, in points and by the ID the view
+  was begun with. A set offset is clamped on the next frame; without `animated` the view jumps there.
 - Content outside the visible area is not drawn and does not react to the pointer.
+- While something is dragged (see [Drag and drop](../DragAndDrop.md#while-something-is-dragged)), the pointer
+  within 32 points of an edge of the view under it scrolls the view towards that edge, faster the closer it gets.
 
 ## Keyboard
 

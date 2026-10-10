@@ -41,7 +41,10 @@ waiting; on the frame a button is chosen it returns `Primary` or `Secondary` onc
   is answered. A click outside does nothing.
 - The primary button is on the trailing side and is the default button, drawn prominently.
 - With `IsDestructive`, the primary button is drawn in the destructive color and is **not** the default: the
-  secondary button is, so that Enter cannot destroy data by accident.
+  secondary button is, so that Enter cannot destroy data by accident. An alert without a secondary button keeps
+  the primary one as the default.
+- The icon is drawn filled, in the accent color, or in the destructive color with `IsDestructive`.
+- Both buttons are equally wide and share the width of the alert.
 - Title and message are centered and wrap.
 
 ## Keyboard

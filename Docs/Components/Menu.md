@@ -31,7 +31,7 @@ if (Carbon::BeginMenu("edit"))
 | Function | Purpose |
 | --- | --- |
 | `OpenMenu(id)` / `IsMenuOpen(id)` | Open the menu; ask whether it is open. Same ID scope as `BeginMenu`. |
-| `BeginMenu(id, options)` / `EndMenu()` | The menu's items go in between. `BeginMenu` returns `false` while the menu is closed; then do not call `EndMenu`. |
+| `BeginMenu(id, options)` / `EndMenu()` | The menu's items go in between. `BeginMenu` returns `false` while the menu is closed; then do not call `EndMenu`. An overload takes an `ID`, for a menu opened with `OpenOverlay(id)`; components that own a menu use it. |
 | `MenuItem(label, options)` | A command. Returns `true` when it is chosen, which closes the menu and its parents. |
 | `MenuSeparator()` | A line between groups |
 | `MenuHeader(title)` | A small title above a group |
@@ -52,6 +52,8 @@ Buttons that own a menu are ready-made: [PullDownButton](PullDownButton.md) for 
 
 ## Item options
 
+`MenuItemOptions`, for `MenuItem` and `BeginSubmenu`.
+
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `Icon` | `std::string_view` | none | In the leading column |
@@ -65,8 +67,8 @@ The leading column for checkmarks and icons exists only in menus that have any.
 ## Behaviour
 
 - The highlight is a rounded accent-colored row. It follows the pointer and the arrow keys alike.
-- A submenu opens when its item is chosen or the pointer rests on it for 0.2 seconds. It closes when the
-  pointer rests on another part of the parent menu.
+- A submenu opens when its item is chosen, with the right arrow key, or when the pointer rests on it for 0.2
+  seconds. It closes when the pointer rests on another part of the parent menu.
 - A click outside closes the menu and is used up. With submenus open, a click on a parent menu closes the
   submenus above it.
 - Menus can be nested eight deep.

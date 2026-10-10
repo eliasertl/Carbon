@@ -33,10 +33,14 @@ Carbon::Button("Add", { .Icon = Carbon::Icons::Plus });
 Carbon::Text(std::string(Carbon::Icons::Warning) + "  Low disk space");
 ```
 
+Components that draw an icon inside their own shape (a chevron, a checkmark) use
+`DrawIcon(drawList, center, icon, size, color, variant)`, which draws it into a square of `size` points around
+`center` without taking part in layout; see [Custom components](../CustomComponents.md).
+
 ## Keyboard
 
-Icons are not interactive. For a clickable icon use `Button("##id", { .Icon = ... })`, which is a Tab stop and
-can carry a `Tooltip`.
+Icons are not interactive and are not Tab stops; `Tooltip` and `IsItemHovered()` work after them. For a clickable
+icon use `Button("##id", { .Icon = ... })`, which is a Tab stop and can carry a `Tooltip`.
 
 ## Guidance from the HIG
 

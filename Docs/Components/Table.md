@@ -85,7 +85,7 @@ selection.
 
 Carbon does not sort your data. Keep a `TableSort` (the column to sort by, as an index into `columns`, and the
 direction), pass it as `TableOptions::Sort`, and submit your rows in that order. The table draws the sort indicator
-in the header, a chevron that points up for ascending and down for descending, and updates your `TableSort` when the
+in the header, a caret that points up for ascending and down for descending, and updates your `TableSort` when the
 user clicks a header: another column sorts by that column in its `InitialSortDirection`, the same column flips the
 direction. `BeginTable` reports `SortChanged` in that frame, so sort right after it:
 
@@ -102,8 +102,8 @@ for (const File& file : rows)
 Carbon::EndTable();
 ```
 
-A column with `IsSortable = false` ignores clicks. Without a `Sort` the header is not interactive, apart from the
-dividers.
+A column with `IsSortable = false` ignores clicks. Without a `Sort` a click on a header does nothing, and the
+header is no stop for Tab; its dividers still resize and its columns can still be dragged to another place.
 
 ## Resizing and scrolling
 

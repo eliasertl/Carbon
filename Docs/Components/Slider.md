@@ -34,7 +34,7 @@ value changed and keeps the value inside `[min, max]`. The label identifies the 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
 | `Step` | `double` | 0 | Distance between allowed values, counted from `min`; 0 is continuous. Also the arrow-key increment. |
-| `ShowsTicks` | `bool` | `false` | A tick mark at every step: below a horizontal slider, at the trailing side of a vertical one |
+| `ShowsTicks` | `bool` | `false` | A tick mark at every step: below a horizontal slider, at the trailing side of a vertical one. Needs a step; a range of more than 100 steps draws none |
 | `ControlSize` | `ControlSize` | `Regular` | Knob of 14, 18 or 22 points |
 | `Width` | `Size` | 180 points | Length of a horizontal slider. A slider cannot fit its content, so the default is a fixed length; use `Fill` to take the rest of a row |
 | `Disabled` | `bool` | `false` | |
@@ -50,9 +50,9 @@ ignores `Height` and a vertical one `Width`.
 
 On a logarithmic slider, equal distances are equal ratios: on `[20, 20000]` each third of the track is a factor
 of ten, as on the frequency axis of an equalizer. The range must be positive. `Step`, when set, still divides the
-*value* (a `Step` of 10 gives multiples of 10), and without a step the arrow keys move the knob by a twentieth
-of the track. Tick marks are drawn where the steps fall, so on a logarithmic slider they crowd towards the
-maximum; most logarithmic sliders leave them off.
+*value* (a `Step` of 10 gives multiples of 10), and without a step (only a `float` or `double` slider has none)
+the arrow keys move the knob by a twentieth of the track. Tick marks are drawn where the steps fall, so on a
+logarithmic slider they crowd towards the maximum; most logarithmic sliders leave them off.
 
 ## Behaviour
 
@@ -61,8 +61,8 @@ maximum; most logarithmic sliders leave them off.
 - Clicking the track moves the knob to the click.
 - The value updates while dragging, so results can be shown live, as the HIG recommends.
 - The knob grows slightly under the pointer and darkens while it is held.
-- A range that is empty (`max <= min`), a logarithmic scale whose `min` is not above 0 and a negative `Step` are
-  reported through the assert callback; the slider is then not drawn and returns `false`.
+- A null `value`, a range that is empty (`max <= min`), a logarithmic scale whose `min` is not above 0 and a
+  negative `Step` are reported through the assert callback; the slider is then not drawn and returns `false`.
 
 ## Keyboard
 

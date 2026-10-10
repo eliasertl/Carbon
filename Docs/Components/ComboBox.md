@@ -27,7 +27,7 @@ added to the items. `ComboBox` returns `true` on frames the text changed, by typ
 | `Placeholder` | `std::string_view` | none | Shown while the field is empty |
 | `Width` | `Size` | 180 | Width of the whole control; the list is as wide |
 | `ControlSize` | `ControlSize` | `Regular` | |
-| `FiltersWhileTyping` | `bool` | `true` | While typing, the list opens by itself and shows only the items that contain the text (ignoring case) |
+| `FiltersWhileTyping` | `bool` | `true` | While typing, the list opens by itself and shows only the items that contain the text (ignoring the case of ASCII letters) |
 | `MaxLength` | `size_t` | 0 | Longest text in characters; 0 is unlimited |
 | `Disabled` | `bool` | `false` | |
 

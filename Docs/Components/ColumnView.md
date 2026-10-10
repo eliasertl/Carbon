@@ -50,6 +50,7 @@ scrolls, and handles the keyboard.
 | --- | --- |
 | `BeginColumnView(id, options)` / `EndColumnView()` | The column view |
 | `BeginColumnViewColumn()` / `EndColumnViewColumn()` | One column; at most 32 |
+| `ClipColumnViewItems(count, selectedItem, selectedHasChildren)` | For long columns: declares the number of items of the current column and returns the range to submit. See [Long columns](#long-columns) |
 | `ColumnViewItem(label, isSelected, options)` | An item of the current column. Returns `true` when the user picks it. |
 | `BeginColumnViewPreview()` / `EndColumnViewPreview()` | A column after the last one, for information about a selected leaf, laid out like a `VStack` |
 

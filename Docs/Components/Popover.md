@@ -42,7 +42,8 @@ submitted last.
 - The popover is centered on its anchor and stays on the display.
 - It fades in; it closes at once.
 - While open it holds the pointer and the keyboard (see [Overlays](../Overlays.md)): a click outside closes it
-  and is used up.
+  and is used up. With `DismissOnOutsideClick` off it holds neither: it covers only its own surface, and its
+  controls are part of the normal Tab order.
 - It closes by itself when `BeginPopover` is no longer called, for example because the page that contains it
   went away.
 
@@ -50,7 +51,7 @@ submitted last.
 
 | Key | Effect |
 | --- | --- |
-| Tab / Shift+Tab | Cycle through the controls inside the popover |
+| Tab / Shift+Tab | Cycle through the controls inside the popover (with `DismissOnOutsideClick` off, the normal Tab order) |
 | Escape | Close; focus returns to where it was |
 
 ## Guidance from the HIG

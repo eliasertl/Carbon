@@ -46,7 +46,7 @@ Items can also be passed as a `std::span<const std::string_view>`.
 | Tab / Shift+Tab | Focus the group; it is one stop. The ring is drawn around the selected button |
 | Down / Right arrow | Select the next button |
 | Up / Left arrow | Select the previous button |
-| Space | With nothing selected, select the first button |
+| Space, or any arrow key | With nothing selected, select the first button |
 
 The arrow keys stop at the first and last button. As in AppKit with Full Keyboard Access, they change the
 selection directly; there is no separate focus inside the group.

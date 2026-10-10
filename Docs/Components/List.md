@@ -47,8 +47,8 @@ no selection at all the application's choice. For rows with several columns see 
 - A row under the pointer is tinted. A row is picked when the mouse button goes down, as in macOS lists, and
   clicking it gives the list focus. Tables, outline views and column views behave the same.
 - Titles that do not fit are cut off with an ellipsis.
-- All rows are submitted every frame; rows outside the visible area are not drawn. For very long lists, submit
-  only the rows near the visible range and reserve the rest of the height with a `Spacer`.
+- Rows outside the visible area are not drawn. For very long lists, submit only the rows that are needed with
+  `ClipListItems`; see [Long lists](#long-lists).
 
 ## Reordering
 

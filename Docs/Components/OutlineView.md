@@ -83,6 +83,8 @@ the part of the row under the pointer:
 - below the last item: the end of the top level.
 
 An item cannot go into itself or anything inside it; over those rows no indicator shows and a drop does nothing.
+Disabled items cannot be dragged and take no drop. The item being dragged stays in its place, faded, while its
+preview follows the pointer; near the top and bottom edges the outline view scrolls, and Escape cancels.
 
 ![An item being dragged into a folder of an outline view](../Images/Components/OutlineViewReordering.png)
 
@@ -122,7 +124,7 @@ walks every expanded item. [Optimizations](../Optimizations.md#rows) has the num
 
 ## Not supported
 
-Sorting by column, resizing columns and editing cells in place. Sort your data before submitting it. Moving
+Sorting by column, resizing or moving columns and editing cells in place. Sort your data before submitting it. Moving
 several items at once.
 
 ## Guidance from the HIG

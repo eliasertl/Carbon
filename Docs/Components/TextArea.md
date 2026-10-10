@@ -59,7 +59,7 @@ The pointer becomes an I-beam over the area, and its border gets stronger.
 | Up / Down | Move to the line above or below, keeping to the column a run of moves started in; above the first line is the start of the text, below the last its end |
 | Home / End | Start / end of the line |
 | Ctrl+Home / Ctrl+End | Start / end of the text |
-| Page Up / Page Down | Move by the number of lines that fit in the area |
+| Page Up / Page Down | Move by a page: one line fewer than fit in the area, so one line stays in view |
 | Return | A new line |
 | Backspace / Delete | Delete the selection, or the character (with Ctrl, the word) before / after the caret; at the start of a line, join it to the line before |
 | Ctrl+A, Ctrl+C, Ctrl+X, Ctrl+V | Select all, copy, cut, paste |

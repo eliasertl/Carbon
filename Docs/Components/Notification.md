@@ -77,8 +77,8 @@ Each of them ends the notification. Removing one from code reports nothing.
   top-left corner then.
 - Notifications draw above everything, popovers and sheets included, and take clicks there. They are not Tab
   stops and never take the keyboard, so they cannot interrupt typing.
-- At most 32 exist at a time; posting more replaces the oldest. Text is cut at 128 bytes for the title and 512
-  for the body, at a character boundary.
+- At most 32 exist at a time; posting more replaces the oldest. Text is cut at 128 bytes for the title, 512
+  for the body and 48 for each action, at a character boundary.
 - `ShowNotifications` requests frames while notifications are shown, so that hosts rendering on demand keep the
   timers running.
 

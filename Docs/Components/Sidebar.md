@@ -35,7 +35,7 @@ when `SidebarItem` returns `true`.
 
 | Field | Type | Default | Meaning |
 | --- | --- | --- | --- |
-| `Width` | `float` | 220 | |
+| `Width` | `float` | 220 | Width of the column in points |
 | `Padding` | `EdgeInsets` | 10 | Space between the sidebar's edge and its items |
 
 ## Item options
@@ -44,7 +44,7 @@ when `SidebarItem` returns `true`.
 | --- | --- | --- | --- |
 | `Icon` | `std::string_view` | none | Before the title, in the accent color |
 | `Badge` | `std::string_view` | none | Short secondary text at the trailing edge, typically a count |
-| `IconTint` | `Color` | theme's `Accent` | |
+| `IconTint` | `Color` | theme's `Accent` | Color of the icon; a selected item draws it in the on-accent color while the sidebar has focus |
 | `Disabled` | `bool` | `false` | Dimmed; cannot be picked and is skipped by the keyboard |
 
 ## Behaviour
