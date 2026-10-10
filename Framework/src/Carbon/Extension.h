@@ -28,11 +28,13 @@
 #include "Carbon/Layout/Stack.h"
 
 // Input, hit testing, focus and overlays.
+#include "Carbon/Input/Adaptive.h"
 #include "Carbon/Input/Cursor.h"
 #include "Carbon/Input/Input.h"
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
 #include "Carbon/Interaction/DragDrop.h"
+#include "Carbon/Interaction/Gesture.h"
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Overlay/Overlay.h"
 

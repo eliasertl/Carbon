@@ -25,7 +25,32 @@ namespace Carbon
         CompositionCancel,
         FileDrag,
         FileDragLeave,
-        FileDrop
+        FileDrop,
+        Touch
+    };
+
+    /// What a touch event reports about one finger (or pen) on the display.
+    enum class TouchPhase : uint8_t
+    {
+        /// The finger touched the display.
+        Began,
+        /// The finger moved.
+        Moved,
+        /// The finger was lifted.
+        Ended,
+        /// The system took the touch away (a system gesture, an incoming call): it ends without activating
+        /// anything.
+        Cancelled
+    };
+
+    /// The kind of device that produced pointer input. Touch mode (Carbon/Input/Adaptive.h) follows the kind of
+    /// the most recent pointer input.
+    enum class PointerType : uint8_t
+    {
+        Mouse,
+        Touch,
+        /// A stylus; Carbon treats it like a finger.
+        Pen
     };
 
     /// A clause of an input method's composition: a run of the pre-edit text that the input method converts as a
@@ -42,7 +67,7 @@ namespace Carbon
     struct InputEvent
     {
         InputEventType Type = InputEventType::MousePos;
-        /// MousePos, FileDrag and FileDrop: the position in points. MouseWheel: the scroll amount in lines.
+        /// MousePos, FileDrag, FileDrop and Touch: the position in points. MouseWheel: the scroll amount in lines.
         Vec2 Value;
         MouseButton Button = MouseButton::Left;
         Key KeyCode = Key::None;
@@ -57,5 +82,10 @@ namespace Carbon
         uint32_t ClauseStart = 0;
         uint32_t ClauseCount = 0;
         uint32_t Caret = 0;
+        /// Touch: the host's identifier of the finger, its phase and the kind of device. A touch that drives the
+        /// pointer begins and ends in two steps on consecutive frames; Down marks that the first one was applied.
+        uint64_t TouchId = 0;
+        TouchPhase Phase = TouchPhase::Began;
+        PointerType Pointer = PointerType::Mouse;
     };
 } // namespace Carbon

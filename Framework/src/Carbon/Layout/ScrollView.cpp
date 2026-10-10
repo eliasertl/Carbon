@@ -1,12 +1,15 @@
 #include "Carbon/Layout/ScrollView.h"
 
 #include <algorithm>
+#include <cmath>
 
 #include "Carbon/Animation/Animation.h"
+#include "Carbon/Animation/Spring.h"
 #include "Carbon/Core/Assert.h"
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/State.h"
 #include "Carbon/Input/Input.h"
+#include "Carbon/Interaction/Gesture.h"
 #include "Carbon/Interaction/Interaction.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Overlay/OverlayInternal.h"
@@ -27,6 +30,50 @@ namespace Carbon
         constexpr float AutoScrollZone = 32.0f;
         constexpr float AutoScrollSpeed = 900.0f;
 
+        // Touch scrolling, after UIScrollView: thrown content keeps this fraction of its velocity per millisecond
+        // (UIScrollView's normal deceleration rate) and stops below a few points per second; pulled beyond an end
+        // it resists with UIScrollView's rubber-band constant, and it springs back on a critically damped spring.
+        constexpr float DecelerationRate = 0.998f;
+        constexpr float StopVelocity = 8.0f;
+        constexpr float RubberBandConstant = 0.55f;
+        constexpr float BounceResponse = 0.4f;
+        // A finger that lands on content moving faster than this only stops it; it does not tap what is there.
+        constexpr float CatchVelocity = 60.0f;
+
+        // How far content pulled `distance` beyond an end is shown beyond it: it follows less the further it goes,
+        // and never more than `length`.
+        float RubberBand(float distance, float length)
+        {
+            return (1.0f - 1.0f / (distance * RubberBandConstant / length + 1.0f)) * length;
+        }
+
+        // The pull that shows content `shown` beyond an end; the inverse of RubberBand.
+        float UnrubberBand(float shown, float length)
+        {
+            const float clamped = std::min(shown, length * 0.999f);
+            return length * clamped / (RubberBandConstant * (length - clamped));
+        }
+
+        // An offset with resistance beyond 0 and `maxOffset`.
+        float ResistOffset(float offset, float maxOffset, float length)
+        {
+            if (offset < 0.0f)
+                return -RubberBand(-offset, length);
+            if (offset > maxOffset)
+                return maxOffset + RubberBand(offset - maxOffset, length);
+            return offset;
+        }
+
+        // The offset without resistance that ResistOffset shows as `shown`.
+        float UnresistOffset(float shown, float maxOffset, float length)
+        {
+            if (shown < 0.0f)
+                return -UnrubberBand(-shown, length);
+            if (shown > maxOffset)
+                return maxOffset + UnrubberBand(shown - maxOffset, length);
+            return shown;
+        }
+
         // Survives while the scroll view is hidden, so returning to a view finds it where it was left.
         struct ScrollState
         {
@@ -42,6 +89,10 @@ namespace Carbon
             float ViewportLength;
             /// The offset at the moment a drag of the indicator started.
             float DragStartOffset;
+            /// Scrolling with a finger, the viewport a finger starts in (from last frame), and the offset shown last.
+            TouchScroll Touch;
+            Rect Viewport;
+            Vec2 Displayed;
         };
 
         const AnimationSpec ScrollSpring = AnimationSpec::Spring(0.25f, 1.0f);
@@ -69,6 +120,7 @@ namespace Carbon
             {
                 (isVertical ? state.Offset.Y : state.Offset.X) -= amount * WheelStep;
                 state.IdleTime = 0.0f;
+                state.Touch.IsMoving = false;
             }
         }
         // Keyboard: Page Up and Page Down scroll the view under the pointer (or the outermost view when the
@@ -95,6 +147,45 @@ namespace Carbon
                 state.IdleTime = 0.0f;
         }
 
+        // A finger drags the content along the scrolling axis, when there is something to scroll. A finger that
+        // lands on content that is still moving stops it, and only that.
+        const float maxOffset = isVertical ? state.MaxOffset.Y : state.MaxOffset.X;
+        const Internal::InputState& input = context.Input;
+        Internal::InteractionState& interaction = context.Interaction;
+        const size_t leftButton = static_cast<size_t>(MouseButton::Left);
+        const ID catchID = HashID("##catch", scrollID);
+        if (state.Touch.IsMoving && input.IsPointerTouch && input.MousePressed[leftButton] &&
+            state.Viewport.Contains(input.MousePos) && !Internal::IsPointerBlockedByOverlay(context))
+        {
+            if (std::abs(state.Touch.Velocity) > CatchVelocity && !interaction.ActiveID.IsValid())
+            {
+                interaction.ActiveID = catchID;
+                interaction.IsActiveDrag = false;
+            }
+            state.Touch.IsMoving = false;
+            state.Touch.Velocity = 0.0f;
+        }
+        if (interaction.ActiveID == catchID)
+        {
+            if (input.MouseDown[leftButton])
+                interaction.IsActiveAlive = true;
+            else
+                interaction.ActiveID = ID();
+        }
+        PanOptions panOptions;
+        panOptions.Directions = maxOffset <= 0.0f ? PanDirections::None
+                                                  : (isVertical ? PanDirections::Vertical : PanDirections::Horizontal);
+        const Pan pan = PanBehavior(HashID("##pan", scrollID), state.Viewport, panOptions);
+        const float shown = isVertical ? state.Displayed.Y : state.Displayed.X;
+        const bool isTouchScrolling =
+            UpdateTouchScroll(state.Touch, pan, options.Axis, shown, maxOffset, state.ViewportLength);
+        if (isTouchScrolling)
+        {
+            (isVertical ? state.Offset.Y : state.Offset.X) = std::clamp(state.Touch.Offset, 0.0f, maxOffset);
+            state.IdleTime = 0.0f;
+            context.IsAnimatingThisFrame = true;
+        }
+
         state.Offset = Max(Vec2(), Min(state.Offset, state.MaxOffset));
         if (state.IsJumpPending)
         {
@@ -102,8 +193,21 @@ namespace Carbon
             state.IsJumpPending = false;
         }
 
-        // The displayed offset glides to the target and sits on whole pixels so text stays crisp.
-        const Vec2 displayed = context.Scale.Snap(Animate(GetOffsetAnimationID(scrollID), state.Offset, ScrollSpring));
+        // The displayed offset glides to the target and sits on whole pixels so text stays crisp. A finger moves
+        // it directly, also beyond the ends.
+        Vec2 displayed;
+        if (isTouchScrolling)
+        {
+            Vec2 touched = state.Offset;
+            (isVertical ? touched.Y : touched.X) = state.Touch.Offset;
+            SetAnimationValue(GetOffsetAnimationID(scrollID), touched);
+            displayed = context.Scale.Snap(touched);
+        }
+        else
+        {
+            displayed = context.Scale.Snap(Animate(GetOffsetAnimationID(scrollID), state.Offset, ScrollSpring));
+        }
+        state.Displayed = displayed;
 
         Internal::ContainerDescription description;
         description.Kind = Internal::ContainerKind::ScrollView;
@@ -120,6 +224,7 @@ namespace Carbon
         const Internal::LayoutFrame& frame = Internal::BeginContainer(context, description);
 
         const Rect viewport(frame.Origin, frame.ResolvedSize);
+        state.Viewport = viewport;
         // Something dragged near an edge of the view under the pointer scrolls it, the faster the closer it gets.
         if (Internal::IsDragActive(context) && context.Layout.HoveredScrollView == scrollID &&
             context.Input.HasMousePos)
@@ -196,6 +301,8 @@ namespace Carbon
         float thumbLength = 0.0f;
         float thumbRange = 0.0f;
         bool isLaneHovered = false;
+        // A finger scrolls the content itself; the indicator only shows where it is, as on iOS.
+        const bool isTouch = context.Input.IsPointerTouch;
         if (canScroll && scrollFrame.ShowsIndicator)
         {
             thumbLength = std::clamp(trackLength * viewportLength / contentLength,
@@ -217,6 +324,7 @@ namespace Carbon
             const Internal::InteractionState::LastItemData lastItem = context.Interaction.LastItem;
             DragBehaviorOptions dragOptions;
             dragOptions.Focusable = false;
+            dragOptions.Disabled = isTouch;
             const DragInteraction drag = DragBehavior(HashID("##thumb", scrollFrame.Id), grip, dragOptions);
             context.Interaction.LastItem = lastItem;
 
@@ -230,7 +338,7 @@ namespace Carbon
                 state.IsJumpPending = true; // the content follows the thumb directly
             }
 
-            isLaneHovered = drag.Active || (IsRectHovered(lane) && !context.Interaction.ActiveID.IsValid());
+            isLaneHovered = drag.Active || (!isTouch && IsRectHovered(lane) && !context.Interaction.ActiveID.IsValid());
             if (isLaneHovered)
                 state.IdleTime = 0.0f;
         }
@@ -296,6 +404,70 @@ namespace Carbon
             // The outer views see the item where it will be once this view has scrolled.
             target = isVertical ? target.Offset(Vec2(0.0f, -delta)) : target.Offset(Vec2(-delta, 0.0f));
         }
+    }
+
+    bool UpdateTouchScroll(TouchScroll& scroll, const Pan& pan, Axis axis, float currentOffset, float maxOffset,
+                           float viewportLength)
+    {
+        const bool isVertical = axis == Axis::Vertical;
+        const float length = std::max(viewportLength, 1.0f);
+        maxOffset = std::max(maxOffset, 0.0f);
+        // The offset grows when the finger moves towards the start: content follows the finger.
+        const float velocity = -(isVertical ? pan.Velocity.Y : pan.Velocity.X);
+
+        if (pan.Active)
+        {
+            if (pan.Began || !scroll.IsTracking)
+            {
+                // Caught where it is shown, also beyond an end, without a jump.
+                scroll.StartOffset = UnresistOffset(currentOffset, maxOffset, length);
+                scroll.IsTracking = true;
+                scroll.IsMoving = false;
+            }
+            const float translation = isVertical ? pan.Translation.Y : pan.Translation.X;
+            scroll.Offset = ResistOffset(scroll.StartOffset - translation, maxOffset, length);
+            scroll.Velocity = velocity;
+            return true;
+        }
+        if (scroll.IsTracking)
+        {
+            // Thrown: the content keeps the finger's velocity. A pan that vanished without a lift throws nothing.
+            scroll.IsTracking = false;
+            scroll.IsMoving = true;
+            scroll.Velocity = pan.Ended ? velocity : 0.0f;
+        }
+        if (!scroll.IsMoving)
+            return false;
+
+        const float deltaTime = Internal::GetContext().DeltaTime;
+        if (scroll.Offset >= 0.0f && scroll.Offset <= maxOffset)
+        {
+            scroll.Velocity *= std::pow(DecelerationRate, deltaTime * 1000.0f);
+            scroll.Offset += scroll.Velocity * deltaTime;
+            if (std::abs(scroll.Velocity) < StopVelocity)
+            {
+                scroll.Offset = std::clamp(scroll.Offset, 0.0f, maxOffset);
+                scroll.Velocity = 0.0f;
+                scroll.IsMoving = false;
+            }
+            return true;
+        }
+
+        // Beyond an end: a spring pulls the content back, after carrying it on a little with its velocity.
+        const float end = scroll.Offset < 0.0f ? 0.0f : maxOffset;
+        SpringState spring;
+        spring.Value = scroll.Offset;
+        spring.Velocity = scroll.Velocity;
+        spring = AdvanceSpring(spring, end, BounceResponse, 1.0f, deltaTime);
+        scroll.Offset = spring.Value;
+        scroll.Velocity = spring.Velocity;
+        if (IsSpringAtRest(spring, end))
+        {
+            scroll.Offset = end;
+            scroll.Velocity = 0.0f;
+            scroll.IsMoving = false;
+        }
+        return true;
     }
 
     Vec2 GetScrollOffset(std::string_view id)

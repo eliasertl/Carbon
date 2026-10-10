@@ -34,6 +34,9 @@ namespace Carbon::Internal
         ID ActiveID;
         /// Whether ActiveID was touched this frame; an active item that disappears releases the pointer.
         bool IsActiveAlive = false;
+        /// ActiveID drags on its own (DragBehavior, a drag, a gesture): a finger that moves does not scroll
+        /// instead.
+        bool IsActiveDrag = false;
 
         ID FocusedID;
         /// The focus ring shows only after keyboard navigation.

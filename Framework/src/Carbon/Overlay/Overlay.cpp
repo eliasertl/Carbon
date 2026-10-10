@@ -268,6 +268,11 @@ namespace Carbon
 
         bool IsPointerBlockedByOverlay(const Context& context)
         {
+            return IsPointBlockedByOverlay(context, context.Input.MousePos);
+        }
+
+        bool IsPointBlockedByOverlay(const Context& context, Vec2 point)
+        {
             const std::vector<OpenOverlayEntry>& open = context.Overlays.Open;
             if (open.empty())
                 return false;
@@ -277,7 +282,7 @@ namespace Carbon
                 const OpenOverlayEntry& entry = open[i];
                 if (!entry.IsStarted || DrawList::GetLayerOrder(DrawLayer::Overlay, static_cast<uint32_t>(i)) <= order)
                     continue;
-                if (entry.Captures || entry.Bounds.Contains(context.Input.MousePos))
+                if (entry.Captures || entry.Bounds.Contains(point))
                     return true;
             }
             return false;

@@ -7,6 +7,7 @@
 #include "Carbon/Core/ContextInternal.h"
 #include "Carbon/Core/Log.h"
 #include "Carbon/Core/Version.h"
+#include "Carbon/Input/AdaptiveInternal.h"
 #include "Carbon/Text/Internal/TextSystem.h"
 
 namespace Carbon
@@ -93,6 +94,7 @@ namespace Carbon
         context.FrameCount++;
 
         context.Input.Update(io, context.Time);
+        Internal::UpdateAdaptiveState(context);
         context.Text->BeginFrame(context.FrameCount, context.Scale.Factor);
         Internal::BeginRenderFrame(context);
 
@@ -105,6 +107,7 @@ namespace Carbon
         Internal::BeginLayout(context);
         Internal::BeginOverlays(context);
         Internal::BeginInteraction(context);
+        Internal::BeginGestures(context);
         Internal::BeginDragDrop(context);
         context.IsInFrame = true;
     }
@@ -117,6 +120,7 @@ namespace Carbon
             return;
 
         Internal::EndDragDrop(context);
+        Internal::EndGestures(context);
         Internal::EndInteraction(context);
         Internal::EndLayout(context);
         Internal::EndOverlays(context);

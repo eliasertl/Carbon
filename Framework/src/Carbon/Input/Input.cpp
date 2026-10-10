@@ -67,6 +67,25 @@ namespace Carbon
         return button < MouseButton::Count ? GetInput().MousePressedPos[ToIndex(button)] : Vec2();
     }
 
+    PointerType GetPointerType()
+    {
+        const Internal::InputState& input = GetInput();
+        return input.IsPointerTouch ? input.LastPointerType : PointerType::Mouse;
+    }
+
+    int GetTouchCount()
+    {
+        return static_cast<int>(GetInput().TouchCount);
+    }
+
+    Vec2 GetTouchPosition(int index)
+    {
+        const Internal::InputState& input = GetInput();
+        if (index < 0 || static_cast<size_t>(index) >= input.TouchCount)
+            return Vec2();
+        return input.Touches[static_cast<size_t>(index)].Position;
+    }
+
     bool IsKeyDown(Key key)
     {
         return IsValid(key) && GetInput().KeyDown[static_cast<size_t>(key)];

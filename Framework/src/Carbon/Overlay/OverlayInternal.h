@@ -74,4 +74,6 @@ namespace Carbon::Internal
     bool IsInActiveFocusScope(const Context& context);
     /// True when an overlay above the current layer covers the pointer, or holds it altogether.
     bool IsPointerBlockedByOverlay(const Context& context);
+    /// The same for any point.
+    bool IsPointBlockedByOverlay(const Context& context, Vec2 point);
 } // namespace Carbon::Internal

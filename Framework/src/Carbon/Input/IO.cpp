@@ -102,6 +102,18 @@ namespace Carbon
         m_Events.push_back(event);
     }
 
+    void IO::AddTouchEvent(TouchPhase phase, uint64_t id, float x, float y, PointerType type)
+    {
+        CB_VERIFY(type != PointerType::Mouse, "Touch events come from a finger or a pen, not a mouse");
+        InputEvent event;
+        event.Type = InputEventType::Touch;
+        event.Value = Vec2(x, y);
+        event.TouchId = id;
+        event.Phase = phase;
+        event.Pointer = type == PointerType::Mouse ? PointerType::Touch : type;
+        m_Events.push_back(event);
+    }
+
     namespace
     {
         // Moves an offset into the text and back onto the start of a character.

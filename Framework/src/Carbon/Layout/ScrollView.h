@@ -9,6 +9,8 @@
 
 namespace Carbon
 {
+    struct Pan;
+
     /// Options of a scroll view. All fields are optional.
     struct ScrollViewOptions
     {
@@ -40,4 +42,31 @@ namespace Carbon
     /// Scrolls a scroll view to an offset; it is clamped to the content on the next frame. `animated` glides
     /// there instead of jumping.
     void SetScrollOffset(std::string_view id, Vec2 offset, bool animated = false);
+
+    /// Scrolling one axis with a finger, as on iOS: the content follows the finger, resists when pulled beyond
+    /// its ends, keeps the velocity it was thrown with and slows down, and springs back from beyond an end.
+    /// ScrollView does this by itself; components that scroll on their own (Table scrolls its columns sideways)
+    /// keep a TouchScroll in their per-ID state and drive it with the Pan of PanBehavior.
+    struct TouchScroll
+    {
+        /// The offset to show while UpdateTouchScroll returns true; beyond 0 or the largest offset by a little
+        /// while the content is pulled or bounces.
+        float Offset = 0.0f;
+        /// Points per second, in the direction the offset grows.
+        float Velocity = 0.0f;
+        /// The offset when the finger caught the content, without resistance.
+        float StartOffset = 0.0f;
+        /// A finger holds the content.
+        bool IsTracking = false;
+        /// The content slows down or springs back after the finger was lifted.
+        bool IsMoving = false;
+    };
+
+    /// Advances a TouchScroll by a frame along `axis`. `currentOffset` is where the content is shown when a finger
+    /// catches it, `maxOffset` the largest offset (content length minus viewport length) and `viewportLength`
+    /// sets how strongly the content resists beyond its ends. Returns true when the touch scrolling decided the
+    /// offset this frame: show `scroll.Offset` and keep the component's own target at it, clamped. While it
+    /// returns true, call it every frame and keep frames coming.
+    bool UpdateTouchScroll(TouchScroll& scroll, const Pan& pan, Axis axis, float currentOffset, float maxOffset,
+                           float viewportLength);
 } // namespace Carbon

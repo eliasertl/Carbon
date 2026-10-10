@@ -15,6 +15,7 @@ add_executable(CarbonTests
     src/Input/CompositionTests.cpp
     src/Input/InputTests.cpp
     src/Interaction/DragDropTests.cpp
+    src/Interaction/GestureTests.cpp
     src/Interaction/InteractionTests.cpp
     src/Layout/GridTests.cpp
     src/Layout/LayoutTests.cpp

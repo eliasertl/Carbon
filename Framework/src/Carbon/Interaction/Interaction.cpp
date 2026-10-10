@@ -114,6 +114,8 @@ namespace Carbon
             state.HoverCandidate = ID();
             state.HoverCandidateLayer = 0;
             state.IsActiveAlive = false;
+            if (!state.ActiveID.IsValid())
+                state.IsActiveDrag = false;
             state.IsFocusedAlive = false;
             state.DidFocusMove = false;
             state.DefaultButton = ID();
@@ -297,8 +299,10 @@ namespace Carbon
             }
             else
             {
-                // Released. Losing the host window's focus also releases the button, but must not activate.
-                if (isOver && !options.ActivateOnPress && input.MouseReleased[LeftButton] && input.Focused)
+                // Released. Losing the host window's focus, or the system cancelling a touch, also releases the
+                // button, but must not activate.
+                if (isOver && !options.ActivateOnPress && input.MouseReleased[LeftButton] && input.Focused &&
+                    !input.IsPointerCancelled)
                     result.Clicked = true;
                 state.ActiveID = ID();
             }
@@ -330,6 +334,9 @@ namespace Carbon
             }
         }
 
+        // A finger does not hover: the pointer exists only while it touches, and pressing shows instead.
+        if (input.IsPointerTouch)
+            result.Hovered = false;
         SetLastItem(id, rect, result);
         return result;
     }
@@ -360,6 +367,7 @@ namespace Carbon
         if (result.Hovered && input.MousePressed[LeftButton] && !state.ActiveID.IsValid())
         {
             state.ActiveID = id;
+            state.IsActiveDrag = true;
             if (options.Focusable)
                 GiveFocus(context, id, false);
             result.Started = true;
@@ -383,6 +391,8 @@ namespace Carbon
 
         result.Focused = state.FocusedID == id;
         result.FocusVisible = result.Focused && state.IsFocusVisible && input.Focused;
+        if (input.IsPointerTouch)
+            result.Hovered = false;
 
         Interaction summary;
         summary.Hovered = result.Hovered;

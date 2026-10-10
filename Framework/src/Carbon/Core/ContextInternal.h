@@ -14,6 +14,7 @@
 #include "Carbon/Input/IO.h"
 #include "Carbon/Input/InputStateInternal.h"
 #include "Carbon/Interaction/DragDropInternal.h"
+#include "Carbon/Interaction/GestureInternal.h"
 #include "Carbon/Interaction/InteractionInternal.h"
 #include "Carbon/Layout/LayoutInternal.h"
 #include "Carbon/Overlay/OverlayInternal.h"
@@ -49,6 +50,7 @@ namespace Carbon
         Internal::StyleState Style;
         Internal::LayoutState Layout;
         Internal::InteractionState Interaction;
+        Internal::GestureState Gestures;
         Internal::OverlayState Overlays;
         Internal::DragDropState DragDrop;
         Internal::TextEditState TextEdit;
@@ -66,6 +68,9 @@ namespace Carbon
 
         ContentScale Scale;
         Vec2 DisplaySize;
+        /// Derived at the start of every frame from the input and the display size, or forced by the host.
+        bool IsTouchMode = false;
+        SizeClass HorizontalSizeClass = SizeClass::Regular;
         float DeltaTime = 0.0f;
         double Time = 0.0;
         uint64_t FrameCount = 0;

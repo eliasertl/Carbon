@@ -40,6 +40,43 @@ namespace Carbon
             ReleaseMouse(build);
         }
 
+        /// A finger touches the display: one frame in which the pointer arrives, one in which it presses.
+        void TouchDown(Vec2 position, const Builder& build, uint64_t finger = 1)
+        {
+            GetIO().AddTouchEvent(TouchPhase::Began, finger, position.X, position.Y);
+            Frame(build);
+            Frame(build);
+        }
+
+        /// A finger moves, one frame.
+        void TouchMove(Vec2 position, const Builder& build, uint64_t finger = 1)
+        {
+            GetIO().AddTouchEvent(TouchPhase::Moved, finger, position.X, position.Y);
+            Frame(build);
+        }
+
+        /// A finger is lifted: one frame in which it releases, one in which the pointer leaves.
+        void TouchUp(Vec2 position, const Builder& build, uint64_t finger = 1)
+        {
+            GetIO().AddTouchEvent(TouchPhase::Ended, finger, position.X, position.Y);
+            Frame(build);
+            Frame(build);
+        }
+
+        /// Touches and lifts a finger at one point.
+        void Tap(Vec2 position, const Builder& build)
+        {
+            TouchDown(position, build);
+            TouchUp(position, build);
+        }
+
+        /// Drags a finger from where it is down to `to` in `steps` frames, in a straight line.
+        void TouchDrag(Vec2 from, Vec2 to, int steps, const Builder& build, uint64_t finger = 1)
+        {
+            for (int i = 1; i <= steps; i++)
+                TouchMove(from + (to - from) * (static_cast<float>(i) / static_cast<float>(steps)), build, finger);
+        }
+
         /// Presses and releases a key, one frame each.
         void TapKey(Key key, const Builder& build)
         {

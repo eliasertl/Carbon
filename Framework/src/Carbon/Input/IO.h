@@ -1,5 +1,6 @@
 #pragma once
 
+#include <optional>
 #include <span>
 #include <string>
 #include <string_view>
@@ -7,6 +8,7 @@
 
 #include "Carbon/Core/Rect.h"
 #include "Carbon/Core/Vec2.h"
+#include "Carbon/Input/Adaptive.h"
 #include "Carbon/Input/InputEvent.h"
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
@@ -53,6 +55,15 @@ namespace Carbon
         /// Queues the host window gaining or losing focus. Losing focus releases all keys and buttons.
         void AddFocusEvent(bool focused);
 
+        /// Queues a finger (or pen) touching, moving on, leaving the display, or a touch the system cancelled.
+        /// `id` identifies the finger from Began to Ended or Cancelled; the position is in points like mouse
+        /// positions. The first finger down drives the pointer: a tap activates controls like a click, a drag
+        /// scrolls, a long press opens context menus. There is no hover: the pointer exists only while the finger
+        /// is down. Further fingers feed gestures such as pinching. Mouse and touch input may be mixed; touch mode
+        /// follows the most recent of them. A host that receives touches as mouse events too (browsers, Windows)
+        /// forwards them only once.
+        void AddTouchEvent(TouchPhase phase, uint64_t id, float x, float y, PointerType type = PointerType::Touch);
+
         /// Queues the start of an input method composition (Japanese, Chinese, Korean and similar input): the
         /// text the user composes is shown at the caret of the text being edited until it is committed. Optional:
         /// an update starts a composition by itself.
@@ -77,6 +88,19 @@ namespace Carbon
         /// Queues files dropped onto the display area at a position in points (UTF-8 paths). The drop target for
         /// files under that position receives them during the frame after the next.
         void AddFileDropEvent(float x, float y, std::span<const std::string_view> paths);
+
+        /// The kind of pointer to assume before the first pointer input arrives. Mouse by default; a host on a
+        /// device whose main input is a touchscreen (a phone or a tablet) passes Touch, so that the interface
+        /// starts in touch mode instead of switching at the first tap.
+        void SetDefaultPointerType(PointerType type) { m_DefaultPointerType = type; }
+        PointerType GetDefaultPointerType() const { return m_DefaultPointerType; }
+        /// Forces touch mode on (a kiosk) or off; empty, the default, follows the most recent pointer input.
+        void SetTouchModeOverride(std::optional<bool> touchMode) { m_TouchModeOverride = touchMode; }
+        std::optional<bool> GetTouchModeOverride() const { return m_TouchModeOverride; }
+        /// Forces a size class, for example regular width on a narrow kiosk display; empty, the default, derives
+        /// it from the display width (CompactWidthLimit).
+        void SetSizeClassOverride(std::optional<SizeClass> sizeClass) { m_SizeClassOverride = sizeClass; }
+        std::optional<SizeClass> GetSizeClassOverride() const { return m_SizeClassOverride; }
 
         /// The modifier used for shortcuts such as copy and paste. Ctrl by default; a host may choose Super.
         void SetShortcutModifier(KeyModifiers modifier) { m_ShortcutModifier = modifier; }
@@ -110,6 +134,9 @@ namespace Carbon
         float m_ContentScale = 1.0f;
         float m_DeltaTime = 1.0f / 60.0f;
         KeyModifiers m_ShortcutModifier = KeyModifiers::Ctrl;
+        PointerType m_DefaultPointerType = PointerType::Mouse;
+        std::optional<bool> m_TouchModeOverride;
+        std::optional<SizeClass> m_SizeClassOverride;
         std::vector<InputEvent> m_Events;
         /// The text and clauses of queued composition events; emptied whenever the queue is.
         std::string m_EventText;

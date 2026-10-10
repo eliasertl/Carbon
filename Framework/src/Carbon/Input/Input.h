@@ -3,6 +3,7 @@
 #include <span>
 
 #include "Carbon/Core/Vec2.h"
+#include "Carbon/Input/InputEvent.h"
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
 
@@ -30,6 +31,14 @@ namespace Carbon
     int GetMouseClickCount(MouseButton button = MouseButton::Left);
     /// Where the button was last pressed, in points. Used to measure drags.
     Vec2 GetMousePressedPos(MouseButton button = MouseButton::Left);
+
+    /// The kind of device that drives the pointer: Touch (or Pen) after a finger moved it, Mouse otherwise. With a
+    /// finger the left button is the finger being down, and there is no pointer while no finger is.
+    PointerType GetPointerType();
+    /// The number of fingers on the display.
+    int GetTouchCount();
+    /// Where the finger at `index` (0 to GetTouchCount() - 1, in the order they touched the display) is, in points.
+    Vec2 GetTouchPosition(int index);
 
     /// True while the key is held.
     bool IsKeyDown(Key key);

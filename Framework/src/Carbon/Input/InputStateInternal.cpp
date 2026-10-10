@@ -21,6 +21,13 @@ namespace Carbon::Internal
         {
             return key >= Key::LeftCtrl && key <= Key::RightSuper;
         }
+
+        constexpr size_t LeftButton = static_cast<size_t>(MouseButton::Left);
+
+        // How much of a new velocity sample replaces the smoothed one, and how long the pointer may rest before
+        // its velocity counts as zero.
+        constexpr float VelocitySmoothing = 0.6f;
+        constexpr float VelocityRestTime = 0.06f;
     } // namespace
 
     void InputState::Update(IO& io, double time)
@@ -39,6 +46,7 @@ namespace Carbon::Internal
         Characters.clear();
         CompositionChanged = false;
         FileDrag.IsDropped = false;
+        IsPointerCancelled = false;
 
         bool mouseMoved = false;
         bool textEntered = false;
@@ -47,11 +55,127 @@ namespace Carbon::Internal
         std::array<bool, KeyCount> keyChanged{};
         bool anyButtonChanged = false;
 
+        // Changes the state of a button; a press also counts clicks that follow each other closely.
+        const auto setButton = [&](size_t button, bool down, float multiClickDistance)
+        {
+            MouseDown[button] = down;
+            buttonChanged[button] = true;
+            anyButtonChanged = true;
+            if (!down)
+            {
+                MouseReleased[button] = true;
+                return;
+            }
+            const Vec2 travel = MousePos - MousePressedPos[button];
+            const bool isMultiClick = MouseLastClickCount[button] > 0 &&
+                                      time - MouseLastPressTime[button] <= MultiClickTime &&
+                                      travel.GetLengthSquared() <= multiClickDistance * multiClickDistance;
+            const uint8_t count = isMultiClick ? static_cast<uint8_t>(MouseLastClickCount[button] + 1) : 1;
+            MousePressed[button] = true;
+            MouseClickCount[button] = count;
+            MouseLastClickCount[button] = count;
+            MouseLastPressTime[button] = time;
+            MousePressedPos[button] = MousePos;
+        };
+
+        // The first finger down drives the pointer like a mouse that exists only while the finger is down. Its
+        // beginning and its end take two frames each, for the reason a press waits after a move: the pointer
+        // arrives, then presses; the button is released where the finger lifts, then the pointer leaves.
+        // Returns true when the event has to wait for the next frame.
+        const auto applyTouch = [&](InputEvent& event) -> bool
+        {
+            const bool isEnd = event.Phase == TouchPhase::Ended || event.Phase == TouchPhase::Cancelled;
+            const bool isPrimary = (HasPrimaryTouch && event.TouchId == PrimaryTouchId) || (isEnd && event.Down) ||
+                                   (!HasPrimaryTouch && event.Phase == TouchPhase::Began &&
+                                    FindTouch(event.TouchId) == nullptr && !MouseDown[LeftButton]);
+            if (!isPrimary)
+            {
+                // Further fingers only feed gestures, and never wait.
+                LastPointerType = event.Pointer;
+                HasPointerInput = true;
+                UpdateTouch(event, time);
+                return false;
+            }
+
+            switch (event.Phase)
+            {
+                case TouchPhase::Began:
+                {
+                    if (!event.Down)
+                    {
+                        if (anyButtonChanged)
+                            return true;
+                        LastPointerType = event.Pointer;
+                        HasPointerInput = true;
+                        IsPointerTouch = true;
+                        HasPrimaryTouch = true;
+                        PrimaryTouchId = event.TouchId;
+                        PointerVelocity = Vec2();
+                        UpdateTouch(event, time);
+                        HasMousePos = true;
+                        MousePos = event.Value;
+                        mouseMoved = true;
+                        // The press follows in the next frame, once the item under the finger is known.
+                        event.Down = true;
+                        return true;
+                    }
+                    if (buttonChanged[LeftButton] || mouseMoved)
+                        return true;
+                    if (!MouseDown[LeftButton])
+                        setButton(LeftButton, true, MultiTapDistance);
+                    return false;
+                }
+                case TouchPhase::Moved:
+                {
+                    // A move right after the press waits, so the press is seen where it happened.
+                    if (anyButtonChanged)
+                        return true;
+                    LastPointerType = event.Pointer;
+                    HasPointerInput = true;
+                    UpdateTouch(event, time);
+                    MousePos = event.Value;
+                    mouseMoved = true;
+                    return false;
+                }
+                case TouchPhase::Ended:
+                case TouchPhase::Cancelled:
+                {
+                    if (!event.Down)
+                    {
+                        if (anyButtonChanged)
+                            return true;
+                        LastPointerType = event.Pointer;
+                        HasPointerInput = true;
+                        UpdateTouch(event, time);
+                        HasMousePos = true;
+                        MousePos = event.Value;
+                        mouseMoved = true;
+                        HasPrimaryTouch = false;
+                        if (MouseDown[LeftButton])
+                        {
+                            setButton(LeftButton, false, MultiTapDistance);
+                            IsPointerCancelled = event.Phase == TouchPhase::Cancelled;
+                        }
+                        // The pointer leaves in the next frame: there is no hover without a finger.
+                        event.Down = true;
+                        return true;
+                    }
+                    if (anyButtonChanged)
+                        return true;
+                    if (!HasPrimaryTouch)
+                        HasMousePos = false;
+                    mouseMoved = true;
+                    return false;
+                }
+            }
+            return false;
+        };
+
         std::vector<InputEvent>& events = io.m_Events;
         size_t consumed = 0;
         for (; consumed < events.size(); consumed++)
         {
-            const InputEvent& event = events[consumed];
+            InputEvent& event = events[consumed];
             bool defer = false;
 
             switch (event.Type)
@@ -59,6 +183,9 @@ namespace Carbon::Internal
                 case InputEventType::MousePos:
                 case InputEventType::MouseLeave:
                 {
+                    // A finger drives the pointer: a mouse the host emulates from it must not move it elsewhere.
+                    if (HasPrimaryTouch)
+                        break;
                     // A move after a button change waits a frame, so the press or release is seen where it
                     // happened.
                     if (anyButtonChanged)
@@ -68,13 +195,20 @@ namespace Carbon::Internal
                     }
                     HasMousePos = event.Type == InputEventType::MousePos;
                     if (HasMousePos)
+                    {
                         MousePos = event.Value;
+                        LastPointerType = PointerType::Mouse;
+                        HasPointerInput = true;
+                        IsPointerTouch = false;
+                    }
                     mouseMoved = true;
                     break;
                 }
                 case InputEventType::MouseButton:
                 {
                     const size_t button = static_cast<size_t>(event.Button);
+                    if (HasPrimaryTouch && button == LeftButton)
+                        break;
                     // A press right after a move waits a frame: hit testing knows the topmost item under the
                     // pointer from the previous frame, so the pointer has to be there for one frame first.
                     if (buttonChanged[button] || (event.Down && mouseMoved))
@@ -84,31 +218,22 @@ namespace Carbon::Internal
                     }
                     if (MouseDown[button] == event.Down)
                         break;
-                    MouseDown[button] = event.Down;
-                    buttonChanged[button] = true;
-                    anyButtonChanged = true;
-                    if (event.Down)
-                    {
-                        const Vec2 travel = MousePos - MousePressedPos[button];
-                        const bool isMultiClick = MouseLastClickCount[button] > 0 &&
-                                                  time - MouseLastPressTime[button] <= MultiClickTime &&
-                                                  travel.GetLengthSquared() <= MultiClickDistance * MultiClickDistance;
-                        const uint8_t count = isMultiClick ? static_cast<uint8_t>(MouseLastClickCount[button] + 1) : 1;
-                        MousePressed[button] = true;
-                        MouseClickCount[button] = count;
-                        MouseLastClickCount[button] = count;
-                        MouseLastPressTime[button] = time;
-                        MousePressedPos[button] = MousePos;
-                    }
-                    else
-                    {
-                        MouseReleased[button] = true;
-                    }
+                    LastPointerType = PointerType::Mouse;
+                    HasPointerInput = true;
+                    IsPointerTouch = false;
+                    setButton(button, event.Down, MultiClickDistance);
                     break;
                 }
                 case InputEventType::MouseWheel:
                 {
                     MouseWheel += event.Value;
+                    LastPointerType = PointerType::Mouse;
+                    HasPointerInput = true;
+                    break;
+                }
+                case InputEventType::Touch:
+                {
+                    defer = applyTouch(event);
                     break;
                 }
                 case InputEventType::Key:
@@ -204,6 +329,23 @@ namespace Carbon::Internal
 
         MouseDelta = (hadMousePos && HasMousePos) ? MousePos - previousMousePos : Vec2();
 
+        // The velocity a pan keeps when the finger is lifted. A finger that rests for a moment first throws
+        // nothing.
+        if (IsPointerTouch && HasMousePos && deltaTime > 0.0f)
+        {
+            if (MouseDelta != Vec2())
+            {
+                PointerVelocity += (MouseDelta / deltaTime - PointerVelocity) * VelocitySmoothing;
+                PointerRestTime = 0.0f;
+            }
+            else
+            {
+                PointerRestTime += deltaTime;
+                if (PointerRestTime >= VelocityRestTime)
+                    PointerVelocity = Vec2();
+            }
+        }
+
         for (size_t key = 0; key < KeyCount; key++)
         {
             if (!KeyDown[key] || KeyPressed[key])
@@ -232,6 +374,53 @@ namespace Carbon::Internal
         // Shift turns a plain wheel sideways, as macOS does for every application.
         if (HasModifiers(Modifiers, KeyModifiers::Shift) && MouseWheel.X == 0.0f)
             MouseWheel = Vec2(MouseWheel.Y, 0.0f);
+    }
+
+    TouchPoint* InputState::FindTouch(uint64_t id)
+    {
+        for (size_t i = 0; i < TouchCount; i++)
+        {
+            if (Touches[i].Id == id)
+                return &Touches[i];
+        }
+        return nullptr;
+    }
+
+    void InputState::UpdateTouch(const InputEvent& event, double time)
+    {
+        TouchPoint* touch = FindTouch(event.TouchId);
+        switch (event.Phase)
+        {
+            case TouchPhase::Began:
+            case TouchPhase::Moved:
+            {
+                if (touch == nullptr)
+                {
+                    // A move of a finger that never began is taken as its beginning.
+                    if (TouchCount == MaxTouches)
+                        return;
+                    touch = &Touches[TouchCount++];
+                    touch->Id = event.TouchId;
+                    touch->StartPosition = event.Value;
+                    touch->StartTime = time;
+                }
+                touch->Type = event.Pointer;
+                touch->Position = event.Value;
+                break;
+            }
+            case TouchPhase::Ended:
+            case TouchPhase::Cancelled:
+            {
+                if (touch == nullptr)
+                    return;
+                // The other fingers keep their order.
+                const size_t index = static_cast<size_t>(touch - Touches.data());
+                for (size_t i = index; i + 1 < TouchCount; i++)
+                    Touches[i] = Touches[i + 1];
+                TouchCount--;
+                break;
+            }
+        }
     }
 
     void FileDragState::SetPaths(std::string_view text, size_t count)
@@ -319,6 +508,14 @@ namespace Carbon::Internal
                 KeyDown[key] = false;
                 KeyReleased[key] = true;
             }
+        }
+        // Fingers are lost too; one that drove the pointer takes the pointer with it and activates nothing.
+        TouchCount = 0;
+        if (HasPrimaryTouch)
+        {
+            HasPrimaryTouch = false;
+            HasMousePos = false;
+            IsPointerCancelled = true;
         }
     }
 } // namespace Carbon::Internal

@@ -103,9 +103,18 @@ namespace Carbon
                 }
                 if (interaction.ActiveID != id || !input.MouseDown[LeftButton])
                     return false;
-                const Vec2 travel = input.MousePos - input.MousePressedPos[LeftButton];
-                if (travel.GetLengthSquared() < options.Threshold * options.Threshold)
-                    return false;
+                if (input.IsPointerTouch)
+                {
+                    // A finger lifts the item with a long press, as on iOS; moving before that scrolls instead.
+                    if (!context.Gestures.IsLongPressed)
+                        return false;
+                }
+                else
+                {
+                    const Vec2 travel = input.MousePos - input.MousePressedPos[LeftButton];
+                    if (travel.GetLengthSquared() < options.Threshold * options.Threshold)
+                        return false;
+                }
 
                 // The drag begins: it holds the pointer from now on, whether the source stays or not.
                 state.Clear();
@@ -114,6 +123,7 @@ namespace Carbon
                 state.GrabOffset = input.MousePressedPos[LeftButton] - rect.GetMin();
                 interaction.ActiveID = Internal::GetDragPointerID();
                 interaction.IsActiveAlive = true;
+                interaction.IsActiveDrag = true;
             }
             if (state.IsFromHost || state.SourceID != id || state.IsDelivering)
                 return false;
@@ -246,7 +256,7 @@ namespace Carbon
             }
             if (!input.MouseDown[LeftButton])
             {
-                const bool isDropped = input.MouseReleased[LeftButton] && input.Focused;
+                const bool isDropped = input.MouseReleased[LeftButton] && input.Focused && !input.IsPointerCancelled;
                 if (context.Interaction.ActiveID == GetDragPointerID())
                     context.Interaction.ActiveID = ID();
                 if (isDropped)
@@ -256,6 +266,7 @@ namespace Carbon
                 return;
             }
             context.Interaction.ActiveID = GetDragPointerID();
+            context.Interaction.IsActiveDrag = true;
         }
 
         void EndDragDrop(Context& context)

@@ -9,6 +9,7 @@
 
 #include "Carbon/Core/Vec2.h"
 #include "Carbon/Input/IO.h"
+#include "Carbon/Input/InputEvent.h"
 #include "Carbon/Input/Key.h"
 #include "Carbon/Input/MouseButton.h"
 
@@ -21,6 +22,22 @@ namespace Carbon::Internal
     /// Maximum time between presses, and maximum travel in points, for presses to count as a multi-click.
     inline constexpr double MultiClickTime = 0.4;
     inline constexpr float MultiClickDistance = 4.0f;
+    /// The same distance for taps: a finger is less precise than a mouse.
+    inline constexpr float MultiTapDistance = 12.0f;
+
+    /// The most fingers Carbon follows at once; further touches are ignored.
+    inline constexpr size_t MaxTouches = 10;
+
+    /// A finger (or pen) on the display.
+    struct TouchPoint
+    {
+        uint64_t Id = 0;
+        PointerType Type = PointerType::Touch;
+        Vec2 Position;
+        /// Where and when it touched the display.
+        Vec2 StartPosition;
+        double StartTime = 0.0;
+    };
 
     /// An input method's composition in progress: the pre-edit text the user is composing, which is shown at the
     /// caret of the text being edited but is not part of it.
@@ -99,5 +116,31 @@ namespace Carbon::Internal
         /// Files dragged in from outside the application.
         FileDragState FileDrag;
         bool Focused = true;
+
+        /// The fingers on the display, in the order they touched it; the first TouchCount entries are valid.
+        std::array<TouchPoint, MaxTouches> Touches{};
+        size_t TouchCount = 0;
+        /// The finger that drives the pointer (MousePos and the left button) while HasPrimaryTouch.
+        bool HasPrimaryTouch = false;
+        uint64_t PrimaryTouchId = 0;
+        /// The kind of the most recent pointer input; touch mode follows it. Until the first one arrives
+        /// (HasPointerInput), the host's default applies.
+        PointerType LastPointerType = PointerType::Mouse;
+        bool HasPointerInput = false;
+        /// The pointer was last moved by a finger: there is no hover, and it leaves when the finger is lifted.
+        bool IsPointerTouch = false;
+        /// The left button was released this frame because the system cancelled the touch that held it: the
+        /// release must not activate anything.
+        bool IsPointerCancelled = false;
+        /// How fast the pointer moves, in points per second, smoothed over the last frames. Pans keep this
+        /// velocity when the finger is lifted.
+        Vec2 PointerVelocity;
+        /// Seconds since the pointer last moved; a finger that rests before it is lifted throws nothing.
+        float PointerRestTime = 0.0f;
+
+        /// The finger with this ID, or null.
+        TouchPoint* FindTouch(uint64_t id);
+        /// Applies a touch event to the table of fingers.
+        void UpdateTouch(const InputEvent& event, double time);
     };
 } // namespace Carbon::Internal
