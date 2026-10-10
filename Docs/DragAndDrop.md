@@ -37,6 +37,8 @@ if (Carbon::BeginDragSource(Carbon::GetID("tag"), Carbon::GetLastItemRect()))
   of your own component that called `ButtonBehavior` or `DragBehavior`.
 - The drag outlives its source. When the row that was dragged scrolls out of view or its parent collapses, the
   drag goes on with its payload, which was copied when it was attached.
+- With a finger, a drag begins with a long press, as on iOS: the item lifts at once and then follows the finger.
+  Moving the finger before that scrolls instead ([Phones and tablets](Mobile.md#gestures)).
 - `DragSourceOptions::Threshold` sets the distance that makes a press a drag, and `HasPreviewBackground = false`
   leaves out the preview's rounded surface for a preview that draws its own.
 

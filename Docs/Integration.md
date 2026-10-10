@@ -185,6 +185,7 @@ Call these from your window's event handlers; Carbon queues the events and appli
 | Input method | `io.AddComposition...Event` | Start, update, commit, cancel; see [Input methods](#input-methods) |
 | Files dropped | `io.AddFileDropEvent(x, y, paths)` | UTF-8 paths and the position in points; see [Files from the system](#files-from-the-system) |
 | Files dragged over | `io.AddFileDragEvent(x, y, paths)`, `io.AddFileDragLeaveEvent()` | Optional, for hosts that learn about the drag before the drop |
+| Touch | `io.AddTouchEvent(phase, id, x, y, type)` | `Began`, `Moved`, `Ended`, `Cancelled` per finger or pen; see [Phones and tablets](Mobile.md#forwarding-touches) |
 
 Details worth knowing:
 
@@ -195,6 +196,9 @@ Details worth knowing:
 - **Fast input is never lost.** If a press and a release of the same button arrive within one frame, Carbon
   applies them on two consecutive frames. The same holds for a key, and typed characters keep their order
   relative to editing keys such as Backspace.
+- **Touch.** The first finger drives the pointer while it is down (taps click, drags scroll), and touch mode
+  enlarges hit areas; a host on a phone or a tablet also calls `io.SetDefaultPointerType(Carbon::PointerType::Touch)`.
+  See [Phones and tablets](Mobile.md).
 - **Shortcuts** such as copy and paste use Ctrl. A host that prefers the Super/Command key calls
   `io.SetShortcutModifier(Carbon::KeyModifiers::Super)`.
 - **Sharing input with your own content.** After `NewFrame`, `io.WantsMouse()`, `io.WantsKeyboard()` and

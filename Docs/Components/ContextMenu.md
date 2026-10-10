@@ -1,6 +1,6 @@
 # ContextMenu
 
-A menu of commands for the item under the pointer, opened with a right click.
+A menu of commands for the item under the pointer, opened with a right click, or on a touchscreen with a long press.
 HIG: [Context menus](https://developer.apple.com/design/human-interface-guidelines/context-menus)
 Library: CarbonExtensions, `#include <Carbon/Extensions/Menu.h>`
 
@@ -21,8 +21,8 @@ if (Carbon::BeginContextMenu("file"))
 }
 ```
 
-`BeginContextMenu` belongs to the item submitted just before it: a right click on that item opens the menu at
-the pointer. It returns `true` while the menu is open; then add items exactly as in a [Menu](Menu.md) and call
+`BeginContextMenu` belongs to the item submitted just before it: a right click on that item, or resting a finger on
+it for half a second, opens the menu at the pointer. It returns `true` while the menu is open; then add items exactly as in a [Menu](Menu.md) and call
 `EndContextMenu`.
 
 ## A larger target

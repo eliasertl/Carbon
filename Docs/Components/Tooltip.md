@@ -20,6 +20,8 @@ and `Image`.
   inside the display.
 - Disappears when the pointer leaves the item or a mouse button is pressed.
 - Is drawn on the topmost layer, above popovers and menus.
+- With a finger, which cannot hover, it appears on a long press, above the finger, and stays for 1.5 seconds after
+  the finger is lifted; the item is not activated by that touch ([Phones and tablets](../Mobile.md#touch-sizing)).
 
 There are no options. The look comes from the theme (`OverlayBackground`, `OverlayBorder`, `Shadow`).
 

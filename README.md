@@ -179,6 +179,7 @@ Carbon from your own project, as a subdirectory or as an installed package (`fin
 - [Styling](Docs/Styling.md) — the three styling layers, themes, typography, icons, corner shapes
 - [Keyboard navigation](Docs/KeyboardNavigation.md) — keys, focus order, the focus ring
 - [Overlays](Docs/Overlays.md) — how popovers, menus, alerts and sheets float above the interface
+- [Phones and tablets](Docs/Mobile.md) — touch, gestures, adaptive layouts, safe areas, the on-screen keyboard
 - [Drag and drop](Docs/DragAndDrop.md) — drag sources, payloads, drop targets, reordering lists, files from the system
 - [Components](Docs/Components/README.md) — one page per component
 - [Custom components](Docs/CustomComponents.md) — the extension API, by example

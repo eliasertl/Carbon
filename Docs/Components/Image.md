@@ -29,6 +29,9 @@ OpenGL texture name) into an ID that can be drawn without registering it.
 | `CornerSmoothing` | `float` | theme's `CornerSmoothing` | |
 | `Tint` | `Color` | white | Multiplied with the texture's color |
 | `UV` | `Rect` | `(0, 0, 1, 1)` | The part of the texture to show |
+| `Zoomable` | `bool` | `false` | Two fingers pinch the image to zoom it and pan it while zoomed; a double tap zooms in and out ([Phones and tablets](../Mobile.md#gestures)). The mouse does not zoom |
+| `MaxZoom` | `float` | 4 | The largest zoom of a zoomable image |
+| `ID` | `string_view` | the texture | The identity that keeps the zoom; give one when a texture is shown twice |
 
 ## Notes
 

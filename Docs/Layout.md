@@ -225,6 +225,35 @@ void BeginRow(std::string_view label)
 Stacks do not push onto the ID stack, so wrapping widgets in more stacks never changes the widgets' IDs or loses
 their state. Scroll views are different: they take an explicit ID and push it.
 
+## Adapting to the device
+
+Carbon adapts its own components to touchscreens and narrow displays ([Phones and tablets](Mobile.md)). Layouts of
+your own can do the same with two queries, which change only at the start of a frame:
+
+- `Carbon::IsCompactWidth()` (or `GetSizeClass()`): the display is narrower than 600 points, as an iPhone in
+  portrait. Stack what sits side by side, show fewer columns, move secondary content behind a button.
+- `Carbon::IsTouchMode()`: the user works with a finger. Leave room around small controls, avoid what needs hover
+  or precise dragging.
+
+```cpp
+const bool isCompact = Carbon::IsCompactWidth();
+if (isCompact)
+    Carbon::BeginVStack({ .Spacing = 16.0f, .Width = Carbon::Size::Fill() });
+else
+    Carbon::BeginHStack({ .Spacing = 24.0f, .Alignment = Carbon::VerticalAlignment::Top, .Width = Carbon::Size::Fill() });
+    Preview();
+    Settings();
+if (isCompact)
+    Carbon::EndVStack();
+else
+    Carbon::EndHStack();
+```
+
+Both are derived automatically and the host can force either one (`IO::SetSizeClassOverride`,
+`IO::SetTouchModeOverride`), for example regular width on a narrow kiosk display. Layouts reflow by themselves when
+the display is resized or rotated: `Fill` sizes take their share of the new size in the next frame, and nothing is
+stretched.
+
 ## The cursor as an escape hatch
 
 `GetCursorPos()` returns where the next item will go. `SetCursorPos(position)` places the next item's top-left
