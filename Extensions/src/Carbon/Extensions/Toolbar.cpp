@@ -192,7 +192,7 @@ namespace Carbon
             if ((interaction.Clicked || isArrowPressed) && !IsOverlayOpen(menu))
             {
                 OpenOverlay(menu);
-                state.FocusFirst = !IsMousePressed();
+                state.FocusFirst = !IsMousePressed() && !IsMouseReleased();
             }
 
             DrawList& drawList = GetDrawList();
