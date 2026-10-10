@@ -61,6 +61,8 @@ Components/Alert.png              WebGPU/Gallery  --page dialogs --show alert --
 Components/Sheet.png              WebGPU/Gallery  --page dialogs --show sheet --size 920x600
 Components/Notification.png       WebGPU/Gallery  --page notifications --show notification --pointer 800x70 --crop 640,0,400,150
 Components/ProgressIndicator.png  WebGPU/Gallery  --page progress --section progressbar,spinner
+Components/ListReordering.png     WebGPU/Gallery  --page draganddrop --section reorderingalist --pointer 200x30 --drag 200x110
+Components/OutlineViewReordering.png WebGPU/Gallery  --page draganddrop --section movingitemsinanoutline --pointer 120x147 --drag 300x125
 Components/List.png               WebGPU/Gallery  --page lists --section list
 Components/TableColumns.png       WebGPU/Gallery  --page lists --section datatable --pointer 300x34 --drag 470x40
 Components/Table.png              WebGPU/Gallery  --page lists --section table

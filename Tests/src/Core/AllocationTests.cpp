@@ -498,6 +498,40 @@ namespace Carbon
         EXPECT_TRUE(m_AssertMessages.empty()) << "a misused component would allocate to report it";
     }
 
+    TEST_F(AllocationTests, ReorderingDoesNotAllocateInSteadyState)
+    {
+        static const char* const Names[] = {"Alpha", "Bravo", "Charlie", "Delta", "Echo", "Foxtrot"};
+        const auto build = []
+        {
+            BeginList("list", {.Width = 300.0f, .Height = 200.0f, .AllowsReordering = true});
+            for (int i = 0; i < 6; i++)
+            {
+                PushID(i);
+                ListItem(Names[i], i == 0, {.Icon = Icons::MusicNote});
+                PopID();
+            }
+            EndList();
+            BeginOutlineView("outline", {.Width = 300.0f, .Height = 200.0f, .AllowsReordering = true});
+            if (BeginOutlineItem("Folder", false, {.IsInitiallyExpanded = true, .Key = 0}).IsExpanded)
+            {
+                BeginOutlineItem("File", false, {.HasChildren = false, .Key = 1});
+                EndOutlineItem();
+            }
+            EndOutlineItem();
+            EndOutlineView();
+        };
+        // The first row of the list is dragged over the fourth.
+        MoveMouse(Vec2(100.0f, 17.0f), build);
+        GetIO().AddMouseButtonEvent(MouseButton::Left, true);
+        CountAllocationsOfOneFrame(build, 2);
+        GetIO().AddMousePosEvent(100.0f, 80.0f);
+        CountAllocationsOfOneFrame(build, 10);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 10), 0u);
+        GetIO().AddMousePosEvent(100.0f, 90.0f);
+        EXPECT_EQ(CountAllocationsOfOneFrame(build, 0), 0u);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
     TEST_F(AllocationTests, WideTablesDoNotAllocateInSteadyState)
     {
         // Forty-eight columns, scrolled sideways, while a divider is being dragged.

@@ -71,6 +71,24 @@ Where targets overlap, one gets the drag: the one on the highest layer (an overl
 those the smallest. A row inside a list that is itself a target therefore wins over the list. `AcceptDrop(type)`
 without a rectangle makes the last interactive item a target.
 
+## Lists and outline views
+
+[List](Components/List.md#reordering) and [OutlineView](Components/OutlineView.md#moving-items) are built on
+this API and reorder their rows with one option, `AllowsReordering`. A list makes room where the dragged item would
+go, with an insertion line, and `EndList` returns a `ListMove` that `ApplyListMove` applies to your items. An
+outline view tells "between" (an insertion line, indented like the items it goes between) from "into" (an outline
+around a folder), expands a collapsed folder that the drag rests on, and `EndOutlineView` returns an
+`OutlineMove` by the keys you gave the items.
+
+```cpp
+Carbon::BeginList("playlist", { .AllowsReordering = true });
+...
+Carbon::ApplyListMove(songs, Carbon::EndList());
+```
+
+Their rows use the payload type of their own, so they move only within their list. To drag rows elsewhere, make
+the row a source yourself with `BeginDragSource()` right after `ListItem` (the row is the last item).
+
 ## While something is dragged
 
 | Function | Purpose |

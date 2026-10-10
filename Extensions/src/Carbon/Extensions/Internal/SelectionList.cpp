@@ -15,6 +15,12 @@ namespace Carbon::Internal
         // Distance kept between a row revealed by the keyboard and the edge of the visible area.
         constexpr float RevealMargin = 4.0f;
         constexpr AnimationSpec HighlightSpring = AnimationSpec::Spring(0.28f, 0.9f);
+        // Rows that make room for a dragged row, or slide into their places after a drop.
+        constexpr AnimationSpec SlideSpring = AnimationSpec::Spring(0.25f, 0.9f);
+        constexpr float SettleDuration = 0.6f;
+        // The insertion line that marks where a dragged row would go.
+        constexpr float InsertionLineWidth = 2.0f;
+        constexpr float InsertionCircleRadius = 3.5f;
 
         struct SelectionListState;
 
@@ -57,6 +63,25 @@ namespace Carbon::Internal
             bool AnimatesHighlight;
             bool HasBorder;
             bool IsOpen;
+
+            SelectionListReordering Reordering;
+            /// The index of the next row among all rows, added or skipped.
+            int RowCounter;
+            /// The row of this list being dragged; Index is -1 when none is.
+            RowDragPayload Drag;
+            /// A row of this list is dragged over it: the rows from the insertion slot on make room.
+            bool IsDropTarget;
+            /// Rows are drawn at animated offsets: making room, or sliding into their places after a drop.
+            bool AreRowsMoving;
+            /// The first frame after a drop: rows start from where they were drawn.
+            bool IsSettleStart;
+            float PointerY;
+            /// Where the dragged row would go: the index of the row it would be inserted before, and that row's
+            /// top relative to the content; and the top of the row after the last one.
+            int Slot;
+            float SlotTop;
+            float NextTop;
+            float Pitch;
         };
 
         // Remembered per list.
@@ -76,6 +101,14 @@ namespace Carbon::Internal
             /// The unselected row under the pointer, relative to the content, for the hover tint.
             Rect HoverRect;
             bool HasHoveredRow;
+            /// A row of this list was dragged over it during the last frame.
+            bool WasDropTarget;
+            /// A row of this list was being dragged during the last frame.
+            bool WasDragging;
+            /// Rows slide into their places for a moment after a drag; the next frame starts the slide.
+            bool IsSettling;
+            bool IsSettleStart;
+            float SettleTime;
         };
 
         BuildState<SelectionListBuild> s_Build("Carbon.SelectionList.Build");
@@ -97,6 +130,7 @@ namespace Carbon::Internal
         {
             if (count <= 0)
                 return;
+            build.RowCounter += count;
             const Rect block = ReserveRows(count, height, build.Spacing);
             const bool hasSelection = selected >= 0 && selected < count;
             if (hasSelection)
@@ -111,6 +145,55 @@ namespace Carbon::Internal
                     build.SelectedOrdinal = build.Count + selected;
                 build.Count += count;
             }
+        }
+        // Where a row is drawn while rows move, relative to its place in the layout: rows from the insertion slot on
+        // make room for the dragged row, and after a drop every row slides from where it was drawn into its new
+        // place.
+        float GetRowOffset(SelectionListBuild& build, ID id, const Rect& layout)
+        {
+            const float top = layout.Y - build.ContentOrigin.Y;
+            build.Pitch = GetRowPitch(layout.Height, build.Spacing);
+            float target = 0.0f;
+            if (build.IsDropTarget)
+            {
+                if (build.Slot < 0 && build.PointerY < layout.GetCenter().Y)
+                {
+                    build.Slot = build.RowCounter - 1;
+                    build.SlotTop = top;
+                }
+                if (build.Slot >= 0)
+                    target = build.Pitch;
+            }
+            build.NextTop = top + build.Pitch;
+            if (!id.IsValid())
+                return 0.0f;
+
+            const ID slide = HashID("##slide", id);
+            const ID recordID = HashID("##drawntop", id);
+            if (build.IsSettleStart)
+            {
+                bool isNew = false;
+                const float drawn = *GetState<float>(recordID, StateLifetime::Transient, &isNew);
+                if (!isNew)
+                    SetAnimationValue(slide, drawn - top);
+            }
+            const float offset = Animate(slide, target, SlideSpring);
+            if (build.Drag.Index >= 0)
+                *GetState<float>(recordID, StateLifetime::Transient) = top + offset;
+            return offset;
+        }
+
+        void DrawInsertionLine(const SelectionListBuild& build)
+        {
+            const float y = build.SlotTop + build.Pitch * 0.5f - build.Spacing * 0.5f;
+            const float animated = Animate(HashID("##insertion", build.Id), y, SlideSpring);
+            const float lineY = build.ContentOrigin.Y + animated;
+            const Color accent = GetStyleColor(StyleColor::Accent);
+            DrawList& drawList = GetDrawList();
+            const float left = build.Content.X + InsertionCircleRadius + 2.0f;
+            drawList.AddCircleStroke(Vec2(left, lineY), InsertionCircleRadius, accent, InsertionLineWidth * 0.75f);
+            drawList.AddLine(Vec2(left + InsertionCircleRadius, lineY), Vec2(build.Content.GetRight() - 2.0f, lineY),
+                             accent, InsertionLineWidth);
         }
     } // namespace
 
@@ -174,7 +257,34 @@ namespace Carbon::Internal
         // A row under the pointer is tinted. One tint per list is enough: it moves with the pointer and fades
         // when the pointer leaves. Its place, like the highlight's, is known after the rows.
         build.State = GetState<SelectionListState>(listID, StateLifetime::Persistent);
-        const SelectionListState& state = *build.State;
+        SelectionListState& state = *build.State;
+        // Reordering: a row of this list being dragged, over it or elsewhere, and rows sliding after a drag.
+        build.Reordering = description.Reordering;
+        build.Slot = -1;
+        if (build.Reordering != SelectionListReordering::None)
+        {
+            const DragPayload payload = GetDragPayload();
+            if (payload.Type == RowDragPayloadType && payload.As<RowDragPayload>().List == listID)
+                build.Drag = payload.As<RowDragPayload>();
+            const bool isDragging = build.Drag.Index >= 0;
+            build.IsDropTarget = build.Reordering == SelectionListReordering::Gap && isDragging && state.WasDropTarget;
+            build.PointerY = GetMousePos().Y;
+            if (state.WasDragging && !isDragging && !state.IsSettling)
+            {
+                state.IsSettling = true;
+                state.SettleTime = 0.0f;
+            }
+            state.WasDragging = isDragging;
+            if (state.IsSettling)
+            {
+                state.SettleTime += GetDeltaTime();
+                state.IsSettling = state.SettleTime < SettleDuration;
+            }
+            build.IsSettleStart = state.IsSettleStart;
+            state.IsSettleStart = false;
+            build.AreRowsMoving = build.Reordering == SelectionListReordering::Gap && (isDragging || state.IsSettling);
+        }
+
         const float hover =
             Animate(HashID("##rowhover", listID), state.HasHoveredRow ? 1.0f : 0.0f, AnimationSpec::Fade(0.12f));
         build.Hover = drawList.AddDeferredSquircle(
@@ -190,10 +300,16 @@ namespace Carbon::Internal
             return row;
         SelectionListState& state = *build.State;
 
+        row.Id = id;
+        row.Index = build.RowCounter++;
         row.IsVisible = IsRowVisible(build, height);
         ItemOptions item;
         item.Width = Size::Fill();
-        row.Bounds = AllocateItem(Vec2(0.0f, height), item);
+        row.Layout = AllocateItem(Vec2(0.0f, height), item);
+        row.Bounds = row.Layout;
+        row.IsDragged = build.Drag.Index >= 0 && row.Index == build.Drag.Index;
+        if (build.AreRowsMoving)
+            row.Bounds = row.Layout.Offset(Vec2(0.0f, GetRowOffset(build, id, row.Layout)));
 
         if (row.IsVisible)
         {
@@ -202,7 +318,7 @@ namespace Carbon::Internal
             behavior.Disabled = isDisabled;
             // As in macOS lists, a row is selected when the mouse button goes down, not when it is released.
             behavior.ActivateOnPress = true;
-            row.Interaction = ButtonBehavior(id, row.Bounds, behavior);
+            row.Interaction = ButtonBehavior(id, row.Layout, behavior);
             row.Clicked = row.Interaction.Clicked;
             if (row.Clicked)
                 SetFocus(build.Id);
@@ -211,7 +327,7 @@ namespace Carbon::Internal
         {
             // Nothing can point at a row outside the visible area. Whatever follows it must not take the row
             // before it for the last item.
-            SetLastItem(id, row.Bounds, row.Interaction);
+            SetLastItem(id, row.Layout, row.Interaction);
         }
 
         if (!isDisabled && !IsDisabled())
@@ -262,6 +378,13 @@ namespace Carbon::Internal
             range.First = std::min(range.First, pending);
             range.End = std::max(range.End, pending + 1);
         }
+        // So is the row being dragged, which shows the preview.
+        const int dragged = build.Drag.Index - build.RowCounter;
+        if (build.Drag.Index >= 0 && dragged >= 0 && dragged < count)
+        {
+            range.First = std::min(range.First, dragged);
+            range.End = std::max(range.End, dragged + 1);
+        }
 
         SkipRows(build, range.First, height, selected);
         build.TrailingRows = count - range.End;
@@ -293,15 +416,48 @@ namespace Carbon::Internal
         build.RequestedOrdinal = ordinal;
     }
 
-    void EndSelectionList()
+    RowMove EndSelectionList()
     {
         SelectionListBuild& build = GetBuild();
+        RowMove move;
         CB_VERIFY(build.IsOpen, "A list was ended that was never begun");
         if (!build.IsOpen)
-            return;
+            return move;
         SelectionListState& state = *build.State;
         SkipRows(build, build.TrailingRows, build.TrailingHeight, build.TrailingSelected);
         build.TrailingRows = 0;
+
+        // A row of this list dropped onto it moves to the insertion slot: the index it has afterwards is the
+        // slot's, less one when it came from before the slot.
+        if (build.Reordering == SelectionListReordering::Gap)
+        {
+            DropTargetOptions options;
+            options.ShowsHighlight = false;
+            const Drop drop = AcceptDrop(HashID("##reorder", build.Id), build.Viewport, RowDragPayloadType, options);
+            state.WasDropTarget = drop.IsHovered && build.Drag.Index >= 0;
+            if (build.IsDropTarget)
+            {
+                if (build.Slot < 0)
+                {
+                    build.Slot = build.RowCounter;
+                    build.SlotTop = build.NextTop;
+                }
+                if (!drop.IsDelivered)
+                    DrawInsertionLine(build);
+            }
+            if (drop.IsDelivered && build.IsDropTarget)
+            {
+                const int from = build.Drag.Index;
+                const int to = build.Slot > from ? build.Slot - 1 : build.Slot;
+                if (to != from)
+                {
+                    move.From = from;
+                    move.To = to;
+                    state.IsSettleStart = true;
+                    RequestAnimationFrame();
+                }
+            }
+        }
 
         DrawList& drawList = GetDrawList();
         const float smoothing = GetStyleVar(StyleVar::CornerSmoothing);
@@ -384,5 +540,41 @@ namespace Carbon::Internal
         if (build.HasBorder)
             DrawFocusRing(build.Id, build.Viewport, build.BackgroundRadius);
         build.IsOpen = false;
+        return move;
+    }
+
+    bool BeginSelectionListRowDrag(const SelectionRow& row, int64_t key)
+    {
+        const SelectionListBuild& build = GetBuild();
+        if (!build.IsOpen || build.Reordering == SelectionListReordering::None || !row.Id.IsValid())
+            return false;
+        if (!BeginDragSource(row.Id, row.Layout))
+            return false;
+        RowDragPayload payload;
+        payload.List = build.Id;
+        payload.Index = row.Index;
+        payload.Key = key;
+        SetDragPayload(RowDragPayloadType, payload);
+        return true;
+    }
+
+    void EndSelectionListRowDrag()
+    {
+        EndDragSource();
+    }
+
+    RowDragPayload GetSelectionListDrag()
+    {
+        return GetBuild().Drag;
+    }
+
+    bool IsSelectionListDragging()
+    {
+        return GetBuild().Drag.Index >= 0;
+    }
+
+    Rect GetSelectionListViewport()
+    {
+        return GetBuild().Viewport;
     }
 } // namespace Carbon::Internal

@@ -30,6 +30,7 @@ no selection at all the application's choice. For rows with several columns see 
 | `Height` | `Size` | `Fill` | A list scrolls, so inside a stack that fits its content give it a fixed height |
 | `RowHeight` | `float` | 24 | |
 | `HasBorder` | `bool` | `true` | Draws the list on a bordered control background. Turn it off for a list that fills a pane. |
+| `AllowsReordering` | `bool` | `false` | The user can drag items to another place; see [Reordering](#reordering) |
 
 ## Item options
 
@@ -48,6 +49,41 @@ no selection at all the application's choice. For rows with several columns see 
 - Titles that do not fit are cut off with an ellipsis.
 - All rows are submitted every frame; rows outside the visible area are not drawn. For very long lists, submit
   only the rows near the visible range and reserve the rest of the height with a `Spacer`.
+
+## Reordering
+
+With `AllowsReordering`, the user drags an item to another place. The item stays where it is, faded, while a
+preview follows the pointer; the other items slide apart on a spring to make room where it would go, and an
+insertion line marks the place. Near the top and bottom edges the list scrolls. On release, `EndList` returns a
+`ListMove`, and `ApplyListMove` applies it to your items; afterwards every item slides from where it was drawn
+into its new place. Escape cancels.
+
+![A song being dragged to another place in a playlist](../Images/Components/ListReordering.png)
+
+```cpp
+Carbon::BeginList("playlist", { .Height = 200.0f, .AllowsReordering = true });
+for (const Song& song : songs)
+{
+    Carbon::PushID(song.Id);             // an ID that follows the item, not its position
+    if (Carbon::ListItem(song.Title, song.Id == selected))
+        selected = song.Id;
+    Carbon::PopID();
+}
+Carbon::ApplyListMove(songs, Carbon::EndList());
+```
+
+| `ListMove` field | Meaning |
+| --- | --- |
+| `From` | The index of the item that moved, or -1 |
+| `To` | The index it has after the move: where it ends up once it has been taken out and put back in |
+| `IsMoved()` | True when an item moved; a drop next to its own place moves nothing |
+
+`ApplyListMove(items, move)` rotates the items between `From` and `To` of any container with random-access
+iterators, and does nothing for a move that did not happen. Give items IDs that follow them (`PushID` of a key
+rather than of the index), so that they slide into their new places instead of trading contents. One item moves
+at a time; disabled items cannot be dragged. Indices count every item of the list, including the ones that
+`ClipListItems` left out, and the dragged item is kept among the submitted ones so that its preview stays. See
+[Drag and drop](../DragAndDrop.md) for dragging between lists and other targets.
 
 ## Long lists
 

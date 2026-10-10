@@ -170,6 +170,14 @@ namespace Gallery
 
         // Drag and drop: the box each tag is in.
         std::array<int, 6> TagBoxes = {0, 0, 1, 0, 1, 0};
+        /// The playlist, as indices of songs in the order the user arranged them, and the selected song.
+        std::vector<int> Playlist = {0, 1, 2, 3, 4, 5, 6};
+        int SelectedSong = 2;
+        /// A small tree of files that the user rearranges: what each item contains, and the top-level items.
+        std::vector<std::vector<int>> FolderItems = {{1, 2}, {}, {}, {4, 5}, {}, {}, {}, {}};
+        std::vector<int> RootItems = {0, 3, 6, 7};
+        int SelectedFileItem = 1;
+        std::string LastFileMove = "nothing yet";
 
         // Tabs and split views.
         int Tab = 0;

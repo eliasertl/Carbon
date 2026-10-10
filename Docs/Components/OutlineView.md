@@ -32,7 +32,7 @@ Carbon::EndOutlineView();
 
 | Function | Purpose |
 | --- | --- |
-| `BeginOutlineView(id, options)` / `EndOutlineView()` | The outline view |
+| `BeginOutlineView(id, options)` / `EndOutlineView()` | The outline view. `EndOutlineView` returns the `OutlineMove` of an item the user dragged elsewhere; see [Moving items](#moving-items) |
 | `BeginOutlineItem(label, isSelected, options)` | An item. Returns an `OutlineItem`: `IsExpanded` (add the children now), `Picked` (make it the selection), `Activated` (double-click or Enter: open it). |
 | `EndOutlineItem()` | Ends the item, after its children. Needed for every item, leaves too. |
 | `OutlineCell(text, options)` | The next column of the item, right after `BeginOutlineItem` |
@@ -49,6 +49,7 @@ the selection; Carbon remembers which items are expanded, also while they are no
 | `Columns` | `std::span<const TableColumn>` | none | Columns as in a [Table](Table.md). The first holds the hierarchy; the others are filled with `OutlineCell`. Without columns there is no header. |
 | `ShowsAlternatingRows` | `bool` | `false` | Tints every other row |
 | `HasBorder` | `bool` | `true` | Bordered control background. Turn it off for an outline view that fills a pane. |
+| `AllowsReordering` | `bool` | `false` | The user can drag items that have a `Key` to move them |
 
 ## Item options
 
@@ -59,6 +60,7 @@ the selection; Carbon remembers which items are expanded, also while they are no
 | `HasChildren` | `bool` | `true` | Shows a disclosure triangle. Leaves set it to `false`. |
 | `IsInitiallyExpanded` | `bool` | `false` | Expansion the first time the item appears; afterwards the user's choice is remembered |
 | `Disabled` | `bool` | `false` | Cannot be picked; skipped by the keyboard |
+| `Key` | `int64_t` | -1 | Identifies the item in an `OutlineMove`: an index or ID of yours, 0 or more. Items without a key cannot be moved or receive items |
 
 ## Behaviour
 
@@ -66,6 +68,39 @@ the selection; Carbon remembers which items are expanded, also while they are no
 - A click on the triangle expands or collapses without selecting; Alt-click does it for everything inside.
 - Titles that do not fit their column end with an ellipsis.
 - Rows, selection highlight, hover tint and scrolling behave as in a [List](List.md).
+
+## Moving items
+
+With `AllowsReordering`, the user drags an item to another place in the hierarchy. Where it would go depends on
+the part of the row under the pointer:
+
+- the upper quarter of an item that can contain others, or the upper half of a leaf: **before** it, among its
+  siblings, marked by an insertion line indented like the item;
+- the lower quarter (half): **after** it. Below an expanded item, that means before its first child, inside it,
+  as in Finder;
+- the middle of an item that can contain others: **into** it, as its last child, marked by an outline around the
+  item. A collapsed item that the drag rests on for 0.7 seconds expands, so that the item can go deeper;
+- below the last item: the end of the top level.
+
+An item cannot go into itself or anything inside it; over those rows no indicator shows and a drop does nothing.
+
+![An item being dragged into a folder of an outline view](../Images/Components/OutlineViewReordering.png)
+
+Carbon does not own your tree. `EndOutlineView` reports the move by the keys you gave the items, and you apply it:
+
+```cpp
+Carbon::BeginOutlineView("files", { .Height = 300.0f, .AllowsReordering = true });
+BuildItems(root);                        // BeginOutlineItem(name, ..., { .Key = node.Id }) for each node
+const Carbon::OutlineMove move = Carbon::EndOutlineView();
+if (move.IsMoved())
+    tree.Move(move.Item, move.Target, move.Position);
+```
+
+| `OutlineMove` field | Meaning |
+| --- | --- |
+| `Item` | The key of the item that moved, or -1 |
+| `Target` | The key of the item it goes before, after or into; -1 for the root |
+| `Position` | `OutlineDropPosition::Before`, `After` or `Into` (as the last child) |
 
 ## Long outlines
 
@@ -87,7 +122,8 @@ walks every expanded item. [Optimizations](../Optimizations.md#rows) has the num
 
 ## Not supported
 
-Sorting by column, resizing columns and editing cells in place. Sort your data before submitting it.
+Sorting by column, resizing columns and editing cells in place. Sort your data before submitting it. Moving
+several items at once.
 
 ## Guidance from the HIG
 

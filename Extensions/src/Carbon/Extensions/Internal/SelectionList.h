@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <optional>
 #include <string_view>
 
@@ -14,6 +15,17 @@ namespace Carbon::Internal
     ///
     /// Carbon does not own the selection. A row reports that it was picked, by mouse or by keyboard, and the
     /// application decides what is selected on the next frame.
+    /// How the rows of a selection list can be moved by drag and drop.
+    enum class SelectionListReordering : uint8_t
+    {
+        None,
+        /// A row is dragged to another place among the others: they make room where it would go, an insertion
+        /// line marks the place, and EndSelectionList reports the move (List).
+        Gap,
+        /// Rows can be dragged, and the component finds where they go itself (OutlineView).
+        Custom
+    };
+
     struct SelectionListDescription
     {
         ScrollViewOptions Scroll;
@@ -27,12 +39,22 @@ namespace Carbon::Internal
         float RowRadius = 5.0f;
         /// The highlight slides to a newly selected row instead of jumping.
         bool AnimatesHighlight = false;
+        SelectionListReordering Reordering = SelectionListReordering::None;
     };
 
     /// What happened to a row this frame.
     struct SelectionRow
     {
+        ID Id;
+        /// Where the row is drawn. While rows make room for a dragged one, or slide into their places after a
+        /// drop, this is away from Layout.
         Rect Bounds;
+        /// Where the layout put the row, which is where it takes the pointer.
+        Rect Layout;
+        /// The index of the row among all rows of the list, added or skipped, disabled or not.
+        int Index = -1;
+        /// The row is being dragged to another place.
+        bool IsDragged = false;
         /// The row was picked: clicked, or reached with the arrow keys.
         bool Clicked = false;
         /// The row is selected and the list has focus: its content is drawn in the on-accent color.
@@ -45,9 +67,28 @@ namespace Carbon::Internal
         Carbon::Interaction Interaction;
     };
 
+    /// The payload of a row that is dragged: the list it belongs to, its index, and the key the component gave
+    /// it (OutlineView identifies items by the application's keys).
+    struct RowDragPayload
+    {
+        ID List;
+        int Index = -1;
+        int64_t Key = -1;
+    };
+    inline constexpr std::string_view RowDragPayloadType = "Carbon.ListRow";
+
+    /// A row moved by drag and drop, in a list with Gap reordering: from its index to the one it has after the
+    /// move. From is -1 when nothing moved.
+    struct RowMove
+    {
+        int From = -1;
+        int To = -1;
+    };
+
     /// Starts a selection list. Lists do not nest.
     void BeginSelectionList(std::string_view id, const SelectionListDescription& description);
-    void EndSelectionList();
+    /// Ends the list and reports a row the user moved during this frame.
+    RowMove EndSelectionList();
     /// Adds a row that spans the list's width. Disabled rows cannot be picked and are skipped by the keyboard.
     /// A row outside the visible area costs little: it is neither hit-tested nor drawn (see SelectionRow).
     SelectionRow SelectionListRow(ID id, float height, bool isSelected, bool isDisabled);
@@ -69,4 +110,17 @@ namespace Carbon::Internal
     /// Makes the row at `ordinal` report being picked during the next frame and scrolls it into view, as if the
     /// arrow keys had moved there. Outline views use it to move to a parent row.
     void RequestSelectionListPick(int ordinal);
+
+    /// Makes a row of a list that allows reordering a drag source. Returns true while it is dragged: then add
+    /// the preview, as after BeginDragSource, and call EndSelectionListRowDrag. Works for rows outside the
+    /// visible area too, so that the preview stays while the list scrolls.
+    bool BeginSelectionListRowDrag(const SelectionRow& row, int64_t key = -1);
+    void EndSelectionListRowDrag();
+    /// The row of the list being built that is dragged; Index is -1 when none is.
+    RowDragPayload GetSelectionListDrag();
+    /// True while a row of the list being built is dragged. Rows outside the visible area need their IDs
+    /// meanwhile, so that the dragged one is recognized.
+    bool IsSelectionListDragging();
+    /// The visible area of the list being built, with its padding.
+    Rect GetSelectionListViewport();
 } // namespace Carbon::Internal

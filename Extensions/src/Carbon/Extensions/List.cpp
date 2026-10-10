@@ -14,11 +14,23 @@ namespace Carbon
         constexpr float RowPadding = 8.0f;
         constexpr float IconSize = 15.0f;
         constexpr float IconGap = 6.0f;
+        // The item being dragged stays in its place, faded, while its preview follows the pointer.
+        constexpr float DraggedOpacity = 0.4f;
 
         struct ListBuild
         {
             float RowHeight;
         };
+
+        // The preview of a dragged item: its icon and title.
+        void DrawPreview(std::string_view title, const ListItemOptions& options)
+        {
+            BeginHStack({.Spacing = IconGap});
+            if (!options.Icon.empty())
+                Icon(options.Icon, {.Size = IconSize, .Color = GetStyleColor(StyleColor::Accent)});
+            Text(title);
+            EndHStack();
+        }
 
         Internal::BuildState<ListBuild> s_Build("Carbon.List.Build");
 
@@ -35,6 +47,8 @@ namespace Carbon
         description.Scroll.Height = options.Height;
         description.Scroll.Spacing = 0.0f;
         description.Scroll.Padding = EdgeInsets(ListPadding);
+        description.Reordering =
+            options.AllowsReordering ? Internal::SelectionListReordering::Gap : Internal::SelectionListReordering::None;
         if (options.HasBorder)
         {
             description.Background = GetStyleColor(StyleColor::ControlBackground);
@@ -45,9 +59,13 @@ namespace Carbon
         s_Build.Begin().RowHeight = options.RowHeight;
     }
 
-    void EndList()
+    ListMove EndList()
     {
-        Internal::EndSelectionList();
+        const Internal::RowMove moved = Internal::EndSelectionList();
+        ListMove move;
+        move.From = moved.From;
+        move.To = moved.To;
+        return move;
     }
 
     RowRange ClipListItems(int count, int selectedItem)
@@ -59,8 +77,10 @@ namespace Carbon
     {
         const float rowHeight = GetBuild().RowHeight;
         // An item that is scrolled out of view takes its space and can be picked by the keyboard. It needs no
-        // ID, which would mean hashing its label, and no drawing.
-        if (!Internal::IsNextSelectionListRowVisible(rowHeight))
+        // ID, which would mean hashing its label, and no drawing; except while an item is dragged, which may be
+        // this one.
+        const bool isVisible = Internal::IsNextSelectionListRowVisible(rowHeight);
+        if (!isVisible && !Internal::IsSelectionListDragging())
             return Internal::SelectionListRow(ID(), rowHeight, isSelected, options.Disabled).Clicked;
 
         const ID id = GetID(label);
@@ -68,8 +88,20 @@ namespace Carbon
 
         PushDisabled(options.Disabled);
         const Internal::SelectionRow row = Internal::SelectionListRow(id, rowHeight, isSelected, options.Disabled);
+        if (!options.Disabled && Internal::BeginSelectionListRowDrag(row))
+        {
+            DrawPreview(title, options);
+            Internal::EndSelectionListRowDrag();
+        }
+        if (!isVisible)
+        {
+            PopDisabled();
+            return row.Clicked;
+        }
 
         DrawList& drawList = GetDrawList();
+        if (row.IsDragged)
+            drawList.PushOpacity(DraggedOpacity);
         const Color onAccent = GetStyleColor(StyleColor::OnAccent);
         const float centerY = row.Bounds.GetCenter().Y;
         float x = row.Bounds.X + RowPadding;
@@ -93,6 +125,8 @@ namespace Carbon
         spec.MaxWidth = std::max(right - x, 1.0f);
         spec.Wraps = false;
         DrawLabel(drawList, row.Bounds, x, title, spec, row.IsEmphasized ? onAccent : GetStyleColor(StyleColor::Label));
+        if (row.IsDragged)
+            drawList.PopOpacity();
 
         PopDisabled();
         SetLastItem(id, row.Bounds, row.Interaction);

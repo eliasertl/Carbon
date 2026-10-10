@@ -532,4 +532,160 @@ namespace Carbon
         EXPECT_EQ(m_Activations, 0);
         EXPECT_TRUE(m_AssertMessages.empty());
     }
+
+    // ---- Reordering outline views ------------------------------------------------------------------------------
+
+    class OutlineReorderTests : public WidgetTest
+    {
+    protected:
+        // Docs (expanded): Report, Notes. Photos (collapsed): Beach. Todo. Rows are 24 points from y = 5.
+        Builder Interface()
+        {
+            return [this]
+            {
+                BeginOutlineView("files", {.Width = 300.0f, .Height = 300.0f, .AllowsReordering = true});
+                const OutlineItem docs = BeginOutlineItem("Docs", false, {.IsInitiallyExpanded = true, .Key = 0});
+                if (docs.IsExpanded)
+                {
+                    Leaf("Report", 1);
+                    Leaf("Notes", 2);
+                }
+                EndOutlineItem();
+                const OutlineItem photos = BeginOutlineItem("Photos", false, {.Key = 3});
+                m_IsPhotosExpanded = photos.IsExpanded;
+                if (photos.IsExpanded)
+                    Leaf("Beach", 4);
+                EndOutlineItem();
+                Leaf("Todo", 5);
+                const OutlineMove move = EndOutlineView();
+                if (move.IsMoved())
+                {
+                    m_Moves++;
+                    m_Move = move;
+                }
+            };
+        }
+
+        static void Leaf(std::string_view label, int64_t key)
+        {
+            BeginOutlineItem(label, false, {.HasChildren = false, .Key = key});
+            EndOutlineItem();
+        }
+
+        static float RowTop(int row) { return 5.0f + 24.0f * static_cast<float>(row); }
+
+        /// Drags the item in row `from` to a point `fraction` of the way down row `to`, and drops it there.
+        void DragRow(int from, float toY)
+        {
+            MoveMouse(Vec2(150.0f, RowTop(from) + 12.0f), Interface());
+            PressMouse(Interface());
+            MoveMouse(Vec2(150.0f, toY), Interface());
+            Settle(Interface(), 3);
+            ReleaseMouse(Interface());
+        }
+
+        int m_Moves = 0;
+        OutlineMove m_Move;
+        bool m_IsPhotosExpanded = false;
+    };
+
+    TEST_F(OutlineReorderTests, TheMiddleOfAFolderTakesTheItemIn)
+    {
+        Settle(Interface());
+        // Todo (row 4) onto the middle of Photos (row 3).
+        DragRow(4, RowTop(3) + 12.0f);
+        ASSERT_EQ(m_Moves, 1);
+        EXPECT_EQ(m_Move.Item, 5);
+        EXPECT_EQ(m_Move.Target, 3);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::Into);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(OutlineReorderTests, TheEdgesOfAnItemPutItBeforeOrAfter)
+    {
+        Settle(Interface());
+        // Report (row 1) onto the upper quarter of Photos.
+        DragRow(1, RowTop(3) + 3.0f);
+        EXPECT_EQ(m_Move.Item, 1);
+        EXPECT_EQ(m_Move.Target, 3);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::Before);
+        // Todo onto the lower half of Notes, a leaf.
+        DragRow(4, RowTop(2) + 16.0f);
+        EXPECT_EQ(m_Move.Item, 5);
+        EXPECT_EQ(m_Move.Target, 2);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::After);
+        // Notes onto the lower quarter of collapsed Photos: after it.
+        DragRow(2, RowTop(3) + 21.0f);
+        EXPECT_EQ(m_Move.Target, 3);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::After);
+        EXPECT_EQ(m_Moves, 3);
+    }
+
+    TEST_F(OutlineReorderTests, TheLowerEdgeOfAnExpandedFolderMeansItsFirstChild)
+    {
+        Settle(Interface());
+        // Todo onto the lower quarter of Docs, which is expanded: before Report, inside Docs.
+        DragRow(4, RowTop(0) + 21.0f);
+        EXPECT_EQ(m_Move.Item, 5);
+        EXPECT_EQ(m_Move.Target, 1);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::Before);
+    }
+
+    TEST_F(OutlineReorderTests, AnItemDoesNotGoIntoItself)
+    {
+        Settle(Interface());
+        // Docs onto Report, which is inside it, and onto itself.
+        DragRow(0, RowTop(1) + 6.0f);
+        DragRow(0, RowTop(0) + 12.0f);
+        EXPECT_EQ(m_Moves, 0);
+        // Past its children it can go.
+        DragRow(0, RowTop(4) + 18.0f);
+        EXPECT_EQ(m_Moves, 1);
+        EXPECT_EQ(m_Move.Target, 5);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::After);
+    }
+
+    TEST_F(OutlineReorderTests, BelowTheLastItemMeansTheEndOfTheRoot)
+    {
+        Settle(Interface());
+        DragRow(1, 250.0f);
+        EXPECT_EQ(m_Move.Item, 1);
+        EXPECT_EQ(m_Move.Target, -1);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::Into);
+    }
+
+    TEST_F(OutlineReorderTests, ACollapsedFolderExpandsWhenADragRestsOnIt)
+    {
+        Settle(Interface());
+        MoveMouse(Vec2(150.0f, RowTop(4) + 12.0f), Interface());
+        PressMouse(Interface());
+        MoveMouse(Vec2(150.0f, RowTop(3) + 12.0f), Interface());
+        Settle(Interface(), 10);
+        EXPECT_FALSE(m_IsPhotosExpanded) << "not yet";
+        Settle(Interface(), 60);
+        EXPECT_TRUE(m_IsPhotosExpanded);
+        // Beach appeared as row 4: dropping onto its upper edge puts Todo before it.
+        MoveMouse(Vec2(150.0f, RowTop(4) + 3.0f), Interface());
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Move.Item, 5);
+        EXPECT_EQ(m_Move.Target, 4);
+        EXPECT_EQ(m_Move.Position, OutlineDropPosition::Before);
+    }
+
+    TEST_F(OutlineReorderTests, ItemsWithoutAKeyAreNotDragged)
+    {
+        const Builder build = [this]
+        {
+            BeginOutlineView("files", {.Width = 300.0f, .Height = 300.0f, .AllowsReordering = true});
+            BeginOutlineItem("Plain", false, {.HasChildren = false});
+            EndOutlineItem();
+            m_Move = EndOutlineView();
+        };
+        Settle(build);
+        MoveMouse(Vec2(150.0f, 17.0f), build);
+        PressMouse(build);
+        MoveMouse(Vec2(150.0f, 200.0f), build);
+        EXPECT_FALSE(IsDragging());
+        ReleaseMouse(build);
+    }
 } // namespace Carbon

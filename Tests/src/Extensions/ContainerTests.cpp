@@ -1,5 +1,7 @@
 #include <Carbon/Extensions/Extensions.h>
 
+#include <vector>
+
 #include "Support/WidgetTest.h"
 
 namespace Carbon
@@ -342,6 +344,150 @@ namespace Carbon
         Settle(Interface(), 60);
         // The new selection has been scrolled to the bottom edge of the visible area.
         EXPECT_NEAR(GetScrollOffset("list").Y, 24.0f * 70002.0f + 10.0f - 110.0f, 6.0f);
+    }
+
+    // ---- Reordering lists ---------------------------------------------------------------------------------------
+
+    TEST(ListMoveTests, ApplyingAMoveShiftsTheItemsBetween)
+    {
+        std::vector<char> items = {'A', 'B', 'C', 'D', 'E'};
+        ApplyListMove(items, {.From = 0, .To = 2});
+        EXPECT_EQ(items, (std::vector<char>{'B', 'C', 'A', 'D', 'E'}));
+        ApplyListMove(items, {.From = 4, .To = 1});
+        EXPECT_EQ(items, (std::vector<char>{'B', 'E', 'C', 'A', 'D'}));
+        // Nothing moved, or a move that does not fit the items, changes nothing.
+        ApplyListMove(items, {});
+        ApplyListMove(items, {.From = 2, .To = 2});
+        ApplyListMove(items, {.From = 1, .To = 9});
+        EXPECT_EQ(items, (std::vector<char>{'B', 'E', 'C', 'A', 'D'}));
+        EXPECT_FALSE((ListMove{.From = 3, .To = 3}.IsMoved()));
+    }
+
+    class ListReorderTests : public WidgetTest
+    {
+    protected:
+        Builder Interface()
+        {
+            return [this]
+            {
+                BeginList("list", {.Width = 300.0f, .Height = 200.0f, .AllowsReordering = m_AllowsReordering});
+                for (size_t i = 0; i < m_Items.size(); i++)
+                {
+                    const std::string_view name(&m_Items[i], 1);
+                    // The ID follows the item, not its position.
+                    PushID(name);
+                    ListItem(name, false);
+                    m_Rects[m_Items[i] - 'A'] = GetItemRect();
+                    PopID();
+                }
+                const ListMove move = EndList();
+                if (move.IsMoved())
+                {
+                    m_Moves++;
+                    m_LastMove = move;
+                    ApplyListMove(m_Items, move);
+                }
+            };
+        }
+
+        /// The layout puts row i at 5 + 24 i; its middle is 12 points below that.
+        static float RowMiddle(int row) { return 5.0f + 24.0f * static_cast<float>(row) + 12.0f; }
+
+        bool m_AllowsReordering = true;
+        std::vector<char> m_Items = {'A', 'B', 'C', 'D', 'E'};
+        Rect m_Rects[5];
+        int m_Moves = 0;
+        ListMove m_LastMove;
+    };
+
+    TEST_F(ListReorderTests, DraggingAnItemMovesIt)
+    {
+        Settle(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(0)), Interface());
+        PressMouse(Interface());
+        // Between C and D: above the middle of D.
+        MoveMouse(Vec2(100.0f, RowMiddle(3) - 6.0f), Interface());
+        Settle(Interface(), 30);
+        ASSERT_TRUE(IsDragging());
+        // D and E made room below the insertion point; A, B and C stayed.
+        EXPECT_NEAR(m_Rects['D' - 'A'].Y, 5.0f + 24.0f * 4.0f, 0.5f);
+        EXPECT_NEAR(m_Rects['E' - 'A'].Y, 5.0f + 24.0f * 5.0f, 0.5f);
+        EXPECT_NEAR(m_Rects['C' - 'A'].Y, 5.0f + 24.0f * 2.0f, 0.5f);
+        EXPECT_EQ(m_Moves, 0);
+
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Moves, 1);
+        EXPECT_EQ(m_LastMove.From, 0);
+        EXPECT_EQ(m_LastMove.To, 2);
+        EXPECT_EQ(m_Items, (std::vector<char>{'B', 'C', 'A', 'D', 'E'}));
+
+        // The rows slide into their new places rather than jumping there: A starts where it was drawn.
+        Frame(Interface());
+        EXPECT_LT(m_Rects['A' - 'A'].Y, 5.0f + 24.0f * 2.0f - 1.0f);
+        EXPECT_GT(m_Rects['D' - 'A'].Y, 5.0f + 24.0f * 3.0f + 1.0f);
+        Settle(Interface(), 60);
+        EXPECT_NEAR(m_Rects['A' - 'A'].Y, 5.0f + 24.0f * 2.0f, 0.5f);
+        EXPECT_NEAR(m_Rects['D' - 'A'].Y, 5.0f + 24.0f * 3.0f, 0.5f);
+        EXPECT_TRUE(m_AssertMessages.empty());
+    }
+
+    TEST_F(ListReorderTests, DraggingToTheEndAndUp)
+    {
+        Settle(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(1)), Interface());
+        PressMouse(Interface());
+        // Below the last row.
+        MoveMouse(Vec2(100.0f, 180.0f), Interface());
+        Settle(Interface(), 5);
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Items, (std::vector<char>{'A', 'C', 'D', 'E', 'B'}));
+        Settle(Interface(), 60);
+
+        // E, now fourth, goes to the top.
+        MoveMouse(Vec2(100.0f, RowMiddle(3)), Interface());
+        PressMouse(Interface());
+        MoveMouse(Vec2(100.0f, 6.0f), Interface());
+        Settle(Interface(), 5);
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Items, (std::vector<char>{'E', 'A', 'C', 'D', 'B'}));
+    }
+
+    TEST_F(ListReorderTests, DroppingNextToItsPlaceMovesNothing)
+    {
+        Settle(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(2)), Interface());
+        PressMouse(Interface());
+        // Just below C's own middle: the slot after C, which is where C is.
+        MoveMouse(Vec2(100.0f, RowMiddle(2) + 8.0f), Interface());
+        Settle(Interface(), 5);
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Moves, 0);
+        Settle(Interface(), 60);
+        EXPECT_NEAR(m_Rects['D' - 'A'].Y, 5.0f + 24.0f * 3.0f, 0.5f) << "the room closes again";
+    }
+
+    TEST_F(ListReorderTests, EscapeLeavesTheOrder)
+    {
+        Settle(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(0)), Interface());
+        PressMouse(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(4)), Interface());
+        TapKey(Key::Escape, Interface());
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Moves, 0);
+        EXPECT_EQ(m_Items, (std::vector<char>{'A', 'B', 'C', 'D', 'E'}));
+    }
+
+    TEST_F(ListReorderTests, AListWithoutReorderingDoesNotDrag)
+    {
+        m_AllowsReordering = false;
+        Settle(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(0)), Interface());
+        PressMouse(Interface());
+        MoveMouse(Vec2(100.0f, RowMiddle(4)), Interface());
+        EXPECT_FALSE(IsDragging());
+        ReleaseMouse(Interface());
+        EXPECT_EQ(m_Moves, 0);
     }
 
     // ---- Table --------------------------------------------------------------------------------------------------
