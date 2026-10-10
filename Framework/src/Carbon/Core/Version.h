@@ -16,6 +16,6 @@ namespace Carbon
     /// Returns the version of the Carbon library this binary was built from.
     Version GetVersion();
 
-    /// Returns the version as text, e.g. "0.1.0".
+    /// Returns the version as text, e.g. "1.0.0".
     std::string_view GetVersionString();
 } // namespace Carbon

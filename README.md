@@ -38,9 +38,11 @@ Carbon::OpenGLRender(); // or WebGPURender(pass), VulkanRender(commandBuffer), D
 
 ![The WebGPUMinimal example: Carbon's controls next to a triangle drawn by the host](Docs/Images/WebGPUMinimal-Light.png)
 
-> **Status: version 0.1.** Everything described below is implemented, documented and tested on Windows (MSVC)
-> and Linux (GCC, Clang). The API may still change before 1.0. Not in scope: windows and docking, translucency
-> and blur, right-to-left text and screen-reader accessibility.
+> **Status: version 1.0.** Everything described below is implemented, documented and tested on Windows (MSVC),
+> Linux (GCC, Clang), in browsers and on Android. The API is now stable: it changes incompatibly only with a new
+> major version, and [CHANGELOG.md](CHANGELOG.md) lists what changed. Not in scope: windows and docking,
+> translucency and blur, right-to-left and vertical text, rich text and code editing, screen-reader accessibility,
+> and hosts on macOS and iOS.
 >
 > **Continuous integration is currently disabled** to keep GitHub Actions usage costs down: the workflow runs
 > only when started by hand. Changes are built and tested locally on Windows before they are pushed; Linux was

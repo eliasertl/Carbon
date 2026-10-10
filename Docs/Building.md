@@ -484,8 +484,8 @@ What gets installed:
 `Carbon_BACKENDS` lists the renderer backends the package was built with. Their graphics libraries are not
 installed with Carbon; the application's build must be able to find them: the same Dawn install for WebGPU, the
 Vulkan loader for Vulkan. With
-MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one minor
-version (0.1.x).
+MSVC, install each configuration to its own prefix, as for Dawn. The package is compatible within one major
+version (1.x).
 
 [Tests/Package](../Tests/Package) is a small project that uses an installed Carbon; CI's Linux Clang job builds
 it against the installed package.

@@ -359,11 +359,11 @@ if(CARBON_INSTALL)
         "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfig.cmake"
         INSTALL_DESTINATION "${CARBON_INSTALL_CMAKEDIR}"
     )
-    # Before 1.0 a new minor version may change the API.
+    # From 1.0 on the API changes incompatibly only with a new major version.
     write_basic_package_version_file(
         "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfigVersion.cmake"
         VERSION ${PROJECT_VERSION}
-        COMPATIBILITY SameMinorVersion
+        COMPATIBILITY SameMajorVersion
     )
     install(FILES
         "${CMAKE_CURRENT_BINARY_DIR}/CarbonConfig.cmake"

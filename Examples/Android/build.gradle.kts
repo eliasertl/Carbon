@@ -20,7 +20,7 @@ android {
         minSdk = 28
         targetSdk = 36
         versionCode = 1
-        versionName = "0.1.0"
+        versionName = "1.0.0"
         ndk {
             // Phones and tablets (arm64), and the emulator on a PC (x86_64).
             abiFilters += listOf("arm64-v8a", "x86_64")

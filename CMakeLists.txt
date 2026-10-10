@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.25)
 
-project(Carbon VERSION 0.1.0 DESCRIPTION "Immediate-mode C++ UI framework with a macOS look" LANGUAGES C CXX)
+project(Carbon VERSION 1.0.0 DESCRIPTION "Immediate-mode C++ UI framework with a macOS look" LANGUAGES C CXX)
 
 option(CARBON_BUILD_EXTENSIONS "Build the CarbonExtensions library" ON)
 option(CARBON_BUILD_REFLECTION "Build the CarbonReflection library (needs CARBON_BUILD_EXTENSIONS)" ON)
